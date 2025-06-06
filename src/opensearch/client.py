@@ -40,7 +40,6 @@ def initialize_client(opensearch_url: str) -> OpenSearch:
 
     opensearch_username = os.getenv("OPENSEARCH_USERNAME", "")
     opensearch_password = os.getenv("OPENSEARCH_PASSWORD", "")
-    aws_region = os.getenv("AWS_REGION", "")
 
     # Parse the OpenSearch domain URL
     parsed_url = urlparse(opensearch_url)
@@ -60,7 +59,11 @@ def initialize_client(opensearch_url: str) -> OpenSearch:
 
     # 2. Try to get credentials (boto3 session)
     try:
-        credentials = boto3.Session().get_credentials()
+        session = boto3.Session()
+        credentials = session.get_credentials()
+        aws_region = session.region_name or os.getenv("AWS_REGION")
+        if not aws_region:
+            raise RuntimeError("AWS region not found, please specify region using `aws configure`")
         if credentials:
             aws_auth = AWS4Auth(
                 refreshable_credentials=credentials,
