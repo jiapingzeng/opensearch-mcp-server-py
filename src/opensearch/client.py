@@ -58,7 +58,7 @@ def initialize_client(opensearch_url: str) -> OpenSearch:
     client_kwargs: Dict[str, Any] = {
         'hosts': [opensearch_url],
         'use_ssl': (parsed_url.scheme == "https"),
-        'verify_certs': os.getenv("SSL_VERIFY", True),
+        'verify_certs': os.getenv("OPENSEARCH_SSL_VERIFY", True),
         'connection_class': RequestsHttpConnection,
     }
 
