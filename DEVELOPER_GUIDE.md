@@ -1,21 +1,32 @@
 ![OpenSearch logo](https://github.com/opensearch-project/opensearch-py/raw/main/OpenSearch.svg)
 
-# OpenSearch-mcp-server-py Developer Guide
-## Local Development Setup
+# OpenSearch MCP Server Python Developer Guide
 
-1. Fork and Clone the Repository
+## Table of Contents
+- [Overview](#overview)
+- [Development Setup](#development-setup)
+- [Running the Server](#running-the-server)
+- [Development Configuration](#development-configuration)
+- [Managing Dependencies](#managing-dependencies)
+- [Adding Custom Tools](#adding-custom-tools)
+- [Testing](#testing)
 
-All local development should be done in a forked repository. Fork `opensearch-mcp-server-py` by clicking the "Fork" button at the top of the GitHub repository.
+## Overview
 
-Clone your forked version of `opensearch-mcp-server-py` to your local machine (replace `opensearch-project` in the command below with your GitHub username):
-```
+This guide is for developers who want to contribute to the OpenSearch MCP Server Python project. It covers local development setup, project structure, and how to add new tools to the server.
+
+## Development Setup
+
+### 1. Clone the Repository
+
+```bash
 git clone git@github.com:opensearch-project/opensearch-mcp-server-py.git
-
 cd opensearch-mcp-server-py
 ```
 
-2. Set Up Development Environment
-```
+### 2. Set Up Development Environment
+
+```bash
 # Create & activate a virtual environment
 uv venv 
 source .venv/bin/activate
@@ -24,41 +35,63 @@ source .venv/bin/activate
 uv sync
 ```
 
-3. Running the Server Locally
+### 3. Verify Installation
 
-**Important**: These commands must be run from the src directory
-```
+```bash
+# Navigate to src directory (required for running the server)
 cd src
 
-# Run stdio server
+# Test that the server can start
+uv run python -m mcp_server_opensearch --help
+```
+
+## Running the Server
+
+**Important**: These commands must be run from the `src` directory.
+
+### Development Mode
+```bash
+cd src
+
+# Run stdio server (default)
 uv run python -m mcp_server_opensearch 
 
-# Run SSE server
-uv run python -m mcp_server_opensearch --transport sse
+# Run streaming server (SSE/HTTP streaming)
+uv run python -m mcp_server_opensearch --transport stream
+
+# Run with debug logging
+uv run python -m mcp_server_opensearch --log-level debug
+
+# Run with custom AWS profile
+uv run python -m mcp_server_opensearch --profile my-profile
 ```
 
-### Managing Dependencies
-- Add new dependencies:
-```
-uv add <package-name>
-```
-> Note: This automatically updates the pyproject.toml, uv.lock, and installs in virtual environment
+### Multi Mode Development
+```bash
+cd src
 
-- Update after manual pyproject.toml changes:
-```
-uv lock 
-uv sync
+# Run stdio server in multi mode with custom config file
+uv run python -m mcp_server_opensearch --mode multi --config ../config/dev-clusters.yml
+
+# Run streaming server (SSE/HTTP streaming) in multi mode with custom config file
+uv run python -m mcp_server_opensearch --mode multi --config ../config/dev-clusters.yml --transport stream
 ```
 
-## Sample MCP config file for development:
-```
+## Development Configuration
+
+### MCP Configuration for Development
+
+Create an MCP configuration file for your AI agent to connect to your development server:
+
+#### For Q Developer CLI (`~/.aws/amazonq/mcp.json`):
+```json
 {
     "mcpServers": {
         "opensearch-mcp-server": {
-            "command": "uv", # Or full path to uv
+            "command": "uv",
             "args": [
                 "--directory",
-                "path/to/the/clone/opensearch-mcp-server-py",
+                "/path/to/your/clone/opensearch-mcp-server-py",
                 "run",
                 "--",
                 "python",
@@ -66,35 +99,86 @@ uv sync
                 "mcp_server_opensearch"
             ],
             "env": {
-                // Optional
                 "OPENSEARCH_URL": "<your_opensearch_domain_url>",
-
-                // For Basic Authentication
                 "OPENSEARCH_USERNAME": "<your_opensearch_domain_username>",
-                "OPENSEARCH_PASSWORD": "<your_opensearch_domain_password>",
-
-                // For IAM Role Authentication
-                "AWS_REGION": "<your_aws_region>",
-                "AWS_ACCESS_KEY_ID": "<your_aws_access_key>",
-                "AWS_SECRET_ACCESS_KEY": "<your_aws_secret_access_key>",
-                "AWS_SESSION_TOKEN": "<your_aws_session_token>"
-                
-                // For OpenSearch Serverless
-                "AWS_OPENSEARCH_SERVERLESS": "true",  // Set to "true" for OpenSearch Serverless
-
+                "OPENSEARCH_PASSWORD": "<your_opensearch_domain_password>"
             }
         }
     }
 }
 ```
 
-# Contributing
+#### For Claude Desktop (`claude_desktop_config.json`):
+```json
+{
+    "mcpServers": {
+        "opensearch-mcp-server": {
+            "command": "uv",
+            "args": [
+                "--directory",
+                "/path/to/your/clone/opensearch-mcp-server-py",
+                "run",
+                "--",
+                "python",
+                "-m",
+                "mcp_server_opensearch"
+            ],
+            "env": {
+                "OPENSEARCH_URL": "<your_opensearch_domain_url>",
+                "OPENSEARCH_USERNAME": "<your_username>",
+                "OPENSEARCH_PASSWORD": "<your_password>"
+            }
+        }
+    }
+}
+```
+
+## Managing Dependencies
+
+### Adding New Dependencies
+```bash
+# Add a new package
+uv add <package-name>
+
+# Add with specific version
+uv add <package-name>==1.2.3
+
+# Add as development dependency
+uv add --dev <package-name>
+```
+
+> **Note**: This automatically updates `pyproject.toml`, `uv.lock`, and installs in the virtual environment.
+
+### Updating Dependencies
+```bash
+# Update after manual pyproject.toml changes
+uv lock 
+uv sync
+
+# Update all dependencies to latest versions
+uv lock --upgrade
+uv sync
+```
+
 ## Adding Custom Tools
+
 To add a new tool to the MCP server, follow these steps:
 
-1. Create a new tool function in `src/tools/tools.py`:
+### 1. Create the Tool Function
+
+Add your tool function in `src/mcp_server_opensearch/tools/tools.py`:
+
 ```python
 async def your_tool_function(args: YourToolArgs) -> list[dict]:
+    """
+    Description of what your tool does.
+    
+    Args:
+        args: Tool arguments
+        
+    Returns:
+        List of response objects
+    """
     try:
         # Your tool implementation here
         result = your_implementation()
@@ -109,15 +193,54 @@ async def your_tool_function(args: YourToolArgs) -> list[dict]:
         }]
 ```
 
-2. Define the arguments model using Pydantic:
+### 2. Define the Arguments Model
+
+Create a Pydantic model for your tool's arguments that extends `baseToolArgs`:
+
 ```python
-class YourToolArgs(BaseModel):
-    # Define your tool's parameters here
-    param1: str
-    param2: int
+from pydantic import Field
+from .tool_params import baseToolArgs
+
+class YourToolArgs(baseToolArgs):
+    """Arguments for the YourTool tool."""
+    
+    param1: str = Field(description="Description of param1")
+    param2: int = Field(description="Description of param2", ge=0)
+    
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "param1": "example_value",
+                    "param2": 10
+                }
+            ]
+        }
 ```
 
-3. Register your tool in the `TOOL_REGISTRY` dictionary:
+### 3. Add Helper Functions
+
+Create helper functions in `src/mcp_server_opensearch/opensearch/helper.py`:
+
+```python
+def your_helper_function(args: YourToolArgs) -> dict:
+    """
+    Helper function that performs a single REST call to OpenSearch.
+
+    Returns:
+        OpenSearch response data
+        
+    Raises:
+        OpenSearchException: If the OpenSearch request fails
+    """
+    # Your OpenSearch REST call implementation here
+    return result
+```
+
+### 4. Register Your Tool
+
+Add your tool to the `TOOL_REGISTRY` dictionary in `src/mcp_server_opensearch/tools/tools.py`:
+
 ```python
 TOOL_REGISTRY = {
     # ... existing tools ...
@@ -130,22 +253,14 @@ TOOL_REGISTRY = {
 }
 ```
 
-4. Add helper functions in `src/opensearch/helper.py`:
+### 5. Import Helper Functions
+
+Import and use the helper functions in your tool:
+
 ```python
-def your_helper_function(param1: str, param2: int) -> dict:
-    """
-    Helper function that performs a single REST call to OpenSearch.
-    Each helper should be focused on one specific OpenSearch operation.
-    This promotes clarity and maintainable architecture.
-    """
-    # Your OpenSearch REST call implementation here
-    return result
+from mcp_server_opensearch.opensearch.helper import your_helper_function
 ```
 
-5. Import and use the helper functions in your tool:
-```python
-from opensearch.helper import your_helper_function
-```
 
 The tool will be automatically available through the MCP server after registration.
 
@@ -154,3 +269,37 @@ The tool will be automatically available through the MCP server after registrati
 > - Easy testing and maintenance
 > - Extensible architecture
 > - Reusable OpenSearch operations
+
+
+## Testing
+
+### Running Tests
+
+```bash
+# Run all tests
+uv run pytest
+
+# Run tests with coverage
+uv run pytest --cov=mcp_server_opensearch
+
+# Run specific test file
+uv run pytest tests/test_tools.py
+
+# Run tests with verbose output
+uv run pytest -v
+```
+
+### Code Quality
+
+```bash
+# Format code
+uv run ruff format .
+
+# Check code quality
+uv run ruff check .
+
+# Run type checking
+uv run mypy src/
+```
+
+> **Note**: Make sure to run tests and code quality checks before submitting your changes.

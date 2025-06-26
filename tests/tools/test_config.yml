@@ -1,0 +1,10 @@
+tool_category:
+  critical:
+    - SearchIndexTool
+    - ExplainTool
+
+tool_filters:
+  disabled_categories:
+    - critical
+  disabled_tools:
+    - MsearchTool

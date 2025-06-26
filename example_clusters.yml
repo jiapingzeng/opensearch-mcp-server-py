@@ -1,0 +1,34 @@
+version: "1.0"
+description: "OpenSearch cluster configurations"
+
+
+clusters:
+  local-cluster:
+    opensearch_url: "http://localhost:9200"
+    opensearch_username: "admin"
+    opensearch_password: "your_password_here"
+
+  remote-cluster:
+    opensearch_url: "https://your-opensearch-domain.us-east-2.es.amazonaws.com"
+    profile: "your-aws-profile"
+  
+  remote-cluster-with-iam:
+    opensearch_url: "https://your-opensearch-domain.us-east-2.es.amazonaws.com"
+    iam_arn: "arn:aws:iam::123456789012:role/YourOpenSearchRole"
+    aws_region: "us-east-2"
+    profile: "your-aws-profile"
+
+
+# Example configurations for different authentication methods:
+# 
+# 1. IAM Role Authentication (recommended for production):
+#    - Requires: opensearch_url, iam_arn, aws_region, profile
+#    - Uses AWS IAM roles for authentication
+#
+# 2. Basic Authentication:
+#    - Requires: opensearch_url, opensearch_username, opensearch_password
+#    - Uses username/password for authentication
+#
+# 3. AWS Profile Authentication:
+#    - Requires: opensearch_url, profile
+#    - Uses AWS credentials from the specified profile

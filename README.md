@@ -10,11 +10,11 @@
 - [Copyright](https://github.com/opensearch-project/opensearch-mcp-server-py#copyright)
 
 ## OpenSearch MCP Server
-**opensearch-mcp-server-py** is a Model Context Protocol (MCP) server for OpenSearch that enables AI assistants to interact with OpenSearch clusters. It provides a standardized interface for AI models to perform operations like searching indices, retrieving mappings, and managing shards through both stdio and Server-Sent Events (SSE) protocols.
+**opensearch-mcp-server-py** is a Model Context Protocol (MCP) server for OpenSearch that enables AI assistants to interact with OpenSearch clusters. It provides a standardized interface for AI models to perform operations like searching indices, retrieving mappings, and managing shards through both stdio and streaming (SSE/Streamable HTTP) protocols.
 
 **Key features:**
 - Seamless integration with AI assistants and LLMs through the MCP protocol
-- Support for both stdio and SSE server transports
+- Support for both stdio and streaming server transports (SSE and Streamable HTTP)
 - Built-in tools for common OpenSearch operations
 - Easy integration with Claude Desktop and LangChain
 - Secure authentication using basic auth or IAM roles
