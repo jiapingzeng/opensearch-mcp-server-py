@@ -4,6 +4,8 @@
 import aiohttp
 import json
 import yaml
+import ssl
+import os
 from .tool_params import baseToolArgs
 from .tools import TOOL_REGISTRY, check_tool_compatibility
 from mcp.types import TextContent
@@ -19,9 +21,23 @@ SUPPORTED_OPERATIONS = ['msearch', 'explain', 'count', 'cluster.health']
 
 async def fetch_github_spec(file_name: str) -> Dict:
     """Fetch OpenSearch API specification from GitHub asynchronously."""
+    # Use environment variable to control SSL verification
+    verify_ssl = os.getenv('OPENSEARCH_SSL_VERIFY', 'true').lower() != 'false'
+
     url = f'{BASE_URL}/{file_name}'
 
-    async with aiohttp.ClientSession() as session:
+    # Create SSL context based on verification setting
+    if verify_ssl:
+        ssl_context = ssl.create_default_context()
+    else:
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+
+    # Create connector with SSL context
+    connector = aiohttp.TCPConnector(ssl=ssl_context)
+
+    async with aiohttp.ClientSession(connector=connector) as session:
         async with session.get(url) as response:
             # Raise exception for HTTP errors
             response.raise_for_status()

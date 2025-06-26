@@ -374,7 +374,7 @@ class TestProcessToolFilter:
         """Test that apply write filter are applied correctly."""
         tool_registry_copy = self.tool_registry.copy()
 
-        monkeypatch.setenv('OPENSEARCH_SETTINGS_ALLOW_WRITE', False)
+        monkeypatch.setenv('OPENSEARCH_SETTINGS_ALLOW_WRITE', 'False')
         self.apply_write_filter(tool_registry_copy)
         assert 'ListIndexTool' in tool_registry_copy
         assert 'SearchIndexTool' in tool_registry_copy
@@ -418,7 +418,7 @@ class TestProcessToolFilter:
         # Set environment variables via monkeypatch
         monkeypatch.setenv('OPENSEARCH_DISABLED_TOOLS', 'ExplainTool')
         monkeypatch.setenv('OPENSEARCH_DISABLED_TOOLS_REGEX', 'search.*')
-        monkeypatch.setenv('OPENSEARCH_SETTINGS_ALLOW_WRITE', True)
+        monkeypatch.setenv('OPENSEARCH_SETTINGS_ALLOW_WRITE', 'True')
 
         # Call the function with environment variables
         self.process_tool_filter(

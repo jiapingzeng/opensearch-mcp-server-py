@@ -80,6 +80,7 @@ Configure `claude_desktop_config.json` from Settings > Developer. See [here](htt
 - `AWS_REGION`: The AWS region of the cluster
 - `AWS_OPENSEARCH_SERVERLESS`: Set to "true" for OpenSearch Serverless
 - `AWS_PROFILE`: AWS profile name (optional)
+- `OPENSEARCH_SSL_VERIFY`: Control SSL certificate verification (default: "true", set to "false" to disable)
 
 See [Authentication](#authentication) section for detailed authentication setup.
 
