@@ -8,6 +8,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - Allow overriding tool properties via configuration ([#69](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/69))
 - Extend list indices tool ([#68](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/68))
 - Add `OPENSEARCH_NO_AUTH` environment variable for connecting to clusters without authentication
+- Add stateless HTTP as an optional parameter to `streaming_server` ([#86](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/86))
 
 ### Removed
 
