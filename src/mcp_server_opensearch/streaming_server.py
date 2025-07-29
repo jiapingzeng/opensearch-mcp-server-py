@@ -83,14 +83,14 @@ async def create_mcp_server(
 
 
 class MCPStarletteApp:
-    def __init__(self, mcp_server: Server):
+    def __init__(self, mcp_server: Server, stateless: bool = False):
         self.mcp_server = mcp_server
         self.sse = SseServerTransport('/messages/')
         self.session_manager = StreamableHTTPSessionManager(
             app=self.mcp_server,
             event_store=None,
             json_response=False,
-            stateless=False,
+            stateless=stateless,
         )
 
     async def handle_sse(self, request: Request) -> None:
@@ -147,9 +147,10 @@ async def serve(
     profile: str = '',
     config_file_path: str = '',
     cli_tool_overrides: dict = None,
+    stateless: bool = False,
 ) -> None:
     mcp_server = await create_mcp_server(mode, profile, config_file_path, cli_tool_overrides)
-    app_handler = MCPStarletteApp(mcp_server)
+    app_handler = MCPStarletteApp(mcp_server, stateless=stateless)
     app = app_handler.create_app()
 
     config = uvicorn.Config(
