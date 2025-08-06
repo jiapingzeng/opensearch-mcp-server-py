@@ -5,18 +5,26 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Removed
+
+## [Released 0.3.1]
+
+### Added
+- Add stateless HTTP as an optional parameter to `streaming_server` ([#86](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/86))
+
+## [Released 0.3]
+
+### Added
 - Allow overriding tool properties via configuration ([#69](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/69))
 - Extend list indices tool ([#68](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/68))
 - Add `OPENSEARCH_NO_AUTH` environment variable for connecting to clusters without authentication
-- Add stateless HTTP as an optional parameter to `streaming_server` ([#86](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/86))
-
-### Removed
 
 ### Fixed
 - Handle Tool Filtering failure gracefully and define priority to the AWS Region definitions ([#74](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/74))
 - Fix Tool Renaming Edge cases ([#80](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/80))
-
-### Security
 
 ## [Released 0.2.2]
 ### Fixed
