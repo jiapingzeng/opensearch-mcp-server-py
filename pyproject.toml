@@ -1,7 +1,7 @@
 [project]
 name = "opensearch-mcp-server-py"
-version = "0.3.0"
-description = "Add your description here"
+version = "0.3.1"
+description = "OpenSearch MCP Server"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
