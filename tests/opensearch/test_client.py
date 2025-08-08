@@ -23,6 +23,7 @@ class TestOpenSearchClient:
             'OPENSEARCH_URL',
             'OPENSEARCH_NO_AUTH',
             'OPENSEARCH_SSL_VERIFY',
+            'OPENSEARCH_TIMEOUT',
         ]:
             if key in os.environ:
                 self.original_env[key] = os.environ[key]
@@ -167,3 +168,39 @@ class TestOpenSearchClient:
             verify_certs=True,
             connection_class=RequestsHttpConnection,
         )
+
+    @patch('opensearch.client.initialize_client_with_cluster')
+    def test_initialize_client_with_timeout_env(self, mock_init):
+        """Test client initialization with timeout from environment."""
+        os.environ['OPENSEARCH_TIMEOUT'] = '30'
+        os.environ['OPENSEARCH_URL'] = 'https://test-opensearch-domain.com'
+        os.environ['OPENSEARCH_USERNAME'] = 'admin'
+        os.environ['OPENSEARCH_PASSWORD'] = 'password'
+
+        mock_client = Mock()
+        mock_init.return_value = mock_client
+
+        client = initialize_client(baseToolArgs())
+        assert client == mock_client
+
+    @patch('opensearch.client.OpenSearch')
+    def test_initialize_client_with_cluster_timeout(self, mock_opensearch):
+        """Test client initialization with cluster timeout."""
+        from mcp_server_opensearch.clusters_information import ClusterInfo
+        from opensearch.client import initialize_client_with_cluster
+
+        cluster_info = ClusterInfo(
+            opensearch_url='https://localhost:9200',
+            opensearch_username='admin',
+            opensearch_password='password',
+            timeout=60,
+        )
+
+        mock_client = Mock()
+        mock_opensearch.return_value = mock_client
+
+        client = initialize_client_with_cluster(cluster_info)
+
+        assert client == mock_client
+        call_kwargs = mock_opensearch.call_args[1]
+        assert call_kwargs['timeout'] == 60
