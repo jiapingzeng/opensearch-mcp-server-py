@@ -396,6 +396,7 @@ python -m mcp_server_opensearch --mode multi
 | `AWS_PROFILE` | No | `''` | AWS profile name |
 | `AWS_OPENSEARCH_SERVERLESS` | No | `''` | Set to `"true"` for OpenSearch Serverless |
 | `OPENSEARCH_NO_AUTH` | No | `''` | Set to `"true"` to connect without authentication |
+| `OPENSEARCH_TIMEOUT` | No | `''` | Connection timeout in seconds for OpenSearch operations |
 
 ### SSL & Security Variables
 
@@ -429,6 +430,7 @@ When using multi-mode, each cluster in your YAML configuration file accepts the 
 | `profile` | string | No | AWS profile name |
 | `is_serverless` | boolean | No | Set to `true` for OpenSearch Serverless |
 | `opensearch_no_auth` | boolean | No | Set to `true` to connect without authentication |
+| `timeout` | integer | No | Connection timeout in seconds for OpenSearch operations |
 
 *Required for respective authentication method (basic auth, IAM role, or AWS credentials)
 
