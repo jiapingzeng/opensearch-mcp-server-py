@@ -147,6 +147,10 @@ def initialize_client_with_cluster(cluster_info: ClusterInfo | None) -> OpenSear
     if is_serverless_mode:
         logger.info('Using OpenSearch Serverless with service name: aoss')
 
+    opensearch_timeout = (
+        cluster_info.timeout if cluster_info else os.getenv('OPENSEARCH_TIMEOUT', None)
+    )
+
     # Parse the OpenSearch domain URL
     parsed_url = urlparse(opensearch_url)
 
@@ -157,6 +161,9 @@ def initialize_client_with_cluster(cluster_info: ClusterInfo | None) -> OpenSear
         'verify_certs': os.getenv('OPENSEARCH_SSL_VERIFY', 'true').lower() != 'false',
         'connection_class': RequestsHttpConnection,
     }
+
+    if opensearch_timeout:
+        client_kwargs['timeout'] = int(opensearch_timeout)
 
     session = boto3.Session(profile_name=profile) if profile else boto3.Session()
     aws_region = get_aws_region(cluster_info)

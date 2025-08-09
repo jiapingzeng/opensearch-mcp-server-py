@@ -18,6 +18,7 @@ class ClusterInfo(BaseModel):
     opensearch_password: Optional[str] = None
     profile: Optional[str] = None
     is_serverless: Optional[bool] = None
+    timeout: Optional[int] = None
 
 
 # Global dictionary to store cluster information
@@ -101,6 +102,7 @@ def load_clusters_from_yaml(file_path: str) -> None:
                     opensearch_password=cluster_config.get('opensearch_password', None),
                     profile=cluster_config.get('profile', None),
                     is_serverless=cluster_config.get('is_serverless', None),
+                    timeout=cluster_config.get('timeout', None)
                 )
                 # Check if possible to connect to the cluster
                 is_connected, error_message = check_cluster_connection(cluster_info)

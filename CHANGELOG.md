@@ -10,6 +10,10 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Removed
 
+## [Released 0.3.2]
+
+- Add timeout as optional parameter ([#92](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/92))
+
 ## [Released 0.3.1]
 
 ### Added

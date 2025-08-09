@@ -34,6 +34,7 @@ class TestClusterInfo:
             opensearch_username='admin',
             opensearch_password='password123',
             profile='default',
+            timeout=30,
         )
         assert cluster.opensearch_url == 'https://localhost:9200'
         assert cluster.iam_arn == 'arn:aws:iam::123456789012:role/OpenSearchRole'
@@ -41,6 +42,12 @@ class TestClusterInfo:
         assert cluster.opensearch_username == 'admin'
         assert cluster.opensearch_password == 'password123'
         assert cluster.profile == 'default'
+        assert cluster.timeout == 30
+
+    def test_cluster_info_with_timeout_only(self):
+        """Test creating ClusterInfo with timeout parameter."""
+        cluster = ClusterInfo(opensearch_url='https://localhost:9200', timeout=60)
+        assert cluster.timeout == 60
 
     def test_cluster_info_validation(self):
         """Test that ClusterInfo validates required fields."""
@@ -110,6 +117,7 @@ clusters:
     opensearch_url: "https://localhost:9200"
     opensearch_username: "admin"
     opensearch_password: "password"
+    timeout: 45
   cluster2:
     opensearch_url: "https://localhost:9201"
     iam_arn: "arn:aws:iam::123456789012:role/OpenSearchRole"
@@ -136,11 +144,13 @@ clusters:
         assert cluster1.opensearch_url == 'https://localhost:9200'
         assert cluster1.opensearch_username == 'admin'
         assert cluster1.opensearch_password == 'password'
+        assert cluster1.timeout == 45
 
         cluster2 = cluster_registry['cluster2']
         assert cluster2.opensearch_url == 'https://localhost:9201'
         assert cluster2.iam_arn == 'arn:aws:iam::123456789012:role/OpenSearchRole'
         assert cluster2.aws_region == 'us-west-2'
+        assert cluster2.timeout is None
 
     def test_load_clusters_from_yaml_missing_opensearch_url(self):
         """Test loading cluster without required opensearch_url."""
