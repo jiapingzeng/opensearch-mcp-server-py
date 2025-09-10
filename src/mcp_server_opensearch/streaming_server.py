@@ -83,7 +83,7 @@ async def create_mcp_server(
 
 
 class MCPStarletteApp:
-    def __init__(self, mcp_server: Server, stateless: bool = False):
+    def __init__(self, mcp_server: Server, stateless: bool = True):
         self.mcp_server = mcp_server
         self.sse = SseServerTransport('/messages/')
         self.session_manager = StreamableHTTPSessionManager(
@@ -147,7 +147,7 @@ async def serve(
     profile: str = '',
     config_file_path: str = '',
     cli_tool_overrides: dict = None,
-    stateless: bool = False,
+    stateless: bool = True,
 ) -> None:
     mcp_server = await create_mcp_server(mode, profile, config_file_path, cli_tool_overrides)
     app_handler = MCPStarletteApp(mcp_server, stateless=stateless)
