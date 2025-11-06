@@ -29,7 +29,9 @@ def is_valid_display_name_pattern(name: str) -> bool:
 
 def _parse_args_map(tool_name: str, raw_args: Any) -> dict[str, dict[str, str]]:
     if not isinstance(raw_args, dict):
-        logging.warning(f"Invalid 'args' for tool '{tool_name}'. Must be a mapping of arg -> string.")
+        logging.warning(
+            f"Invalid 'args' for tool '{tool_name}'. Must be a mapping of arg -> string."
+        )
         return {}
     parsed: dict[str, dict[str, str]] = {}
     for arg_name, value in raw_args.items():
@@ -40,6 +42,7 @@ def _parse_args_map(tool_name: str, raw_args: Any) -> dict[str, dict[str, str]]:
                 f"Description for argument '{arg_name}' in tool '{tool_name}' must be a string."
             )
     return parsed
+
 
 def _load_config_from_file(config_from_file: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     file_configs: dict[str, dict[str, Any]] = {}
@@ -113,7 +116,10 @@ def parse_cli_to_nested_config(cli_tool_overrides: Dict[str, str]) -> Dict[str, 
 
     return nested
 
-def _validate_config(config: Dict[str, Dict[str, Any]], reference_registry: Dict[str, Any]) -> None:
+
+def _validate_config(
+    config: Dict[str, Dict[str, Any]], reference_registry: Dict[str, Any]
+) -> None:
     """
     Validate the configuration.
 
@@ -214,8 +220,14 @@ def _apply_validated_configs(
                     if DESCRIPTION_STRING in overrides and arg_name in properties:
                         properties[arg_name]['description'] = overrides[DESCRIPTION_STRING]
                         try:
-                            if args_model and hasattr(args_model, 'model_fields') and arg_name in args_model.model_fields:
-                                args_model.model_fields[arg_name].description = overrides[DESCRIPTION_STRING]
+                            if (
+                                args_model
+                                and hasattr(args_model, 'model_fields')
+                                and arg_name in args_model.model_fields
+                            ):
+                                args_model.model_fields[arg_name].description = overrides[
+                                    DESCRIPTION_STRING
+                                ]
                         except Exception:
                             pass
                 tool_info['input_schema'] = input_schema

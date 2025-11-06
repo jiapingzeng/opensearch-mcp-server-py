@@ -367,24 +367,21 @@ class TestTools:
                 'node1': {
                     'name': 'node1',
                     'transport_address': '127.0.0.1:9300',
-                    'roles': ['master', 'data', 'ingest']
+                    'roles': ['master', 'data', 'ingest'],
                 }
             },
             'metadata': {
                 'indices': {
-                    'index1': {
-                        'state': 'open',
-                        'settings': {'index.number_of_shards': '1'}
-                    }
+                    'index1': {'state': 'open', 'settings': {'index.number_of_shards': '1'}}
                 }
-            }
+            },
         }
         self.mock_client.cluster.state.return_value = mock_state
-        
+
         # Execute
         args = self.GetClusterStateArgs()
         result = await self._get_cluster_state_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
@@ -392,7 +389,7 @@ class TestTools:
         assert '"cluster_name": "test-cluster"' in result[0]['text']
         assert '"master_node": "node1"' in result[0]['text']
         self.mock_client.cluster.state.assert_called_once_with()
-    
+
     @pytest.mark.asyncio
     async def test_get_cluster_state_tool_with_metric(self):
         """Test get_cluster_state_tool with metric parameter."""
@@ -403,16 +400,16 @@ class TestTools:
                 'node1': {
                     'name': 'node1',
                     'transport_address': '127.0.0.1:9300',
-                    'roles': ['master', 'data', 'ingest']
+                    'roles': ['master', 'data', 'ingest'],
                 }
-            }
+            },
         }
         self.mock_client.cluster.state.return_value = mock_state
-        
+
         # Execute
         args = self.GetClusterStateArgs(metric='nodes')
         result = await self._get_cluster_state_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
@@ -420,7 +417,7 @@ class TestTools:
         assert '"cluster_name": "test-cluster"' in result[0]['text']
         assert '"nodes"' in result[0]['text']
         self.mock_client.cluster.state.assert_called_once_with(metric='nodes')
-    
+
     @pytest.mark.asyncio
     async def test_get_cluster_state_tool_with_index(self):
         """Test get_cluster_state_tool with index parameter."""
@@ -429,42 +426,39 @@ class TestTools:
             'cluster_name': 'test-cluster',
             'metadata': {
                 'indices': {
-                    'test-index': {
-                        'state': 'open',
-                        'settings': {'index.number_of_shards': '1'}
-                    }
+                    'test-index': {'state': 'open', 'settings': {'index.number_of_shards': '1'}}
                 }
-            }
+            },
         }
         self.mock_client.cluster.state.return_value = mock_state
-        
+
         # Execute
         args = self.GetClusterStateArgs(index='test-index')
         result = await self._get_cluster_state_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Cluster state information, filtered by index: test-index' in result[0]['text']
         assert '"test-index"' in result[0]['text']
         self.mock_client.cluster.state.assert_called_once_with(index='test-index')
-    
+
     @pytest.mark.asyncio
     async def test_get_cluster_state_tool_error(self):
         """Test get_cluster_state_tool exception handling."""
         # Setup
         self.mock_client.cluster.state.side_effect = Exception('Test error')
-        
+
         # Execute
         args = self.GetClusterStateArgs()
         result = await self._get_cluster_state_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Error getting cluster state: Test error' in result[0]['text']
         self.mock_client.cluster.state.assert_called_once_with()
-    
+
     @pytest.mark.asyncio
     async def test_get_segments_tool(self):
         """Test get_segments_tool successful."""
@@ -483,15 +477,15 @@ class TestTools:
                 'memory.vectors': '0b',
                 'memory.docvalues': '200b',
                 'memory.terms': '300b',
-                'version': '8.0.0'
+                'version': '8.0.0',
             }
         ]
         self.mock_client.cat.segments.return_value = mock_segments
-        
+
         # Execute
         args = self.GetSegmentsArgs()
         result = await self._get_segments_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
@@ -499,7 +493,7 @@ class TestTools:
         assert 'index | shard | prirep | segment | generation | docs.count' in result[0]['text']
         assert 'test-index | 0 | p | s1 | 1 | 100' in result[0]['text']
         self.mock_client.cat.segments.assert_called_once_with(index=None, format='json')
-    
+
     @pytest.mark.asyncio
     async def test_get_segments_tool_with_index(self):
         """Test get_segments_tool with index parameter."""
@@ -518,38 +512,38 @@ class TestTools:
                 'memory.vectors': '0b',
                 'memory.docvalues': '200b',
                 'memory.terms': '300b',
-                'version': '8.0.0'
+                'version': '8.0.0',
             }
         ]
         self.mock_client.cat.segments.return_value = mock_segments
-        
+
         # Execute
         args = self.GetSegmentsArgs(index='test-index')
         result = await self._get_segments_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Segment information for index: test-index' in result[0]['text']
         assert 'test-index | 0 | p | s1' in result[0]['text']
         self.mock_client.cat.segments.assert_called_once_with(index='test-index', format='json')
-    
+
     @pytest.mark.asyncio
     async def test_get_segments_tool_error(self):
         """Test get_segments_tool exception handling."""
         # Setup
         self.mock_client.cat.segments.side_effect = Exception('Test error')
-        
+
         # Execute
         args = self.GetSegmentsArgs()
         result = await self._get_segments_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Error getting segment information: Test error' in result[0]['text']
         self.mock_client.cat.segments.assert_called_once_with(index=None, format='json')
-    
+
     @pytest.mark.asyncio
     async def test_cat_nodes_tool(self):
         """Test cat_nodes_tool successful."""
@@ -567,64 +561,63 @@ class TestTools:
                 'disk.total': '100gb',
                 'disk.used': '20gb',
                 'disk.avail': '80gb',
-                'disk.used_percent': '20'
+                'disk.used_percent': '20',
             }
         ]
         self.mock_client.cat.nodes.return_value = mock_nodes
-        
+
         # Execute
         args = self.CatNodesArgs()
         result = await self._cat_nodes_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Node information for the cluster' in result[0]['text']
-        assert 'name | ip | heap.percent | ram.percent | cpu' in result[0]['text'] or 'name' in result[0]['text']
+        assert (
+            'name | ip | heap.percent | ram.percent | cpu' in result[0]['text']
+            or 'name' in result[0]['text']
+        )
         assert 'node1 | 127.0.0.1' in result[0]['text']
         self.mock_client.cat.nodes.assert_called_once_with(format='json', h=None)
-    
+
     @pytest.mark.asyncio
     async def test_cat_nodes_tool_with_metrics(self):
         """Test cat_nodes_tool with metrics parameter."""
         # Setup
-        mock_nodes = [
-            {
-                'name': 'node1',
-                'ip': '127.0.0.1',
-                'heap.percent': '50'
-            }
-        ]
+        mock_nodes = [{'name': 'node1', 'ip': '127.0.0.1', 'heap.percent': '50'}]
         self.mock_client.cat.nodes.return_value = mock_nodes
-        
+
         # Execute
         args = self.CatNodesArgs(metrics='name,ip,heap.percent')
         result = await self._cat_nodes_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
-        assert 'Node information for the cluster (metrics: name,ip,heap.percent)' in result[0]['text']
+        assert (
+            'Node information for the cluster (metrics: name,ip,heap.percent)' in result[0]['text']
+        )
         assert 'name | ip | heap.percent' in result[0]['text']
         assert 'node1 | 127.0.0.1 | 50' in result[0]['text']
         self.mock_client.cat.nodes.assert_called_once_with(format='json', h='name,ip,heap.percent')
-    
+
     @pytest.mark.asyncio
     async def test_cat_nodes_tool_error(self):
         """Test cat_nodes_tool exception handling."""
         # Setup
         self.mock_client.cat.nodes.side_effect = Exception('Test error')
-        
+
         # Execute
         args = self.CatNodesArgs()
         result = await self._cat_nodes_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Error getting node information: Test error' in result[0]['text']
         self.mock_client.cat.nodes.assert_called_once_with(format='json', h=None)
-    
+
     @pytest.mark.asyncio
     async def test_get_index_info_tool(self):
         """Test get_index_info_tool successful."""
@@ -633,51 +626,51 @@ class TestTools:
             'test-index': {
                 'aliases': {},
                 'mappings': {
-                    'properties': {
-                        'field1': {'type': 'text'},
-                        'field2': {'type': 'keyword'}
-                    }
+                    'properties': {'field1': {'type': 'text'}, 'field2': {'type': 'keyword'}}
                 },
                 'settings': {
                     'index': {
                         'number_of_shards': '1',
                         'number_of_replicas': '1',
-                        'creation_date': '1619712000000'
+                        'creation_date': '1619712000000',
                     }
-                }
+                },
             }
         }
         self.mock_client.indices.get.return_value = mock_index_info
-        
+
         # Execute
         args = self.GetIndexInfoArgs(index='test-index')
         result = await self._get_index_info_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Detailed information for index: test-index' in result[0]['text']
         assert '"test-index"' in result[0]['text']
-        assert '"field1": {"type": "text"}' in result[0]['text'] or '"type": "text"' in result[0]['text']
+        assert (
+            '"field1": {"type": "text"}' in result[0]['text']
+            or '"type": "text"' in result[0]['text']
+        )
         assert '"number_of_shards": "1"' in result[0]['text']
         self.mock_client.indices.get.assert_called_once_with(index='test-index')
-    
+
     @pytest.mark.asyncio
     async def test_get_index_info_tool_error(self):
         """Test get_index_info_tool exception handling."""
         # Setup
         self.mock_client.indices.get.side_effect = Exception('Test error')
-        
+
         # Execute
         args = self.GetIndexInfoArgs(index='test-index')
         result = await self._get_index_info_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Error getting index information: Test error' in result[0]['text']
         self.mock_client.indices.get.assert_called_once_with(index='test-index')
-    
+
     @pytest.mark.asyncio
     async def test_get_index_stats_tool(self):
         """Test get_index_stats_tool successful."""
@@ -688,92 +681,86 @@ class TestTools:
                     'docs': {'count': 1000, 'deleted': 10},
                     'store': {'size_in_bytes': 1000000},
                     'indexing': {'index_total': 1000, 'index_time_in_millis': 500},
-                    'search': {'query_total': 200, 'query_time_in_millis': 100}
+                    'search': {'query_total': 200, 'query_time_in_millis': 100},
                 },
                 'total': {
                     'docs': {'count': 1000, 'deleted': 10},
                     'store': {'size_in_bytes': 2000000},
                     'indexing': {'index_total': 1000, 'index_time_in_millis': 500},
-                    'search': {'query_total': 200, 'query_time_in_millis': 100}
-                }
+                    'search': {'query_total': 200, 'query_time_in_millis': 100},
+                },
             },
             'indices': {
                 'test-index': {
-                    'primaries': {
-                        'docs': {'count': 1000, 'deleted': 10}
-                    },
-                    'total': {
-                        'docs': {'count': 1000, 'deleted': 10}
-                    }
+                    'primaries': {'docs': {'count': 1000, 'deleted': 10}},
+                    'total': {'docs': {'count': 1000, 'deleted': 10}},
                 }
-            }
+            },
         }
         self.mock_client.indices.stats.return_value = mock_stats
-        
+
         # Execute
         args = self.GetIndexStatsArgs(index='test-index')
         result = await self._get_index_stats_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Statistics for index: test-index' in result[0]['text']
-        assert '"docs": {"count": 1000, "deleted": 10}' in result[0]['text'] or '"count": 1000' in result[0]['text']
+        assert (
+            '"docs": {"count": 1000, "deleted": 10}' in result[0]['text']
+            or '"count": 1000' in result[0]['text']
+        )
         self.mock_client.indices.stats.assert_called_once_with(index='test-index')
-    
+
     @pytest.mark.asyncio
     async def test_get_index_stats_tool_with_metric(self):
         """Test get_index_stats_tool with metric parameter."""
         # Setup
         mock_stats = {
             '_all': {
-                'primaries': {
-                    'search': {'query_total': 200, 'query_time_in_millis': 100}
-                },
-                'total': {
-                    'search': {'query_total': 200, 'query_time_in_millis': 100}
-                }
+                'primaries': {'search': {'query_total': 200, 'query_time_in_millis': 100}},
+                'total': {'search': {'query_total': 200, 'query_time_in_millis': 100}},
             },
             'indices': {
                 'test-index': {
-                    'primaries': {
-                        'search': {'query_total': 200, 'query_time_in_millis': 100}
-                    },
-                    'total': {
-                        'search': {'query_total': 200, 'query_time_in_millis': 100}
-                    }
+                    'primaries': {'search': {'query_total': 200, 'query_time_in_millis': 100}},
+                    'total': {'search': {'query_total': 200, 'query_time_in_millis': 100}},
                 }
-            }
+            },
         }
         self.mock_client.indices.stats.return_value = mock_stats
-        
+
         # Execute
         args = self.GetIndexStatsArgs(index='test-index', metric='search')
         result = await self._get_index_stats_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Statistics for index: test-index (metrics: search)' in result[0]['text']
-        assert '"search": {"query_total": 200' in result[0]['text'] or '"query_total": 200' in result[0]['text']
+        assert (
+            '"search": {"query_total": 200' in result[0]['text']
+            or '"query_total": 200' in result[0]['text']
+        )
         self.mock_client.indices.stats.assert_called_once_with(index='test-index', metric='search')
-    
+
     @pytest.mark.asyncio
     async def test_get_index_stats_tool_error(self):
         """Test get_index_stats_tool exception handling."""
         # Setup
         self.mock_client.indices.stats.side_effect = Exception('Test error')
-        
+
         # Execute
         args = self.GetIndexStatsArgs(index='test-index')
         result = await self._get_index_stats_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Error getting index statistics: Test error' in result[0]['text']
         self.mock_client.indices.stats.assert_called_once_with(index='test-index')
-    
+
     @pytest.mark.asyncio
     async def test_get_query_insights_tool(self):
         """Test get_query_insights_tool successful."""
@@ -784,52 +771,53 @@ class TestTools:
                     'query': {'match': {'field': 'value'}},
                     'count': 100,
                     'avg_time_ms': 5.2,
-                    'total_time_ms': 520
+                    'total_time_ms': 520,
                 },
                 {
                     'query': {'term': {'field2': 'value2'}},
                     'count': 50,
                     'avg_time_ms': 3.1,
-                    'total_time_ms': 155
-                }
+                    'total_time_ms': 155,
+                },
             ]
         }
         self.mock_client.transport.perform_request.return_value = mock_insights
-        
+
         # Execute
         args = self.GetQueryInsightsArgs()
         result = await self._get_query_insights_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Query insights from /_insights/top_queries endpoint' in result[0]['text']
-        assert '"query": {"match": {"field": "value"}}' in result[0]['text'] or '"match"' in result[0]['text']
+        assert (
+            '"query": {"match": {"field": "value"}}' in result[0]['text']
+            or '"match"' in result[0]['text']
+        )
         assert '"count": 100' in result[0]['text']
         self.mock_client.transport.perform_request.assert_called_once_with(
-            method='GET',
-            url='/_insights/top_queries'
+            method='GET', url='/_insights/top_queries'
         )
-    
+
     @pytest.mark.asyncio
     async def test_get_query_insights_tool_error(self):
         """Test get_query_insights_tool exception handling."""
         # Setup
         self.mock_client.transport.perform_request.side_effect = Exception('Test error')
-        
+
         # Execute
         args = self.GetQueryInsightsArgs()
         result = await self._get_query_insights_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Error getting query insights: Test error' in result[0]['text']
         self.mock_client.transport.perform_request.assert_called_once_with(
-            method='GET',
-            url='/_insights/top_queries'
+            method='GET', url='/_insights/top_queries'
         )
-    
+
     @pytest.mark.asyncio
     async def test_get_nodes_hot_threads_tool(self):
         """Test get_nodes_hot_threads_tool successful."""
@@ -847,11 +835,11 @@ class TestTools:
        org.opensearch.action.search.AbstractSearchAsyncAction.executeNextPhase(AbstractSearchAsyncAction.java:127)
 """
         self.mock_client.transport.perform_request.return_value = mock_hot_threads
-        
+
         # Execute
         args = self.GetNodesHotThreadsArgs()
         result = await self._get_nodes_hot_threads_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
@@ -859,29 +847,27 @@ class TestTools:
         assert 'node1' in result[0]['text']
         assert 'search' in result[0]['text']
         self.mock_client.transport.perform_request.assert_called_once_with(
-            method='GET',
-            url='/_nodes/hot_threads'
+            method='GET', url='/_nodes/hot_threads'
         )
-    
+
     @pytest.mark.asyncio
     async def test_get_nodes_hot_threads_tool_error(self):
         """Test get_nodes_hot_threads_tool exception handling."""
         # Setup
         self.mock_client.transport.perform_request.side_effect = Exception('Test error')
-        
+
         # Execute
         args = self.GetNodesHotThreadsArgs()
         result = await self._get_nodes_hot_threads_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Error getting hot threads information: Test error' in result[0]['text']
         self.mock_client.transport.perform_request.assert_called_once_with(
-            method='GET',
-            url='/_nodes/hot_threads'
+            method='GET', url='/_nodes/hot_threads'
         )
-    
+
     @pytest.mark.asyncio
     async def test_get_allocation_tool(self):
         """Test get_allocation_tool successful."""
@@ -896,7 +882,7 @@ class TestTools:
                 'disk.percent': '5',
                 'host': '127.0.0.1',
                 'ip': '127.0.0.1',
-                'node': 'node1'
+                'node': 'node1',
             },
             {
                 'shards': '3',
@@ -907,40 +893,44 @@ class TestTools:
                 'disk.percent': '3',
                 'host': '127.0.0.2',
                 'ip': '127.0.0.2',
-                'node': 'node2'
-            }
+                'node': 'node2',
+            },
         ]
         self.mock_client.cat.allocation.return_value = mock_allocation
-        
+
         # Execute
         args = self.GetAllocationArgs()
         result = await self._get_allocation_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Allocation information from /_cat/allocation endpoint' in result[0]['text']
-        assert 'shards | disk.indices | disk.used | disk.avail | disk.total | disk.percent | host | ip | node' in result[0]['text'] or 'shards' in result[0]['text']
+        assert (
+            'shards | disk.indices | disk.used | disk.avail | disk.total | disk.percent | host | ip | node'
+            in result[0]['text']
+            or 'shards' in result[0]['text']
+        )
         assert 'node1' in result[0]['text']
         assert 'node2' in result[0]['text']
         self.mock_client.cat.allocation.assert_called_once_with(format='json')
-    
+
     @pytest.mark.asyncio
     async def test_get_allocation_tool_error(self):
         """Test get_allocation_tool exception handling."""
         # Setup
         self.mock_client.cat.allocation.side_effect = Exception('Test error')
-        
+
         # Execute
         args = self.GetAllocationArgs()
         result = await self._get_allocation_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Error getting allocation information: Test error' in result[0]['text']
         self.mock_client.cat.allocation.assert_called_once_with(format='json')
-    
+
     @pytest.mark.asyncio
     async def test_get_long_running_tasks_tool(self):
         """Test get_long_running_tasks_tool successful."""
@@ -957,7 +947,7 @@ class TestTools:
                 'running_time': '60s',
                 'node_id': 'node1',
                 'ip': '127.0.0.1',
-                'node': 'node1'
+                'node': 'node1',
             },
             {
                 'action': 'indices:data/read/search',
@@ -970,58 +960,45 @@ class TestTools:
                 'running_time': '30s',
                 'node_id': 'node2',
                 'ip': '127.0.0.2',
-                'node': 'node2'
-            }
+                'node': 'node2',
+            },
         ]
         self.mock_client.transport.perform_request.return_value = mock_tasks
-        
+
         # Execute
         args = self.GetLongRunningTasksArgs()
         result = await self._get_long_running_tasks_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Top 2 long-running tasks sorted by running time' in result[0]['text']
-        assert 'action | task_id | parent_task_id | type | start_time | timestamp | running_time_ns | running_time | node_id | ip | node' in result[0]['text'] or 'action' in result[0]['text']
+        assert (
+            'action | task_id | parent_task_id | type | start_time | timestamp | running_time_ns | running_time | node_id | ip | node'
+            in result[0]['text']
+            or 'action' in result[0]['text']
+        )
         assert 'indices:data/write/bulk' in result[0]['text']
         assert 'indices:data/read/search' in result[0]['text']
         self.mock_client.transport.perform_request.assert_called_once_with(
-            method='GET',
-            url='/_cat/tasks',
-            params={
-                's': 'running_time:desc',
-                'format': 'json'
-            }
+            method='GET', url='/_cat/tasks', params={'s': 'running_time:desc', 'format': 'json'}
         )
-    
+
     @pytest.mark.asyncio
     async def test_get_long_running_tasks_tool_with_limit(self):
         """Test get_long_running_tasks_tool with limit parameter."""
         # Setup
         mock_tasks = [
-            {
-                'action': 'indices:data/write/bulk',
-                'running_time': '60s',
-                'node': 'node1'
-            },
-            {
-                'action': 'indices:data/read/search',
-                'running_time': '30s',
-                'node': 'node2'
-            },
-            {
-                'action': 'indices:admin/create',
-                'running_time': '15s',
-                'node': 'node1'
-            }
+            {'action': 'indices:data/write/bulk', 'running_time': '60s', 'node': 'node1'},
+            {'action': 'indices:data/read/search', 'running_time': '30s', 'node': 'node2'},
+            {'action': 'indices:admin/create', 'running_time': '15s', 'node': 'node1'},
         ]
         self.mock_client.transport.perform_request.return_value = mock_tasks
-        
+
         # Execute
         args = self.GetLongRunningTasksArgs(limit=2)
         result = await self._get_long_running_tasks_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
@@ -1030,90 +1007,68 @@ class TestTools:
         assert 'indices:data/read/search' in result[0]['text']
         assert 'indices:admin/create' not in result[0]['text']
         self.mock_client.transport.perform_request.assert_called_once_with(
-            method='GET',
-            url='/_cat/tasks',
-            params={
-                's': 'running_time:desc',
-                'format': 'json'
-            }
+            method='GET', url='/_cat/tasks', params={'s': 'running_time:desc', 'format': 'json'}
         )
-    
+
     @pytest.mark.asyncio
     async def test_get_long_running_tasks_tool_error(self):
         """Test get_long_running_tasks_tool exception handling."""
         # Setup
         self.mock_client.transport.perform_request.side_effect = Exception('Test error')
-        
+
         # Execute
         args = self.GetLongRunningTasksArgs()
         result = await self._get_long_running_tasks_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Error getting long-running tasks information: Test error' in result[0]['text']
         self.mock_client.transport.perform_request.assert_called_once_with(
-            method='GET',
-            url='/_cat/tasks',
-            params={
-                's': 'running_time:desc',
-                'format': 'json'
-            }
+            method='GET', url='/_cat/tasks', params={'s': 'running_time:desc', 'format': 'json'}
         )
-    
+
     @pytest.mark.asyncio
     async def test_get_nodes_tool_success(self):
         """Test get_nodes_tool returns detailed node information."""
         # Setup: mock detailed node info as returned by OpenSearch /_nodes endpoint
         mock_response = {
-            "_nodes": {
-                "total": 2,
-                "successful": 2,
-                "failed": 0
-            },
-            "cluster_name": "test-cluster",
-            "nodes": {
-                "node1": {
-                    "name": "node-1",
-                    "transport_address": "127.0.0.1:9300",
-                    "host": "127.0.0.1",
-                    "ip": "127.0.0.1",
-                    "version": "2.19.0",
-                    "build_type": "tar",
-                    "roles": ["data", "master"],
-                    "os": {
-                        "name": "Linux",
-                        "arch": "amd64",
-                        "version": "5.4.0"
+            '_nodes': {'total': 2, 'successful': 2, 'failed': 0},
+            'cluster_name': 'test-cluster',
+            'nodes': {
+                'node1': {
+                    'name': 'node-1',
+                    'transport_address': '127.0.0.1:9300',
+                    'host': '127.0.0.1',
+                    'ip': '127.0.0.1',
+                    'version': '2.19.0',
+                    'build_type': 'tar',
+                    'roles': ['data', 'master'],
+                    'os': {'name': 'Linux', 'arch': 'amd64', 'version': '5.4.0'},
+                    'process': {
+                        'refresh_interval_in_millis': 1000,
+                        'id': 12345,
+                        'mlockall': False,
                     },
-                    "process": {
-                        "refresh_interval_in_millis": 1000,
-                        "id": 12345,
-                        "mlockall": False
-                    }
                 },
-                "node2": {
-                    "name": "node-2",
-                    "transport_address": "127.0.0.1:9301",
-                    "host": "127.0.0.1",
-                    "ip": "127.0.0.1",
-                    "version": "2.19.0",
-                    "build_type": "tar",
-                    "roles": ["data"],
-                    "os": {
-                        "name": "Linux",
-                        "arch": "amd64",
-                        "version": "5.4.0"
-                    }
-                }
-            }
+                'node2': {
+                    'name': 'node-2',
+                    'transport_address': '127.0.0.1:9301',
+                    'host': '127.0.0.1',
+                    'ip': '127.0.0.1',
+                    'version': '2.19.0',
+                    'build_type': 'tar',
+                    'roles': ['data'],
+                    'os': {'name': 'Linux', 'arch': 'amd64', 'version': '5.4.0'},
+                },
+            },
         }
         self.mock_client.transport.perform_request.return_value = mock_response
-        
+
         # Execute
         args = self.GetNodesArgs()
         result = await self._get_nodes_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
@@ -1122,8 +1077,7 @@ class TestTools:
         assert '"name": "node-2"' in result[0]['text']
         assert '"cluster_name": "test-cluster"' in result[0]['text']
         self.mock_client.transport.perform_request.assert_called_once_with(
-            method='GET',
-            url='/_nodes'
+            method='GET', url='/_nodes'
         )
 
     @pytest.mark.asyncio
@@ -1131,34 +1085,30 @@ class TestTools:
         """Test get_nodes_tool with node_id and metric filters."""
         # Setup
         mock_response = {
-            "_nodes": {
-                "total": 1,
-                "successful": 1,
-                "failed": 0
-            },
-            "cluster_name": "test-cluster",
-            "nodes": {
-                "master-node": {
-                    "name": "master-node",
-                    "transport_address": "127.0.0.1:9300",
-                    "process": {
-                        "refresh_interval_in_millis": 1000,
-                        "id": 12345,
-                        "mlockall": False
+            '_nodes': {'total': 1, 'successful': 1, 'failed': 0},
+            'cluster_name': 'test-cluster',
+            'nodes': {
+                'master-node': {
+                    'name': 'master-node',
+                    'transport_address': '127.0.0.1:9300',
+                    'process': {
+                        'refresh_interval_in_millis': 1000,
+                        'id': 12345,
+                        'mlockall': False,
                     },
-                    "transport": {
-                        "bound_address": ["127.0.0.1:9300"],
-                        "publish_address": "127.0.0.1:9300"
-                    }
+                    'transport': {
+                        'bound_address': ['127.0.0.1:9300'],
+                        'publish_address': '127.0.0.1:9300',
+                    },
                 }
-            }
+            },
         }
         self.mock_client.transport.perform_request.return_value = mock_response
-        
+
         # Execute
-        args = self.GetNodesArgs(node_id="master:true", metric="process,transport")
+        args = self.GetNodesArgs(node_id='master:true', metric='process,transport')
         result = await self._get_nodes_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
@@ -1166,8 +1116,7 @@ class TestTools:
         assert '(metrics: process,transport)' in result[0]['text']
         assert '"name": "master-node"' in result[0]['text']
         self.mock_client.transport.perform_request.assert_called_once_with(
-            method='GET',
-            url='/_nodes/master:true/process,transport'
+            method='GET', url='/_nodes/master:true/process,transport'
         )
 
     @pytest.mark.asyncio
@@ -1175,27 +1124,36 @@ class TestTools:
         """Test get_nodes_tool exception handling."""
         # Setup
         self.mock_client.transport.perform_request.side_effect = Exception('Test error')
-        
+
         # Execute
         args = self.GetNodesArgs()
         result = await self._get_nodes_tool(args)
-        
+
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Error getting nodes information: Test error' in result[0]['text']
         self.mock_client.transport.perform_request.assert_called_once_with(
-            method='GET',
-            url='/_nodes'
+            method='GET', url='/_nodes'
         )
 
     def test_tool_registry(self):
         """Test TOOL_REGISTRY structure."""
         expected_tools = [
-            'ListIndexTool', 'IndexMappingTool', 'SearchIndexTool', 'GetShardsTool',
-            'GetClusterStateTool', 'GetSegmentsTool', 'CatNodesTool', 'GetNodesTool', 'GetIndexInfoTool',
-            'GetIndexStatsTool', 'GetQueryInsightsTool', 'GetNodesHotThreadsTool',
-            'GetAllocationTool', 'GetLongRunningTasksTool'
+            'ListIndexTool',
+            'IndexMappingTool',
+            'SearchIndexTool',
+            'GetShardsTool',
+            'GetClusterStateTool',
+            'GetSegmentsTool',
+            'CatNodesTool',
+            'GetNodesTool',
+            'GetIndexInfoTool',
+            'GetIndexStatsTool',
+            'GetQueryInsightsTool',
+            'GetNodesHotThreadsTool',
+            'GetAllocationTool',
+            'GetLongRunningTasksTool',
         ]
 
         for tool in expected_tools:

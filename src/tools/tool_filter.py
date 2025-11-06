@@ -33,52 +33,52 @@ def process_regex_patterns(regex_list, tool_names):
 
 def set_allow_write_setting(allow_write: bool) -> None:
     """Set the global allow_write setting.
-    
+
     This function is called during server initialization to store the resolved
     allow_write setting for use by individual tools.
-    
+
     Args:
         allow_write: The resolved allow_write setting
     """
     global _resolved_allow_write_setting
     _resolved_allow_write_setting = allow_write
-    logging.debug(f"Set global allow_write setting to: {allow_write}")
+    logging.debug(f'Set global allow_write setting to: {allow_write}')
 
 
 def get_allow_write_setting() -> bool:
     """Get the allow_write setting.
-    
+
     This function returns the allow_write setting that was resolved during
     server initialization. If not set, falls back to environment variable.
-    
+
     Returns:
         bool: True if write operations are allowed, False otherwise
     """
     global _resolved_allow_write_setting
-    
+
     # If the setting was resolved during server initialization, use it
     if _resolved_allow_write_setting is not None:
         return _resolved_allow_write_setting
-    
+
     # Fallback to environment variable if not set during initialization
     return os.getenv('OPENSEARCH_SETTINGS_ALLOW_WRITE', 'true').lower() == 'true'
 
 
 def _resolve_allow_write_setting(config_file_path: str = None) -> bool:
     """Resolve the allow_write setting from environment variable or config file.
-    
+
     This is an internal function used during server initialization to determine
     the final allow_write setting.
-    
+
     Args:
         config_file_path: Optional path to config file
-    
+
     Returns:
         bool: True if write operations are allowed, False otherwise
     """
     # Start with environment variable (default is true)
     allow_write = os.getenv('OPENSEARCH_SETTINGS_ALLOW_WRITE', 'true').lower() == 'true'
-    
+
     # Check config file if provided
     if config_file_path and os.path.exists(config_file_path):
         try:
@@ -90,10 +90,12 @@ def _resolve_allow_write_setting(config_file_path: str = None) -> bool:
                 if 'allow_write' in settings:
                     # Config file setting overrides environment variable
                     allow_write = settings.get('allow_write', True)
-                    logging.debug(f"Using allow_write setting from config file: {config_file_path}")
+                    logging.debug(
+                        f'Using allow_write setting from config file: {config_file_path}'
+                    )
         except Exception as e:
-            logging.debug(f"Could not load config file {config_file_path}: {e}")
-    
+            logging.debug(f'Could not load config file {config_file_path}: {e}')
+
     return allow_write
 
 

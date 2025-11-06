@@ -334,20 +334,24 @@ class TestAllowWriteSettings:
         """Set up test environment before each test."""
         # Reset the global setting before each test
         from tools.tool_filter import set_allow_write_setting
+
         set_allow_write_setting(None)
-        
+
         # Save original environment variable
         import os
+
         self.original_env = os.environ.get('OPENSEARCH_SETTINGS_ALLOW_WRITE')
 
     def teardown_method(self):
         """Clean up test environment after each test."""
         # Reset the global setting after each test
         from tools.tool_filter import set_allow_write_setting
+
         set_allow_write_setting(None)
-        
+
         # Restore original environment variable
         import os
+
         if self.original_env is not None:
             os.environ['OPENSEARCH_SETTINGS_ALLOW_WRITE'] = self.original_env
         elif 'OPENSEARCH_SETTINGS_ALLOW_WRITE' in os.environ:
@@ -356,11 +360,11 @@ class TestAllowWriteSettings:
     def test_set_and_get_allow_write_setting(self):
         """Test basic set and get functionality for allow_write setting."""
         from tools.tool_filter import set_allow_write_setting, get_allow_write_setting
-        
+
         # Test setting to False
         set_allow_write_setting(False)
         assert get_allow_write_setting() is False
-        
+
         # Test setting to True
         set_allow_write_setting(True)
         assert get_allow_write_setting() is True
@@ -369,15 +373,15 @@ class TestAllowWriteSettings:
         """Test that get_allow_write_setting falls back to environment variable when global setting is not set."""
         import os
         from tools.tool_filter import get_allow_write_setting
-        
+
         # Test fallback to env var when set to 'true'
         os.environ['OPENSEARCH_SETTINGS_ALLOW_WRITE'] = 'true'
         assert get_allow_write_setting() is True
-        
+
         # Test fallback to env var when set to 'false'
         os.environ['OPENSEARCH_SETTINGS_ALLOW_WRITE'] = 'false'
         assert get_allow_write_setting() is False
-        
+
         # Test fallback to default (true) when env var not set
         if 'OPENSEARCH_SETTINGS_ALLOW_WRITE' in os.environ:
             del os.environ['OPENSEARCH_SETTINGS_ALLOW_WRITE']
@@ -388,13 +392,13 @@ class TestAllowWriteSettings:
         """Test _resolve_allow_write_setting with environment variable only."""
         import os
         from tools.tool_filter import _resolve_allow_write_setting
-        
+
         # Test with env var set to true
         os.environ['OPENSEARCH_SETTINGS_ALLOW_WRITE'] = 'true'
         result = _resolve_allow_write_setting()
         assert result is True
         mock_load_yaml.assert_not_called()
-        
+
         # Test with env var set to false
         os.environ['OPENSEARCH_SETTINGS_ALLOW_WRITE'] = 'false'
         result = _resolve_allow_write_setting()
@@ -407,22 +411,16 @@ class TestAllowWriteSettings:
         """Test _resolve_allow_write_setting with config file."""
         import os
         from tools.tool_filter import _resolve_allow_write_setting
-        
+
         # Set up mocks
         mock_exists.return_value = True
-        mock_config = {
-            'tool_filters': {
-                'settings': {
-                    'allow_write': False
-                }
-            }
-        }
+        mock_config = {'tool_filters': {'settings': {'allow_write': False}}}
         mock_load_yaml.return_value = mock_config
-        
+
         # Set env var to true, but config should override
         os.environ['OPENSEARCH_SETTINGS_ALLOW_WRITE'] = 'true'
         result = _resolve_allow_write_setting('/path/to/config.yml')
-        
+
         assert result is False  # Config file should override env var
         mock_exists.assert_called_once_with('/path/to/config.yml')
         mock_load_yaml.assert_called_once_with('/path/to/config.yml')
@@ -433,25 +431,27 @@ class TestAllowWriteSettings:
         """Test _resolve_allow_write_setting when config file doesn't exist."""
         import os
         from tools.tool_filter import _resolve_allow_write_setting
-        
+
         # Set up mocks
         mock_exists.return_value = False
-        
+
         # Set env var to false
         os.environ['OPENSEARCH_SETTINGS_ALLOW_WRITE'] = 'false'
         result = _resolve_allow_write_setting('/path/to/nonexistent.yml')
-        
+
         assert result is False  # Should use env var
         mock_exists.assert_called_once_with('/path/to/nonexistent.yml')
         mock_load_yaml.assert_not_called()
 
     @patch('tools.tool_filter.load_yaml_config')
     @patch('os.path.exists')
-    def test_resolve_allow_write_setting_config_file_no_settings(self, mock_exists, mock_load_yaml):
+    def test_resolve_allow_write_setting_config_file_no_settings(
+        self, mock_exists, mock_load_yaml
+    ):
         """Test _resolve_allow_write_setting when config file has no allow_write setting."""
         import os
         from tools.tool_filter import _resolve_allow_write_setting
-        
+
         # Set up mocks
         mock_exists.return_value = True
         mock_config = {
@@ -461,11 +461,11 @@ class TestAllowWriteSettings:
             }
         }
         mock_load_yaml.return_value = mock_config
-        
+
         # Set env var to false
         os.environ['OPENSEARCH_SETTINGS_ALLOW_WRITE'] = 'false'
         result = _resolve_allow_write_setting('/path/to/config.yml')
-        
+
         assert result is False  # Should use env var since config has no allow_write
         mock_exists.assert_called_once_with('/path/to/config.yml')
         mock_load_yaml.assert_called_once_with('/path/to/config.yml')
@@ -476,15 +476,15 @@ class TestAllowWriteSettings:
         """Test _resolve_allow_write_setting when config file loading fails."""
         import os
         from tools.tool_filter import _resolve_allow_write_setting
-        
+
         # Set up mocks
         mock_exists.return_value = True
-        mock_load_yaml.side_effect = Exception("YAML parsing error")
-        
+        mock_load_yaml.side_effect = Exception('YAML parsing error')
+
         # Set env var to true
         os.environ['OPENSEARCH_SETTINGS_ALLOW_WRITE'] = 'true'
         result = _resolve_allow_write_setting('/path/to/config.yml')
-        
+
         assert result is True  # Should fall back to env var on error
         mock_exists.assert_called_once_with('/path/to/config.yml')
         mock_load_yaml.assert_called_once_with('/path/to/config.yml')
@@ -494,7 +494,7 @@ class TestAllowWriteSettings:
     def test_get_tools_calls_resolve_and_set_allow_write(self, mock_set, mock_resolve):
         """Test that get_tools calls _resolve_allow_write_setting and set_allow_write_setting."""
         from tools.tool_filter import get_tools
-        
+
         # Set up mocks
         mock_resolve.return_value = False
         mock_tool_registry = {
@@ -506,14 +506,14 @@ class TestAllowWriteSettings:
                 'args_model': MagicMock(),
             }
         }
-        
+
         # Test single mode
-        with patch('tools.tool_filter.get_opensearch_version'), \
-             patch('tools.tool_filter.process_tool_filter'), \
-             patch('tools.tool_filter.is_tool_compatible', return_value=True):
-            
+        with (
+            patch('tools.tool_filter.get_opensearch_version'),
+            patch('tools.tool_filter.process_tool_filter'),
+            patch('tools.tool_filter.is_tool_compatible', return_value=True),
+        ):
             get_tools(mock_tool_registry, mode='single', config_file_path='/path/to/config.yml')
-            
+
             mock_resolve.assert_called_once_with('/path/to/config.yml')
             mock_set.assert_called_once_with(False)
-

@@ -192,7 +192,6 @@ def test_yaml_unsupported_field_now_errors():
         assert "Invalid field 'invalid_field'" in msg or "Invalid field 'another_bad_field'" in msg
     os.remove(config_path)
 
-
     # Removed: behavior changed to ignore non-standard keys via CLI
 
 
@@ -245,10 +244,12 @@ def test_parse_cli_to_nested_config_type_coercion():
     assert nested['T']['args']['jsonObj'] == {'a': 1}
     assert nested['T']['args']['raw'] == 'POST'
 
+
 def test_alias_artifacts_removed():
     """Alias helpers are removed; importing them should fail at runtime if attempted."""
     try:
         from tools import config as cfg  # noqa: F401
+
         assert not hasattr(cfg, 'FIELD_ALIASES')
         assert not hasattr(cfg, '_find_actual_field')
         assert not hasattr(cfg, '_get_all_aliases')
@@ -383,7 +384,11 @@ def test_yaml_duplicate_aliases_now_error():
         assert False, 'Expected ValueError for non-standard alias fields in YAML'
     except ValueError as e:
         msg = str(e)
-        assert "Invalid field 'name'" in msg or "Invalid field 'displayName'" in msg or "Invalid field 'customName'" in msg
+        assert (
+            "Invalid field 'name'" in msg
+            or "Invalid field 'displayName'" in msg
+            or "Invalid field 'customName'" in msg
+        )
 
     os.remove(config_path)
 
@@ -577,8 +582,7 @@ def test_yaml_args_description_update():
     args_model = custom_registry['ListIndexTool'].get('args_model')
     if args_model is not None and hasattr(args_model, 'model_fields'):
         assert (
-            args_model.model_fields['index'].description
-            == 'Custom description for index argument'
+            args_model.model_fields['index'].description == 'Custom description for index argument'
         )
 
     os.remove(config_path)
