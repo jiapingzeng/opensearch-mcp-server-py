@@ -6,17 +6,20 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Added
 - Add `GenericOpenSearchApiTool` - A flexible, general-purpose tool that can interact with any OpenSearch API endpoint, addressing tool explosion and reducing context size. Supports all HTTP methods with write operation protection via `OPENSEARCH_SETTINGS_ALLOW_WRITE` environment variable. Closes [#109](https://github.com/opensearch-project/opensearch-mcp-server-py/issues/109)
+- Add header-based authentication + Code Clean up ([#117](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/117))
+
+### Fixed
+
+### Removed
+
+## [Released 0.4.0]
+### Added
 - Add new operational tools for comprehensive OpenSearch cluster analysis: `GetClusterStateTool`, `GetSegmentsTool`, `CatNodesTool`, `GetNodesTool`, `GetIndexInfoTool`, `GetIndexStatsTool`, `GetQueryInsightsTool`, `GetNodesHotThreadsTool`, `GetAllocationTool`, and `GetLongRunningTasksTool` and test cases ([#78](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/78))
 - Add include_detail as optional parameter to ListIndexTool ([#97](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/97))
 - Allow customizing tool argument descriptions via configuration ([#100](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/100))
 - Enhance tool filtering ([#101](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/101))
 - Add core tools as a category ([#103](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/103))
 - set stateless=True for streaming server by default ([#104](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/104))
-- Add header-based authentication + Code Clean up ([#117](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/117))
-
-### Fixed
-
-### Removed
 
 ## [Released 0.3.2]
 
