@@ -2,15 +2,64 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pydantic import BaseModel, Field
-from typing import Any, Optional
+from typing import Any, Optional, Type, TypeVar, Dict
+from mcp_server_opensearch.global_state import get_mode
+
+T = TypeVar('T', bound=BaseModel)
+
+
+def validate_args_for_mode(args_dict: Dict[str, Any], args_model_class: Type[T]) -> T:
+    """
+    Validation middleware that handles mode-specific validation.
+
+    Args:
+        args_dict: Dictionary of arguments provided by the user
+        args_model_class: The Pydantic model class to validate against
+
+    Returns:
+        Validated instance of args_model_class
+    """
+    # Get the current mode from global state
+    mode = get_mode()
+
+    if mode == 'single':
+        # In single mode, add default values for base fields
+        args_dict = args_dict.copy()  # Don't modify the original
+        args_dict.setdefault('opensearch_cluster_name', '')
+
+    try:
+        return args_model_class(**args_dict)
+    except Exception as e:
+        # Create a consistent error message format for both modes
+        import re
+
+        error_str = str(e)
+
+        # Extract missing field names and create a clearer error message
+        missing_fields = re.findall(r'^(\w+)\n  Field required', error_str, re.MULTILINE)
+        if missing_fields:
+            field_list = ', '.join(f"'{field}'" for field in missing_fields)
+            if len(missing_fields) == 1:
+                error_msg = f'Missing required field: {field_list}'
+            else:
+                error_msg = f'Missing required fields: {field_list}'
+
+            # For single mode, show user input without opensearch_cluster_name
+            if mode == 'single':
+                user_input = {k: v for k, v in args_dict.items() if k != 'opensearch_cluster_name'}
+                error_msg += f'\n\nProvided: {user_input}'
+            else:
+                error_msg += f'\n\nProvided: {args_dict}'
+
+            raise ValueError(error_msg) from e
+
+        raise e
 
 
 class baseToolArgs(BaseModel):
     """Base class for all tool arguments that contains common OpenSearch connection parameters."""
 
-    opensearch_cluster_name: str = Field(
-        default='', description='The name of the OpenSearch cluster'
-    )
+    opensearch_cluster_name: str = Field(description='The name of the OpenSearch cluster')
 
 
 class ListIndicesArgs(baseToolArgs):

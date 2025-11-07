@@ -24,7 +24,15 @@ clusters:
     profile: "your-aws-profile"
     is_serverless: true
 
-# Tool customization configurations (supported in both Single and Multi Mode)
+  no-auth-cluster:
+    opensearch_url: "http://localhost:9200"
+    opensearch_no_auth: true
+  
+  header-auth-cluster:
+    opensearch_url: "https://your-opensearch-domain.us-east-2.es.amazonaws.com"
+    opensearch_header_auth: true
+
+Tool customization configurations (supported in both Single and Multi Mode)
 tools:
   ListIndexTool:
     display_name: "My_Custom_Index_Lister"
@@ -70,18 +78,22 @@ tools:
 
 # Example configurations for different authentication methods:
 # 
-# 1. IAM Role Authentication (recommended for production):
+# 1. No Authentication (for development/testing):
+#    - Requires: opensearch_url, opensearch_no_auth: true
+#    - Connects without any authentication (useful for local development)
+#
+# 2. IAM Role Authentication (recommended for production):
 #    - Requires: opensearch_url, iam_arn, aws_region, profile
 #    - Uses AWS IAM roles for authentication
 #
-# 2. Basic Authentication:
+# 3. Basic Authentication:
 #    - Requires: opensearch_url, opensearch_username, opensearch_password
 #    - Uses username/password for authentication
 #
-# 3. AWS Profile Authentication:
+# 4. AWS Profile Authentication:
 #    - Requires: opensearch_url, profile
 #    - Uses AWS credentials from the specified profile
 #
-# 4. OpenSearch Serverless:
+# 5. OpenSearch Serverless:
 #    - Requires: opensearch_url, aws_region
 #    - Optional: profile, is_serverless: true 

@@ -141,7 +141,7 @@ class TestTools:
             },
         ]
         # Execute
-        result = await self._list_indices_tool(self.ListIndicesArgs())
+        result = await self._list_indices_tool(self.ListIndicesArgs(opensearch_cluster_name=''))
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
@@ -183,7 +183,9 @@ class TestTools:
             },
         ]
         # Execute
-        result = await self._list_indices_tool(self.ListIndicesArgs(include_detail=False))
+        result = await self._list_indices_tool(
+            self.ListIndicesArgs(include_detail=False, opensearch_cluster_name='')
+        )
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
@@ -205,7 +207,7 @@ class TestTools:
         }
         self.mock_client.indices.get.return_value = mock_index_info
         # Execute
-        args = self.ListIndicesArgs(index='index1')
+        args = self.ListIndicesArgs(index='index1', opensearch_cluster_name='')
         result = await self._list_indices_tool(args)
         # Assert
         assert len(result) == 1
@@ -232,7 +234,9 @@ class TestTools:
         }
         self.mock_client.indices.get.return_value = mock_index_info
         # Execute
-        args = self.ListIndicesArgs(index='index1', include_detail=False)
+        args = self.ListIndicesArgs(
+            index='index1', include_detail=False, opensearch_cluster_name=''
+        )
         result = await self._list_indices_tool(args)
         # Assert still returns details
         assert len(result) == 1
@@ -246,7 +250,7 @@ class TestTools:
         # Setup
         self.mock_client.cat.indices.side_effect = Exception('Test error')
         # Execute
-        result = await self._list_indices_tool(self.ListIndicesArgs())
+        result = await self._list_indices_tool(self.ListIndicesArgs(opensearch_cluster_name=''))
         # Assert
         assert len(result) == 1
         assert result[0]['type'] == 'text'
@@ -260,7 +264,7 @@ class TestTools:
         mock_mapping = {'mappings': {'properties': {'field1': {'type': 'text'}}}}
         self.mock_client.indices.get_mapping.return_value = mock_mapping
         # Execute
-        args = self.GetIndexMappingArgs(index='test-index')
+        args = self.GetIndexMappingArgs(index='test-index', opensearch_cluster_name='')
         result = await self._get_index_mapping_tool(args)
         # Assert
         assert len(result) == 1
@@ -275,7 +279,7 @@ class TestTools:
         # Setup
         self.mock_client.indices.get_mapping.side_effect = Exception('Test error')
         # Execute
-        args = self.GetIndexMappingArgs(index='test-index')
+        args = self.GetIndexMappingArgs(index='test-index', opensearch_cluster_name='')
         result = await self._get_index_mapping_tool(args)
         # Assert
         assert len(result) == 1
@@ -290,7 +294,9 @@ class TestTools:
         mock_results = {'hits': {'total': {'value': 1}, 'hits': [{'_source': {'field': 'value'}}]}}
         self.mock_client.search.return_value = mock_results
         # Execute
-        args = self.SearchIndexArgs(index='test-index', query={'match_all': {}})
+        args = self.SearchIndexArgs(
+            index='test-index', query={'match_all': {}}, opensearch_cluster_name=''
+        )
         result = await self._search_index_tool(args)
         # Assert
         assert len(result) == 1
@@ -305,7 +311,9 @@ class TestTools:
         # Setup
         self.mock_client.search.side_effect = Exception('Test error')
         # Execute
-        args = self.SearchIndexArgs(index='test-index', query={'match_all': {}})
+        args = self.SearchIndexArgs(
+            index='test-index', query={'match_all': {}}, opensearch_cluster_name=''
+        )
         result = await self._search_index_tool(args)
         # Assert
         assert len(result) == 1
@@ -331,7 +339,7 @@ class TestTools:
         ]
         self.mock_client.cat.shards.return_value = mock_shards
         # Execute
-        args = self.GetShardsArgs(index='test-index')
+        args = self.GetShardsArgs(index='test-index', opensearch_cluster_name='')
         result = await self._get_shards_tool(args)
         # Assert
         assert len(result) == 1
@@ -346,7 +354,7 @@ class TestTools:
         # Setup
         self.mock_client.cat.shards.side_effect = Exception('Test error')
         # Execute
-        args = self.GetShardsArgs(index='test-index')
+        args = self.GetShardsArgs(index='test-index', opensearch_cluster_name='')
         result = await self._get_shards_tool(args)
         # Assert
         assert len(result) == 1
@@ -379,7 +387,7 @@ class TestTools:
         self.mock_client.cluster.state.return_value = mock_state
 
         # Execute
-        args = self.GetClusterStateArgs()
+        args = self.GetClusterStateArgs(opensearch_cluster_name='')
         result = await self._get_cluster_state_tool(args)
 
         # Assert
@@ -407,7 +415,7 @@ class TestTools:
         self.mock_client.cluster.state.return_value = mock_state
 
         # Execute
-        args = self.GetClusterStateArgs(metric='nodes')
+        args = self.GetClusterStateArgs(metric='nodes', opensearch_cluster_name='')
         result = await self._get_cluster_state_tool(args)
 
         # Assert
@@ -433,7 +441,7 @@ class TestTools:
         self.mock_client.cluster.state.return_value = mock_state
 
         # Execute
-        args = self.GetClusterStateArgs(index='test-index')
+        args = self.GetClusterStateArgs(index='test-index', opensearch_cluster_name='')
         result = await self._get_cluster_state_tool(args)
 
         # Assert
@@ -450,7 +458,7 @@ class TestTools:
         self.mock_client.cluster.state.side_effect = Exception('Test error')
 
         # Execute
-        args = self.GetClusterStateArgs()
+        args = self.GetClusterStateArgs(opensearch_cluster_name='')
         result = await self._get_cluster_state_tool(args)
 
         # Assert
@@ -483,7 +491,7 @@ class TestTools:
         self.mock_client.cat.segments.return_value = mock_segments
 
         # Execute
-        args = self.GetSegmentsArgs()
+        args = self.GetSegmentsArgs(opensearch_cluster_name='')
         result = await self._get_segments_tool(args)
 
         # Assert
@@ -518,7 +526,7 @@ class TestTools:
         self.mock_client.cat.segments.return_value = mock_segments
 
         # Execute
-        args = self.GetSegmentsArgs(index='test-index')
+        args = self.GetSegmentsArgs(index='test-index', opensearch_cluster_name='')
         result = await self._get_segments_tool(args)
 
         # Assert
@@ -535,7 +543,7 @@ class TestTools:
         self.mock_client.cat.segments.side_effect = Exception('Test error')
 
         # Execute
-        args = self.GetSegmentsArgs()
+        args = self.GetSegmentsArgs(opensearch_cluster_name='')
         result = await self._get_segments_tool(args)
 
         # Assert
@@ -567,7 +575,7 @@ class TestTools:
         self.mock_client.cat.nodes.return_value = mock_nodes
 
         # Execute
-        args = self.CatNodesArgs()
+        args = self.CatNodesArgs(opensearch_cluster_name='')
         result = await self._cat_nodes_tool(args)
 
         # Assert
@@ -589,7 +597,7 @@ class TestTools:
         self.mock_client.cat.nodes.return_value = mock_nodes
 
         # Execute
-        args = self.CatNodesArgs(metrics='name,ip,heap.percent')
+        args = self.CatNodesArgs(metrics='name,ip,heap.percent', opensearch_cluster_name='')
         result = await self._cat_nodes_tool(args)
 
         # Assert
@@ -609,7 +617,7 @@ class TestTools:
         self.mock_client.cat.nodes.side_effect = Exception('Test error')
 
         # Execute
-        args = self.CatNodesArgs()
+        args = self.CatNodesArgs(opensearch_cluster_name='')
         result = await self._cat_nodes_tool(args)
 
         # Assert
@@ -640,7 +648,7 @@ class TestTools:
         self.mock_client.indices.get.return_value = mock_index_info
 
         # Execute
-        args = self.GetIndexInfoArgs(index='test-index')
+        args = self.GetIndexInfoArgs(index='test-index', opensearch_cluster_name='')
         result = await self._get_index_info_tool(args)
 
         # Assert
@@ -662,7 +670,7 @@ class TestTools:
         self.mock_client.indices.get.side_effect = Exception('Test error')
 
         # Execute
-        args = self.GetIndexInfoArgs(index='test-index')
+        args = self.GetIndexInfoArgs(index='test-index', opensearch_cluster_name='')
         result = await self._get_index_info_tool(args)
 
         # Assert
@@ -700,7 +708,7 @@ class TestTools:
         self.mock_client.indices.stats.return_value = mock_stats
 
         # Execute
-        args = self.GetIndexStatsArgs(index='test-index')
+        args = self.GetIndexStatsArgs(index='test-index', opensearch_cluster_name='')
         result = await self._get_index_stats_tool(args)
 
         # Assert
@@ -732,7 +740,9 @@ class TestTools:
         self.mock_client.indices.stats.return_value = mock_stats
 
         # Execute
-        args = self.GetIndexStatsArgs(index='test-index', metric='search')
+        args = self.GetIndexStatsArgs(
+            index='test-index', metric='search', opensearch_cluster_name=''
+        )
         result = await self._get_index_stats_tool(args)
 
         # Assert
@@ -752,7 +762,7 @@ class TestTools:
         self.mock_client.indices.stats.side_effect = Exception('Test error')
 
         # Execute
-        args = self.GetIndexStatsArgs(index='test-index')
+        args = self.GetIndexStatsArgs(index='test-index', opensearch_cluster_name='')
         result = await self._get_index_stats_tool(args)
 
         # Assert
@@ -784,7 +794,7 @@ class TestTools:
         self.mock_client.transport.perform_request.return_value = mock_insights
 
         # Execute
-        args = self.GetQueryInsightsArgs()
+        args = self.GetQueryInsightsArgs(opensearch_cluster_name='')
         result = await self._get_query_insights_tool(args)
 
         # Assert
@@ -807,7 +817,7 @@ class TestTools:
         self.mock_client.transport.perform_request.side_effect = Exception('Test error')
 
         # Execute
-        args = self.GetQueryInsightsArgs()
+        args = self.GetQueryInsightsArgs(opensearch_cluster_name='')
         result = await self._get_query_insights_tool(args)
 
         # Assert
@@ -837,7 +847,7 @@ class TestTools:
         self.mock_client.transport.perform_request.return_value = mock_hot_threads
 
         # Execute
-        args = self.GetNodesHotThreadsArgs()
+        args = self.GetNodesHotThreadsArgs(opensearch_cluster_name='')
         result = await self._get_nodes_hot_threads_tool(args)
 
         # Assert
@@ -857,7 +867,7 @@ class TestTools:
         self.mock_client.transport.perform_request.side_effect = Exception('Test error')
 
         # Execute
-        args = self.GetNodesHotThreadsArgs()
+        args = self.GetNodesHotThreadsArgs(opensearch_cluster_name='')
         result = await self._get_nodes_hot_threads_tool(args)
 
         # Assert
@@ -899,7 +909,7 @@ class TestTools:
         self.mock_client.cat.allocation.return_value = mock_allocation
 
         # Execute
-        args = self.GetAllocationArgs()
+        args = self.GetAllocationArgs(opensearch_cluster_name='')
         result = await self._get_allocation_tool(args)
 
         # Assert
@@ -922,7 +932,7 @@ class TestTools:
         self.mock_client.cat.allocation.side_effect = Exception('Test error')
 
         # Execute
-        args = self.GetAllocationArgs()
+        args = self.GetAllocationArgs(opensearch_cluster_name='')
         result = await self._get_allocation_tool(args)
 
         # Assert
@@ -966,7 +976,7 @@ class TestTools:
         self.mock_client.transport.perform_request.return_value = mock_tasks
 
         # Execute
-        args = self.GetLongRunningTasksArgs()
+        args = self.GetLongRunningTasksArgs(opensearch_cluster_name='')
         result = await self._get_long_running_tasks_tool(args)
 
         # Assert
@@ -996,7 +1006,7 @@ class TestTools:
         self.mock_client.transport.perform_request.return_value = mock_tasks
 
         # Execute
-        args = self.GetLongRunningTasksArgs(limit=2)
+        args = self.GetLongRunningTasksArgs(limit=2, opensearch_cluster_name='')
         result = await self._get_long_running_tasks_tool(args)
 
         # Assert
@@ -1017,7 +1027,7 @@ class TestTools:
         self.mock_client.transport.perform_request.side_effect = Exception('Test error')
 
         # Execute
-        args = self.GetLongRunningTasksArgs()
+        args = self.GetLongRunningTasksArgs(opensearch_cluster_name='')
         result = await self._get_long_running_tasks_tool(args)
 
         # Assert
@@ -1066,7 +1076,7 @@ class TestTools:
         self.mock_client.transport.perform_request.return_value = mock_response
 
         # Execute
-        args = self.GetNodesArgs()
+        args = self.GetNodesArgs(opensearch_cluster_name='')
         result = await self._get_nodes_tool(args)
 
         # Assert
@@ -1106,7 +1116,9 @@ class TestTools:
         self.mock_client.transport.perform_request.return_value = mock_response
 
         # Execute
-        args = self.GetNodesArgs(node_id='master:true', metric='process,transport')
+        args = self.GetNodesArgs(
+            node_id='master:true', metric='process,transport', opensearch_cluster_name=''
+        )
         result = await self._get_nodes_tool(args)
 
         # Assert
@@ -1126,7 +1138,7 @@ class TestTools:
         self.mock_client.transport.perform_request.side_effect = Exception('Test error')
 
         # Execute
-        args = self.GetNodesArgs()
+        args = self.GetNodesArgs(opensearch_cluster_name='')
         result = await self._get_nodes_tool(args)
 
         # Assert
@@ -1166,13 +1178,20 @@ class TestTools:
     def test_input_models(self):
         """Test input models validation."""
         with pytest.raises(ValueError):
-            self.GetIndexMappingArgs()  # Should fail without index
+            self.GetIndexMappingArgs(opensearch_cluster_name='')  # Should fail without index
 
         with pytest.raises(ValueError):
-            self.SearchIndexArgs(index='test')  # Should fail without query
+            self.SearchIndexArgs(
+                index='test', opensearch_cluster_name=''
+            )  # Should fail without query
 
         # Test valid inputs
-        assert self.GetIndexMappingArgs(index='test').index == 'test'
-        assert self.SearchIndexArgs(index='test', query={'match': {}}).index == 'test'
-        assert self.GetShardsArgs(index='test').index == 'test'
-        assert isinstance(self.ListIndicesArgs(), self.ListIndicesArgs)
+        assert self.GetIndexMappingArgs(index='test', opensearch_cluster_name='').index == 'test'
+        assert (
+            self.SearchIndexArgs(
+                index='test', query={'match': {}}, opensearch_cluster_name=''
+            ).index
+            == 'test'
+        )
+        assert self.GetShardsArgs(index='test', opensearch_cluster_name='').index == 'test'
+        assert isinstance(self.ListIndicesArgs(opensearch_cluster_name=''), self.ListIndicesArgs)

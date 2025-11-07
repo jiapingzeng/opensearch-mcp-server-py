@@ -40,11 +40,11 @@ class TestOpenSearchHelper:
         mock_client.cat.indices.return_value = mock_response
 
         # Execute
-        result = self.list_indices(ListIndicesArgs())
+        result = self.list_indices(ListIndicesArgs(opensearch_cluster_name=''))
 
         # Assert
         assert result == mock_response
-        mock_initialize_client.assert_called_once_with(ListIndicesArgs())
+        mock_initialize_client.assert_called_once_with(ListIndicesArgs(opensearch_cluster_name=''))
         mock_client.cat.indices.assert_called_once_with(format='json')
 
     @patch('opensearch.client.initialize_client')
@@ -65,11 +65,15 @@ class TestOpenSearchHelper:
         mock_client.indices.get_mapping.return_value = mock_response
 
         # Execute
-        result = self.get_index_mapping(GetIndexMappingArgs(index='test-index'))
+        result = self.get_index_mapping(
+            GetIndexMappingArgs(index='test-index', opensearch_cluster_name='')
+        )
 
         # Assert
         assert result == mock_response
-        mock_initialize_client.assert_called_once_with(GetIndexMappingArgs(index='test-index'))
+        mock_initialize_client.assert_called_once_with(
+            GetIndexMappingArgs(index='test-index', opensearch_cluster_name='')
+        )
         mock_client.indices.get_mapping.assert_called_once_with(index='test-index')
 
     @patch('opensearch.client.initialize_client')
@@ -90,19 +94,13 @@ class TestOpenSearchHelper:
 
         # Execute
         result = self.search_index(
-            SearchIndexArgs(
-                index='test-index',
-                query=test_query,
-            )
+            SearchIndexArgs(index='test-index', query=test_query, opensearch_cluster_name='')
         )
 
         # Assert
         assert result == mock_response
         mock_initialize_client.assert_called_once_with(
-            SearchIndexArgs(
-                index='test-index',
-                query=test_query,
-            )
+            SearchIndexArgs(index='test-index', query=test_query, opensearch_cluster_name='')
         )
         mock_client.search.assert_called_once_with(index='test-index', body=test_query)
 
@@ -126,11 +124,13 @@ class TestOpenSearchHelper:
         mock_client.cat.shards.return_value = mock_response
 
         # Execute
-        result = self.get_shards(GetShardsArgs(index='test-index'))
+        result = self.get_shards(GetShardsArgs(index='test-index', opensearch_cluster_name=''))
 
         # Assert
         assert result == mock_response
-        mock_initialize_client.assert_called_once_with(GetShardsArgs(index='test-index'))
+        mock_initialize_client.assert_called_once_with(
+            GetShardsArgs(index='test-index', opensearch_cluster_name='')
+        )
         mock_client.cat.shards.assert_called_once_with(index='test-index', format='json')
 
     @patch('opensearch.client.initialize_client')
@@ -142,7 +142,7 @@ class TestOpenSearchHelper:
 
         # Execute and assert
         with pytest.raises(Exception) as exc_info:
-            self.list_indices(ListIndicesArgs())
+            self.list_indices(ListIndicesArgs(opensearch_cluster_name=''))
         assert str(exc_info.value) == 'Connection error'
 
     @patch('opensearch.client.initialize_client')
@@ -154,7 +154,9 @@ class TestOpenSearchHelper:
 
         # Execute and assert
         with pytest.raises(Exception) as exc_info:
-            self.get_index_mapping(GetIndexMappingArgs(index='non-existent-index'))
+            self.get_index_mapping(
+                GetIndexMappingArgs(index='non-existent-index', opensearch_cluster_name='')
+            )
         assert str(exc_info.value) == 'Index not found'
 
     @patch('opensearch.client.initialize_client')
@@ -168,8 +170,7 @@ class TestOpenSearchHelper:
         with pytest.raises(Exception) as exc_info:
             self.search_index(
                 SearchIndexArgs(
-                    index='test-index',
-                    query={'invalid': 'query'},
+                    index='test-index', query={'invalid': 'query'}, opensearch_cluster_name=''
                 )
             )
         assert str(exc_info.value) == 'Invalid query'
@@ -183,7 +184,7 @@ class TestOpenSearchHelper:
 
         # Execute and assert
         with pytest.raises(Exception) as exc_info:
-            self.get_shards(GetShardsArgs(index='non-existent-index'))
+            self.get_shards(GetShardsArgs(index='non-existent-index', opensearch_cluster_name=''))
         assert str(exc_info.value) == 'Shard not found'
 
     @patch('opensearch.client.initialize_client')
@@ -195,7 +196,7 @@ class TestOpenSearchHelper:
         mock_client = mock_initialize_client.return_value
         mock_client.info.return_value = mock_response
         # Execute
-        args = baseToolArgs()
+        args = baseToolArgs(opensearch_cluster_name='')
         result = get_opensearch_version(args)
         # Assert
         assert str(result) == '2.11.1'
@@ -210,7 +211,7 @@ class TestOpenSearchHelper:
         # Setup mock to raise exception
         mock_client = mock_initialize_client.return_value
         mock_client.info.side_effect = Exception('Failed to get version')
-        args = baseToolArgs()
+        args = baseToolArgs(opensearch_cluster_name='')
         # Execute and assert
         result = get_opensearch_version(args)
         assert result is None

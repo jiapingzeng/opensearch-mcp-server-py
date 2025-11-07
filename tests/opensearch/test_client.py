@@ -4,7 +4,7 @@
 import boto3
 import os
 import pytest
-from opensearch.client import initialize_client
+from opensearch.client import initialize_client, ConfigurationError, AuthenticationError
 from opensearchpy import RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 from tools.tool_params import baseToolArgs
@@ -29,36 +29,58 @@ class TestOpenSearchClient:
                 self.original_env[key] = os.environ[key]
                 del os.environ[key]
 
+    def setup_method(self):
+        """Setup before each test method."""
+        # Clear environment variables to ensure clean test state
+        for key in [
+            'OPENSEARCH_USERNAME',
+            'OPENSEARCH_PASSWORD',
+            'AWS_REGION',
+            'OPENSEARCH_URL',
+            'OPENSEARCH_NO_AUTH',
+            'OPENSEARCH_SSL_VERIFY',
+            'OPENSEARCH_TIMEOUT',
+        ]:
+            if key in os.environ:
+                del os.environ[key]
+
+        # Set global mode for tests
+        from mcp_server_opensearch.global_state import set_mode
+
+        set_mode('single')
+
     def teardown_method(self):
         """Cleanup after each test method."""
         # Restore original environment variables
-        for key, value in self.original_env.items():
-            os.environ[key] = value
+        if hasattr(self, 'original_env'):
+            for key, value in self.original_env.items():
+                os.environ[key] = value
 
     def test_initialize_client_empty_url(self):
-        """Test that initialize_client raises ValueError when opensearch_url is empty."""
-        with pytest.raises(ValueError) as exc_info:
-            initialize_client(baseToolArgs())
+        """Test that initialize_client raises ConfigurationError when opensearch_url is empty."""
+        with pytest.raises(ConfigurationError) as exc_info:
+            initialize_client(baseToolArgs(opensearch_cluster_name=''))
 
-        assert (
-            str(exc_info.value)
-            == 'OpenSearch URL must be provided using config file or OPENSEARCH_URL environment variable'
-        )
+        assert 'OPENSEARCH_URL environment variable is required but not set' in str(exc_info.value)
 
     @patch('opensearch.client.OpenSearch')
-    def test_initialize_client_basic_auth(self, mock_opensearch):
+    @patch('opensearch.client.get_aws_region_single_mode')
+    def test_initialize_client_basic_auth(self, mock_get_region, mock_opensearch):
         """Test client initialization with basic authentication."""
         # Set environment variables
         os.environ['OPENSEARCH_USERNAME'] = 'test-user'
         os.environ['OPENSEARCH_PASSWORD'] = 'test-password'
         os.environ['OPENSEARCH_URL'] = 'https://test-opensearch-domain.com'
 
+        # Mock AWS region (not needed for basic auth, but called anyway)
+        mock_get_region.return_value = 'us-east-1'
+
         # Mock OpenSearch client
         mock_client = Mock()
         mock_opensearch.return_value = mock_client
 
         # Execute
-        client = initialize_client(baseToolArgs())
+        client = initialize_client(baseToolArgs(opensearch_cluster_name=''))
 
         # Assert
         assert client == mock_client
@@ -67,6 +89,7 @@ class TestOpenSearchClient:
             use_ssl=True,
             verify_certs=True,
             connection_class=RequestsHttpConnection,
+            timeout=30,
             http_auth=('test-user', 'test-password'),
         )
 
@@ -74,9 +97,14 @@ class TestOpenSearchClient:
     @patch('opensearch.client.boto3.Session')
     def test_initialize_client_aws_auth(self, mock_session, mock_opensearch):
         """Test client initialization with AWS IAM authentication."""
-        # Set environment variables
+        # Set environment variables (no basic auth to allow AWS auth)
         os.environ['AWS_REGION'] = 'us-west-2'
         os.environ['OPENSEARCH_URL'] = 'https://test-opensearch-domain.com'
+        # Clear any basic auth env vars
+        if 'OPENSEARCH_USERNAME' in os.environ:
+            del os.environ['OPENSEARCH_USERNAME']
+        if 'OPENSEARCH_PASSWORD' in os.environ:
+            del os.environ['OPENSEARCH_PASSWORD']
 
         # Mock AWS credentials
         mock_credentials = Mock()
@@ -93,7 +121,7 @@ class TestOpenSearchClient:
         mock_opensearch.return_value = mock_client
 
         # Execute
-        client = initialize_client(baseToolArgs())
+        client = initialize_client(baseToolArgs(opensearch_cluster_name=''))
 
         # Assert
         assert client == mock_client
@@ -121,11 +149,9 @@ class TestOpenSearchClient:
         mock_session.return_value = mock_session_instance
 
         # Execute and assert
-        with pytest.raises(RuntimeError) as exc_info:
-            initialize_client(baseToolArgs())
-        assert (
-            str(exc_info.value) == 'No valid AWS or basic authentication provided for OpenSearch'
-        )
+        with pytest.raises(AuthenticationError) as exc_info:
+            initialize_client(baseToolArgs(opensearch_cluster_name=''))
+        assert 'Failed to authenticate with AWS credentials' in str(exc_info.value)
 
     @patch('opensearch.client.OpenSearch')
     @patch('opensearch.client.boto3.Session')
@@ -140,25 +166,27 @@ class TestOpenSearchClient:
         mock_session.return_value = mock_session_instance
 
         # Execute and assert
-        with pytest.raises(RuntimeError) as exc_info:
-            initialize_client(baseToolArgs())
-        assert (
-            str(exc_info.value) == 'No valid AWS or basic authentication provided for OpenSearch'
-        )
+        with pytest.raises(AuthenticationError) as exc_info:
+            initialize_client(baseToolArgs(opensearch_cluster_name=''))
+        assert 'No AWS credentials found in session' in str(exc_info.value)
 
     @patch('opensearch.client.OpenSearch')
-    def test_initialize_client_no_auth_enabled(self, mock_opensearch):
+    @patch('opensearch.client.get_aws_region_single_mode')
+    def test_initialize_client_no_auth_enabled(self, mock_get_region, mock_opensearch):
         """Test client initialization with OPENSEARCH_NO_AUTH=true."""
         # Set environment variables
         os.environ['OPENSEARCH_URL'] = 'https://test-opensearch-domain.com'
         os.environ['OPENSEARCH_NO_AUTH'] = 'true'
+
+        # Mock AWS region (not needed for no auth, but called anyway)
+        mock_get_region.return_value = 'us-east-1'
 
         # Mock OpenSearch client
         mock_client = Mock()
         mock_opensearch.return_value = mock_client
 
         # Execute
-        client = initialize_client(baseToolArgs())
+        client = initialize_client(baseToolArgs(opensearch_cluster_name=''))
 
         # Assert
         assert client == mock_client
@@ -167,9 +195,10 @@ class TestOpenSearchClient:
             use_ssl=True,
             verify_certs=True,
             connection_class=RequestsHttpConnection,
+            timeout=30,
         )
 
-    @patch('opensearch.client.initialize_client_with_cluster')
+    @patch('opensearch.client._initialize_client_single_mode')
     def test_initialize_client_with_timeout_env(self, mock_init):
         """Test client initialization with timeout from environment."""
         os.environ['OPENSEARCH_TIMEOUT'] = '30'
@@ -180,14 +209,15 @@ class TestOpenSearchClient:
         mock_client = Mock()
         mock_init.return_value = mock_client
 
-        client = initialize_client(baseToolArgs())
+        client = initialize_client(baseToolArgs(opensearch_cluster_name=''))
         assert client == mock_client
 
     @patch('opensearch.client.OpenSearch')
-    def test_initialize_client_with_cluster_timeout(self, mock_opensearch):
+    @patch('opensearch.client.get_aws_region_multi_mode')
+    def test__initialize_client_multi_mode_timeout(self, mock_get_region, mock_opensearch):
         """Test client initialization with cluster timeout."""
         from mcp_server_opensearch.clusters_information import ClusterInfo
-        from opensearch.client import initialize_client_with_cluster
+        from opensearch.client import _initialize_client_multi_mode
 
         cluster_info = ClusterInfo(
             opensearch_url='https://localhost:9200',
@@ -196,11 +226,113 @@ class TestOpenSearchClient:
             timeout=60,
         )
 
+        # Mock AWS region (not needed for basic auth, but called anyway)
+        mock_get_region.return_value = 'us-east-1'
+
         mock_client = Mock()
         mock_opensearch.return_value = mock_client
 
-        client = initialize_client_with_cluster(cluster_info)
+        client = _initialize_client_multi_mode(cluster_info)
 
         assert client == mock_client
         call_kwargs = mock_opensearch.call_args[1]
         assert call_kwargs['timeout'] == 60
+
+    @patch('opensearch.client.OpenSearch')
+    @patch('opensearch.client.get_aws_region_multi_mode')
+    def test__initialize_client_multi_mode_no_auth(self, mock_get_region, mock_opensearch):
+        """Test client initialization with no-auth from cluster config."""
+        from mcp_server_opensearch.clusters_information import ClusterInfo
+        from opensearch.client import _initialize_client_multi_mode
+
+        cluster_info = ClusterInfo(
+            opensearch_url='http://localhost:9200',
+            opensearch_no_auth=True,
+        )
+
+        # Mock AWS region (not needed for no auth, but called anyway)
+        mock_get_region.return_value = 'us-east-1'
+
+        mock_client = Mock()
+        mock_opensearch.return_value = mock_client
+
+        client = _initialize_client_multi_mode(cluster_info)
+
+        assert client == mock_client
+        call_kwargs = mock_opensearch.call_args[1]
+        assert call_kwargs['hosts'] == ['http://localhost:9200']
+        assert call_kwargs['use_ssl'] is False  # http:// URL
+        assert call_kwargs['verify_certs'] is True
+        assert call_kwargs['connection_class'] == RequestsHttpConnection
+        # Should not have http_auth when no-auth is True
+        assert 'http_auth' not in call_kwargs
+
+    @patch('opensearch.client.OpenSearch')
+    @patch('opensearch.client.get_aws_region_multi_mode')
+    def test_initialize_client_no_auth_priority_cluster_over_env(
+        self, mock_get_region, mock_opensearch
+    ):
+        """Test that cluster config opensearch_no_auth takes priority over environment variable."""
+        from mcp_server_opensearch.clusters_information import ClusterInfo
+        from opensearch.client import _initialize_client_multi_mode
+
+        # Set environment variable to false
+        os.environ['OPENSEARCH_NO_AUTH'] = 'false'
+
+        cluster_info = ClusterInfo(
+            opensearch_url='http://localhost:9200',
+            opensearch_no_auth=True,  # Cluster config says no auth
+        )
+
+        # Mock AWS region (not needed for no auth, but called anyway)
+        mock_get_region.return_value = 'us-east-1'
+
+        mock_client = Mock()
+        mock_opensearch.return_value = mock_client
+
+        client = _initialize_client_multi_mode(cluster_info)
+
+        assert client == mock_client
+        call_kwargs = mock_opensearch.call_args[1]
+        # Should use no auth because cluster config takes priority
+        assert 'http_auth' not in call_kwargs
+
+    @patch('opensearch.client.OpenSearch')
+    @patch('opensearch.client.get_cluster')
+    @patch('opensearch.client.get_aws_region_multi_mode')
+    def test_initialize_client_multi_cluster_no_auth(
+        self, mock_get_region, mock_get_cluster, mock_opensearch
+    ):
+        """Test client initialization in multi-cluster mode with no-auth cluster."""
+        from mcp_server_opensearch.clusters_information import ClusterInfo
+        from mcp_server_opensearch.global_state import set_mode
+
+        # Set mode to multi for this test
+        set_mode('multi')
+
+        # Mock cluster info with no-auth
+        cluster_info = ClusterInfo(
+            opensearch_url='http://localhost:9200',
+            opensearch_no_auth=True,
+        )
+        mock_get_cluster.return_value = cluster_info
+
+        # Mock AWS region (not needed for no auth, but called anyway)
+        mock_get_region.return_value = 'us-east-1'
+
+        # Mock OpenSearch client
+        mock_client = Mock()
+        mock_opensearch.return_value = mock_client
+
+        # Create args with cluster name
+        args = baseToolArgs(opensearch_cluster_name='')
+        args.opensearch_cluster_name = 'no-auth-cluster'
+
+        client = initialize_client(args)
+
+        assert client == mock_client
+        mock_get_cluster.assert_called_once_with('no-auth-cluster')
+        call_kwargs = mock_opensearch.call_args[1]
+        assert call_kwargs['hosts'] == ['http://localhost:9200']
+        assert call_kwargs['use_ssl'] is False
+        assert 'http_auth' not in call_kwargs

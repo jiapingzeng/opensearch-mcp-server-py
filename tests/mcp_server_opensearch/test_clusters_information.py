@@ -35,6 +35,7 @@ class TestClusterInfo:
             opensearch_password='password123',
             profile='default',
             timeout=30,
+            opensearch_no_auth=True,
         )
         assert cluster.opensearch_url == 'https://localhost:9200'
         assert cluster.iam_arn == 'arn:aws:iam::123456789012:role/OpenSearchRole'
@@ -43,11 +44,23 @@ class TestClusterInfo:
         assert cluster.opensearch_password == 'password123'
         assert cluster.profile == 'default'
         assert cluster.timeout == 30
+        assert cluster.opensearch_no_auth is True
 
     def test_cluster_info_with_timeout_only(self):
         """Test creating ClusterInfo with timeout parameter."""
         cluster = ClusterInfo(opensearch_url='https://localhost:9200', timeout=60)
         assert cluster.timeout == 60
+
+    def test_cluster_info_with_no_auth_only(self):
+        """Test creating ClusterInfo with opensearch_no_auth parameter."""
+        cluster = ClusterInfo(opensearch_url='https://localhost:9200', opensearch_no_auth=True)
+        assert cluster.opensearch_no_auth is True
+        assert cluster.opensearch_url == 'https://localhost:9200'
+
+    def test_cluster_info_no_auth_defaults_to_none(self):
+        """Test that opensearch_no_auth defaults to None when not specified."""
+        cluster = ClusterInfo(opensearch_url='https://localhost:9200')
+        assert cluster.opensearch_no_auth is None
 
     def test_cluster_info_validation(self):
         """Test that ClusterInfo validates required fields."""
@@ -152,6 +165,46 @@ clusters:
         assert cluster2.aws_region == 'us-west-2'
         assert cluster2.timeout is None
 
+    def test_load_clusters_from_yaml_with_no_auth(self):
+        """Test loading cluster with opensearch_no_auth from YAML."""
+        yaml_content = """
+clusters:
+  no-auth-cluster:
+    opensearch_url: "http://localhost:9200"
+    opensearch_no_auth: true
+  mixed-cluster:
+    opensearch_url: "https://localhost:9201"
+    opensearch_username: "admin"
+    opensearch_password: "password"
+    opensearch_no_auth: false
+"""
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
+            f.write(yaml_content)
+            f.flush()
+
+            with patch(
+                'mcp_server_opensearch.clusters_information.check_cluster_connection'
+            ) as mock_check:
+                mock_check.return_value = (True, '')
+                load_clusters_from_yaml(f.name)
+
+        os.unlink(f.name)
+
+        assert len(cluster_registry) == 2
+
+        # Test no-auth cluster
+        no_auth_cluster = cluster_registry['no-auth-cluster']
+        assert no_auth_cluster.opensearch_url == 'http://localhost:9200'
+        assert no_auth_cluster.opensearch_no_auth is True
+
+        # Test mixed cluster with explicit false
+        mixed_cluster = cluster_registry['mixed-cluster']
+        assert mixed_cluster.opensearch_url == 'https://localhost:9201'
+        assert mixed_cluster.opensearch_username == 'admin'
+        assert mixed_cluster.opensearch_password == 'password'
+        assert mixed_cluster.opensearch_no_auth is False
+
     def test_load_clusters_from_yaml_missing_opensearch_url(self):
         """Test loading cluster without required opensearch_url."""
         yaml_content = """
@@ -248,7 +301,7 @@ class TestCheckClusterConnection:
         """Test successful cluster connection."""
         cluster = ClusterInfo(opensearch_url='https://localhost:9200')
 
-        with patch('opensearch.client.initialize_client_with_cluster') as mock_init:
+        with patch('opensearch.client._initialize_client_multi_mode') as mock_init:
             mock_client = MagicMock()
             mock_client.ping.return_value = True
             mock_init.return_value = mock_client
@@ -263,7 +316,7 @@ class TestCheckClusterConnection:
         """Test failed cluster connection."""
         cluster = ClusterInfo(opensearch_url='https://unreachable:9200')
 
-        with patch('opensearch.client.initialize_client_with_cluster') as mock_init:
+        with patch('opensearch.client._initialize_client_multi_mode') as mock_init:
             mock_init.side_effect = Exception('Connection timeout')
 
             success, error = check_cluster_connection(cluster)
@@ -275,7 +328,7 @@ class TestCheckClusterConnection:
         """Test cluster connection where client.ping() fails."""
         cluster = ClusterInfo(opensearch_url='https://localhost:9200')
 
-        with patch('opensearch.client.initialize_client_with_cluster') as mock_init:
+        with patch('opensearch.client._initialize_client_multi_mode') as mock_init:
             mock_client = MagicMock()
             mock_client.ping.side_effect = Exception('Authentication failed')
             mock_init.return_value = mock_client

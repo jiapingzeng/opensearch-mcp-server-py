@@ -6,6 +6,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 from mcp_server_opensearch.clusters_information import load_clusters_from_yaml
+from mcp_server_opensearch.global_state import set_mode, set_profile, set_config_file_path
 from tools.tool_filter import get_tools
 from tools.tool_generator import generate_tools_from_openapi
 from tools.tools import TOOL_REGISTRY
@@ -19,11 +20,16 @@ async def serve(
     config_file_path: str = '',
     cli_tool_overrides: dict = None,
 ) -> None:
+    # Set the global mode
+    set_mode(mode)
+
     # Set the global profile if provided
     if profile:
-        from opensearch.client import set_profile
-
         set_profile(profile)
+
+    # Set the global config file path
+    if config_file_path:
+        set_config_file_path(config_file_path)
 
     server = Server('opensearch-mcp-server')
     # Load clusters from YAML file
@@ -37,9 +43,7 @@ async def serve(
         TOOL_REGISTRY, config_file_path, cli_tool_overrides or {}
     )
     # Get enabled tools (tool filter)
-    enabled_tools = get_tools(
-        tool_registry=customized_registry, mode=mode, config_file_path=config_file_path
-    )
+    enabled_tools = get_tools(tool_registry=customized_registry, config_file_path=config_file_path)
     logging.info(f'Enabled tools: {list(enabled_tools.keys())}')
 
     @server.list_tools()
@@ -68,7 +72,9 @@ async def serve(
             raise ValueError(f'Unknown or disabled tool: {name}')
 
         tool = enabled_tools.get(found_tool_key)
-        parsed = tool['args_model'](**arguments)
+        from tools.tool_params import validate_args_for_mode
+
+        parsed = validate_args_for_mode(arguments, tool['args_model'])
         return await tool['function'](parsed)
 
     # Start stdio-based MCP server

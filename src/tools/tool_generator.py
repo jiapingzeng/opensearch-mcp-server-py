@@ -220,7 +220,7 @@ def generate_tool_from_group(base_name: str, endpoints: List[Dict]) -> Dict[str,
         name: (Any if name == 'body' else str, info.get('default'))
         for name, info in all_parameters.items()
     }
-    args_model = create_model(f'{base_name}Args', **field_definitions)
+    args_model = create_model(f'{base_name}Args', __base__=baseToolArgs, **field_definitions)
 
     # Create the tool function that will execute the OpenSearch API
     async def tool_func(params: BaseModel) -> list[TextContent]:
@@ -237,6 +237,9 @@ def generate_tool_from_group(base_name: str, endpoints: List[Dict]) -> Dict[str,
                 for field in base_fields:
                     if field in params_dict:
                         base_args[field] = params_dict.pop(field)
+                    else:
+                        # Provide default empty string for required fields in single mode
+                        base_args[field] = ''
 
                 args = baseToolArgs(**base_args)
                 request_client = initialize_client(args)

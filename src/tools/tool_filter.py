@@ -4,7 +4,6 @@
 import re
 import os
 import json
-import yaml
 import logging
 from .tool_params import baseToolArgs
 from .tools import TOOL_REGISTRY
@@ -15,6 +14,7 @@ from .utils import (
     validate_tools,
 )
 from opensearch.helper import get_opensearch_version
+from mcp_server_opensearch.global_state import get_mode
 
 # Global variable to store the resolved allow_write setting
 # This is set during server initialization and used by individual tools
@@ -292,7 +292,7 @@ def process_tool_filter(
         logging.error(f'Error processing tool filter: {str(e)}')
 
 
-def get_tools(tool_registry: dict, mode: str = 'single', config_file_path: str = '') -> dict:
+def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
     """Filter and return available tools based on server mode and OpenSearch version.
 
     In 'multi' mode, returns all tools without filtering. In 'single' mode, filters tools
@@ -300,12 +300,14 @@ def get_tools(tool_registry: dict, mode: str = 'single', config_file_path: str =
 
     Args:
         tool_registry (dict): The tool registry to filter.
-        mode (str): Server mode - 'single' for version-filtered tools, 'multi' for all tools
         config_file_path (str): Path to a YAML configuration file
 
     Returns:
         dict: Dictionary of enabled tools with their configurations
     """
+    # Get the current mode from global state
+    mode = get_mode()
+
     # Resolve and set the global allow_write setting for use by individual tools
     # This needs to be done in both single and multi mode
     resolved_allow_write = _resolve_allow_write_setting(config_file_path)
@@ -318,7 +320,7 @@ def get_tools(tool_registry: dict, mode: str = 'single', config_file_path: str =
     enabled = {}
 
     # Get OpenSearch version for compatibility checking (only in single mode)
-    version = get_opensearch_version(baseToolArgs())
+    version = get_opensearch_version(baseToolArgs(opensearch_cluster_name=''))
     logging.info(f'Connected OpenSearch version: {version}')
 
     env_config = {
@@ -359,6 +361,9 @@ def get_tools(tool_registry: dict, mode: str = 'single', config_file_path: str =
             base_fields = baseToolArgs.model_fields.keys()
             for field in base_fields:
                 schema['properties'].pop(field, None)
+                # Also remove from required array if present
+                if 'required' in schema and field in schema['required']:
+                    schema['required'].remove(field)
         tool_info['input_schema'] = schema
 
         enabled[tool_name] = tool_info

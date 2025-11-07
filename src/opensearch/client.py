@@ -1,224 +1,459 @@
 # Copyright OpenSearch Contributors
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+OpenSearch client initialization module.
+
+This module provides functions to initialize OpenSearch clients with different
+authentication methods and connection modes (single vs multi-cluster).
+"""
+
 import boto3
 import logging
 import os
+from typing import Any, Dict, Optional
+from urllib.parse import urlparse
+
+from mcp.server.lowlevel.server import request_ctx
+from starlette.requests import Request
+
 from mcp_server_opensearch.clusters_information import ClusterInfo, get_cluster
+from mcp_server_opensearch.global_state import get_mode, get_profile
 from opensearchpy import OpenSearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 from tools.tool_params import baseToolArgs
-from typing import Any, Dict
-from urllib.parse import urlparse
 
-
-logging.basicConfig(level=logging.INFO)
+# Configure logging
 logger = logging.getLogger(__name__)
 
 # Constants
 OPENSEARCH_SERVICE = 'es'
 OPENSEARCH_SERVERLESS_SERVICE = 'aoss'
-
-# global profile variable from command line
-arg_profile = None
-
-
-def set_profile(profile: str) -> None:
-    global arg_profile
-    arg_profile = profile
+DEFAULT_TIMEOUT = 30
+DEFAULT_SSL_VERIFY = True
 
 
-def get_aws_region(cluster_info: ClusterInfo | None) -> str:
-    """Get the AWS region based on priority order.
+# Custom exceptions
+class OpenSearchClientError(Exception):
+    """Base exception for OpenSearch client errors."""
 
-    Priority with cluster_info (multi mode):
-    1. cluster_info.aws_region
-    2. Region from cluster_info.profile
-    3. AWS_REGION environment variable
-    4. Command-line profile (arg_profile)
-    5. AWS_PROFILE environment variable
-    6. Default boto3 session region
-
-    Priority without cluster_info (single mode):
-    1. AWS_REGION environment variable
-    2. Command-line profile (arg_profile)
-    3. AWS_PROFILE environment variable
-    4. Default boto3 session region
-
-    Args:
-        cluster_info (ClusterInfo): Optional cluster information
-
-    Returns:
-        str: AWS region
-    """
-    if cluster_info:
-        if cluster_info.aws_region:
-            return cluster_info.aws_region
-        if cluster_info.profile:
-            session = boto3.Session(profile_name=cluster_info.profile)
-            return session.region_name
-        if os.getenv('AWS_REGION', ''):
-            return os.getenv('AWS_REGION', '')
-        if arg_profile:
-            session = boto3.Session(profile_name=arg_profile)
-            return session.region_name
-        if os.getenv('AWS_PROFILE', ''):
-            session = boto3.Session(profile_name=os.getenv('AWS_PROFILE', ''))
-            return session.region_name
-        else:
-            session = boto3.Session()
-            return session.region_name
-
-    else:
-        if os.getenv('AWS_REGION', ''):
-            return os.getenv('AWS_REGION', '')
-        if arg_profile:
-            session = boto3.Session(profile_name=arg_profile)
-            return session.region_name
-        if os.getenv('AWS_PROFILE', ''):
-            session = boto3.Session(profile_name=os.getenv('AWS_PROFILE', ''))
-            return session.region_name
-        else:
-            session = boto3.Session()
-            return session.region_name
+    pass
 
 
-def is_serverless(cluster_info: ClusterInfo | None) -> bool:
-    """Check if the OpenSearch instance is serverless.
+class AuthenticationError(OpenSearchClientError):
+    """Exception raised when authentication fails."""
+
+    pass
+
+
+class ConfigurationError(OpenSearchClientError):
+    """Exception raised when configuration is invalid."""
+
+    pass
+
+
+# Public API Functions
+def initialize_client(args: baseToolArgs) -> OpenSearch:
+    """Initialize and return an OpenSearch client based on the current mode.
+
+    Behavior depends on the global mode:
+    - Single mode: Always uses environment variables, ignores cluster name
+    - Multi mode: Requires cluster name to be provided, uses cluster config
 
     Args:
-        args_or_cluster_info: Either ClusterInfo, or None
+        args (baseToolArgs): Arguments containing optional opensearch_cluster_name
 
     Returns:
-        bool: True if serverless, False otherwise
-    """
-    # Check cluster_info first
-    if cluster_info:
-        return cluster_info.is_serverless
-
-    # If cluster_info is not provided, check the environment variable
-    return os.getenv('AWS_OPENSEARCH_SERVERLESS', '').lower() == 'true'
-
-
-def initialize_client_with_cluster(cluster_info: ClusterInfo | None) -> OpenSearch:
-    """Initialize an OpenSearch client with authentication.
-
-    Authentication methods (in order):
-    1. No authentication (only if OPENSEARCH_NO_AUTH=true environment variable is set)
-    2. IAM role authentication (if iam_arn is provided)
-    3. Basic authentication (username/password)
-    4. AWS credentials from boto3 session
-
-    Service name depends on serverless mode:
-    - 'aoss' for OpenSearch Serverless
-    - 'es' for standard OpenSearch
-
-    Args:
-        cluster_info: Optional cluster information
-
-    Returns:
-        OpenSearch: Client instance
+        OpenSearch: An initialized OpenSearch client instance
 
     Raises:
-        ValueError: If opensearch_url is missing
-        RuntimeError: If authentication fails
+        ConfigurationError: If in multi mode but no cluster name provided or invalid mode
+        AuthenticationError: If authentication fails
     """
-    opensearch_url = (
-        cluster_info.opensearch_url if cluster_info else os.getenv('OPENSEARCH_URL', '')
-    )
-    if not opensearch_url:
-        raise ValueError(
-            'OpenSearch URL must be provided using config file or OPENSEARCH_URL environment variable'
-        )
-    opensearch_username = (
-        cluster_info.opensearch_username if cluster_info else os.getenv('OPENSEARCH_USERNAME', '')
-    )
-    opensearch_password = (
-        cluster_info.opensearch_password if cluster_info else os.getenv('OPENSEARCH_PASSWORD', '')
-    )
-    iam_arn = cluster_info.iam_arn if cluster_info else os.getenv('AWS_IAM_ARN', '')
-    profile = cluster_info.profile if cluster_info else arg_profile
-    if not profile:
-        profile = os.getenv('AWS_PROFILE', '')
+    try:
+        mode = get_mode()
+        logger.info(f'Initializing OpenSearch client in {mode} mode')
 
-    is_serverless_mode = is_serverless(cluster_info)
+        if mode == 'single':
+            # In single mode, always use environment variables, ignore cluster name
+            return _initialize_client_single_mode()
+        elif mode == 'multi':
+            # In multi mode, cluster name must be provided
+            if not args or not args.opensearch_cluster_name:
+                raise ConfigurationError('In multi mode, opensearch_cluster_name must be provided')
+            # Get cluster information
+            cluster_info = get_cluster(args.opensearch_cluster_name)
+            if not cluster_info:
+                raise ConfigurationError(
+                    f'Cluster "{args.opensearch_cluster_name}" not found in configuration'
+                )
+
+            return _initialize_client_multi_mode(cluster_info)
+        else:
+            raise ConfigurationError(f'Unknown mode: {mode}. Must be "single" or "multi"')
+
+    except (ConfigurationError, AuthenticationError):
+        raise
+    except Exception as e:
+        logger.error(f'Unexpected error in client initialization: {e}')
+        raise ConfigurationError(f'Failed to initialize OpenSearch client: {e}')
+
+
+# Private Implementation Functions
+def _initialize_client_single_mode() -> OpenSearch:
+    """Initialize OpenSearch client for single mode using environment variables.
+
+    Single mode uses environment variables for connection, with optional header-based auth:
+    - OPENSEARCH_URL (required, or from headers if OPENSEARCH_HEADER_AUTH=true)
+    - OPENSEARCH_HEADER_AUTH: If true, prefer headers over env vars for auth
+    - OPENSEARCH_USERNAME / OPENSEARCH_PASSWORD
+    - AWS_PROFILE / AWS_REGION
+    - AWS_IAM_ARN
+    - OPENSEARCH_NO_AUTH
+    - AWS_OPENSEARCH_SERVERLESS
+    - OPENSEARCH_TIMEOUT
+
+    When OPENSEARCH_HEADER_AUTH=true, headers are preferred:
+    - opensearch-url, aws-region, aws-access-key-id, aws-secret-access-key,
+      aws-session-token, aws-service-name
+
+    Returns:
+        OpenSearch: An initialized OpenSearch client instance
+
+    Raises:
+        ConfigurationError: If required environment variables are not set
+        AuthenticationError: If authentication fails
+    """
+    try:
+        # Get connection parameters from environment variables
+        opensearch_url = os.getenv('OPENSEARCH_URL', '').strip()
+        opensearch_username = os.getenv('OPENSEARCH_USERNAME', '').strip()
+        opensearch_password = os.getenv('OPENSEARCH_PASSWORD', '').strip()
+        opensearch_no_auth = os.getenv('OPENSEARCH_NO_AUTH', '').lower() == 'true'
+        iam_arn = os.getenv('AWS_IAM_ARN', '').strip()
+        # Prefer command line argument, then environment variable
+        profile = get_profile() or os.getenv('AWS_PROFILE', '').strip()
+        is_serverless_mode = os.getenv('AWS_OPENSEARCH_SERVERLESS', '').lower() == 'true'
+        opensearch_timeout_str = os.getenv('OPENSEARCH_TIMEOUT', '').strip()
+        opensearch_timeout = int(opensearch_timeout_str) if opensearch_timeout_str else None
+        ssl_verify = os.getenv('OPENSEARCH_SSL_VERIFY', 'true').lower() != 'false'
+        aws_access_key_id = None
+        aws_secret_access_key = None
+        aws_session_token = None
+
+        # Default to region from environment
+        aws_region = get_aws_region_single_mode()
+
+        # Check if header auth is enabled and update variables accordingly
+        use_header_auth = os.getenv('OPENSEARCH_HEADER_AUTH', '').lower() == 'true'
+        if use_header_auth:
+            header_auth = _get_auth_from_headers()
+            header_url = header_auth.get('opensearch_url')
+            if header_url:
+                opensearch_url = header_url
+            header_service = header_auth.get('aws_service_name')
+            if header_service:
+                is_serverless_mode = header_service.lower() == OPENSEARCH_SERVERLESS_SERVICE
+            aws_access_key_id = header_auth.get('aws_access_key_id')
+            aws_secret_access_key = header_auth.get('aws_secret_access_key')
+            aws_session_token = header_auth.get('aws_session_token')
+            # Override region if provided in headers
+            header_region = header_auth.get('aws_region')
+            if header_region:
+                aws_region = header_region
+
+        # Validate URL after potential header override (must come from either env or headers)
+        if not opensearch_url or not opensearch_url.strip():
+            if use_header_auth:
+                raise ConfigurationError(
+                    'OPENSEARCH_URL is required. Please provide it either in request headers (opensearch-url) '
+                    'or via the OPENSEARCH_URL environment variable'
+                )
+            else:
+                raise ConfigurationError(
+                    'OPENSEARCH_URL environment variable is required but not set'
+                )
+
+        logger.info(f'Initializing single mode OpenSearch client for URL: {opensearch_url}')
+
+        # Use common client creation function
+        return _create_opensearch_client(
+            opensearch_url=opensearch_url,
+            opensearch_username=opensearch_username,
+            opensearch_password=opensearch_password,
+            opensearch_no_auth=opensearch_no_auth,
+            iam_arn=iam_arn,
+            profile=profile,
+            is_serverless_mode=is_serverless_mode,
+            opensearch_timeout=opensearch_timeout,
+            aws_region=aws_region,
+            ssl_verify=ssl_verify,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            aws_session_token=aws_session_token,
+        )
+
+    except (ConfigurationError, AuthenticationError):
+        raise
+    except Exception as e:
+        logger.error(f'Unexpected error in single mode client initialization: {e}')
+        raise ConfigurationError(f'Failed to initialize single mode client: {e}')
+
+
+def _initialize_client_multi_mode(cluster_info: ClusterInfo) -> OpenSearch:
+    """Initialize OpenSearch client for multi mode using cluster configuration.
+
+    Multi mode uses cluster configuration from the provided ClusterInfo object.
+
+    Args:
+        cluster_info: Cluster information object
+
+    Returns:
+        OpenSearch: An initialized OpenSearch client instance
+
+    Raises:
+        ConfigurationError: If cluster_info is invalid
+        AuthenticationError: If authentication fails
+    """
+    if not cluster_info:
+        raise ConfigurationError('Cluster info cannot be None for multi mode')
+    try:
+        logger.info(
+            f'Initializing multi mode OpenSearch client for cluster: {cluster_info.opensearch_url}'
+        )
+        # Extract parameters from cluster info
+        opensearch_url = cluster_info.opensearch_url
+        opensearch_username = cluster_info.opensearch_username or ''
+        opensearch_password = cluster_info.opensearch_password or ''
+        opensearch_no_auth = cluster_info.opensearch_no_auth or False
+        iam_arn = cluster_info.iam_arn or ''
+        # Prefer cluster config, then command line argument, then environment variable
+        profile = cluster_info.profile or get_profile() or os.getenv('AWS_PROFILE', '').strip()
+        is_serverless_mode = cluster_info.is_serverless or False
+        opensearch_timeout = (
+            cluster_info.timeout if cluster_info.timeout is not None else DEFAULT_TIMEOUT
+        )
+        ssl_verify = True  # Default to secure
+        if cluster_info.ssl_verify is not None:
+            ssl_verify = cluster_info.ssl_verify
+        aws_access_key_id = None
+        aws_secret_access_key = None
+        aws_session_token = None
+
+        # Default to region from cluster config
+        aws_region = get_aws_region_multi_mode(cluster_info)
+
+        # Check if header auth is enabled and update variables accordingly
+        use_header_auth = cluster_info.opensearch_header_auth or False
+        if use_header_auth:
+            header_auth = _get_auth_from_headers()
+            header_url = header_auth.get('opensearch_url')
+            if header_url:
+                opensearch_url = header_url
+            header_service = header_auth.get('aws_service_name')
+            if header_service:
+                is_serverless_mode = header_service.lower() == OPENSEARCH_SERVERLESS_SERVICE
+            aws_access_key_id = header_auth.get('aws_access_key_id')
+            aws_secret_access_key = header_auth.get('aws_secret_access_key')
+            aws_session_token = header_auth.get('aws_session_token')
+            # Override region if provided in headers
+            header_region = header_auth.get('aws_region')
+            if header_region:
+                aws_region = header_region
+
+        # Use common client creation function
+        return _create_opensearch_client(
+            opensearch_url=opensearch_url,
+            opensearch_username=opensearch_username,
+            opensearch_password=opensearch_password,
+            opensearch_no_auth=opensearch_no_auth,
+            iam_arn=iam_arn,
+            profile=profile,
+            is_serverless_mode=is_serverless_mode,
+            opensearch_timeout=opensearch_timeout,
+            aws_region=aws_region,
+            ssl_verify=ssl_verify,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            aws_session_token=aws_session_token,
+        )
+
+    except (ConfigurationError, AuthenticationError):
+        raise
+    except Exception as e:
+        logger.error(
+            f'Unexpected error in multi mode client initialization for cluster "{cluster_info.opensearch_url}": {e}'
+        )
+        raise ConfigurationError(
+            f'Failed to initialize multi mode client for cluster "{cluster_info.opensearch_url}": {e}'
+        )
+
+
+def _create_opensearch_client(
+    opensearch_url: str,
+    opensearch_username: str = '',
+    opensearch_password: str = '',
+    opensearch_no_auth: bool = False,
+    iam_arn: str = '',
+    profile: str = '',
+    is_serverless_mode: bool = False,
+    opensearch_timeout: Optional[int] = None,
+    aws_region: Optional[str] = None,
+    ssl_verify: bool = True,
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+) -> OpenSearch:
+    """Common function to create OpenSearch client with authentication.
+
+    This function handles the common authentication logic used by both
+    single mode and multi mode client initialization.
+
+    Args:
+        opensearch_url: The OpenSearch cluster URL
+        opensearch_username: Username for basic auth
+        opensearch_password: Password for basic auth
+        opensearch_no_auth: Whether to skip authentication
+        iam_arn: IAM role ARN for role-based authentication
+        profile: AWS profile name
+        is_serverless_mode: Whether this is OpenSearch Serverless
+        opensearch_timeout: Connection timeout in seconds (None uses default)
+        aws_region: AWS region for authentication
+        ssl_verify: Whether to verify SSL certificates (default: True)
+        aws_access_key_id: AWS access key ID from headers (optional)
+        aws_secret_access_key: AWS secret access key from headers (optional)
+        aws_session_token: AWS session token from headers (optional)
+
+    Returns:
+        OpenSearch: An initialized OpenSearch client instance
+
+    Raises:
+        ConfigurationError: If opensearch_url is missing or invalid
+        AuthenticationError: If authentication fails
+    """
+    # Validate inputs
+    if not opensearch_url or not opensearch_url.strip():
+        raise ConfigurationError('OpenSearch URL must be provided and cannot be empty')
+
+    opensearch_url = opensearch_url.strip()
+
+    # Validate URL format
+    try:
+        parsed_url = urlparse(opensearch_url)
+        if not parsed_url.scheme or not parsed_url.netloc:
+            raise ValueError('Invalid URL format')
+    except Exception as e:
+        raise ConfigurationError(f'Invalid OpenSearch URL format: {opensearch_url}. Error: {e}')
+
+    # Determine service name
     service_name = OPENSEARCH_SERVERLESS_SERVICE if is_serverless_mode else OPENSEARCH_SERVICE
 
     if is_serverless_mode:
-        logger.info('Using OpenSearch Serverless with service name: aoss')
+        logger.info('Initializing OpenSearch Serverless client with service name: aoss')
 
-    opensearch_timeout = (
-        cluster_info.timeout if cluster_info else os.getenv('OPENSEARCH_TIMEOUT', None)
-    )
+    # Parse timeout
+    timeout = opensearch_timeout if opensearch_timeout is not None else DEFAULT_TIMEOUT
+    if timeout <= 0:
+        logger.warning(f'Invalid timeout value {timeout}, using default {DEFAULT_TIMEOUT}')
+        timeout = DEFAULT_TIMEOUT
 
-    # Parse the OpenSearch domain URL
-    parsed_url = urlparse(opensearch_url)
-
-    # Common client configuration
+    # Build client configuration
     client_kwargs: Dict[str, Any] = {
         'hosts': [opensearch_url],
         'use_ssl': (parsed_url.scheme == 'https'),
-        'verify_certs': os.getenv('OPENSEARCH_SSL_VERIFY', 'true').lower() != 'false',
+        'verify_certs': ssl_verify,
         'connection_class': RequestsHttpConnection,
+        'timeout': timeout,
     }
 
-    if opensearch_timeout:
-        client_kwargs['timeout'] = int(opensearch_timeout)
+    # Create boto3 session
+    try:
+        session = boto3.Session(profile_name=profile) if profile else boto3.Session()
+    except Exception as e:
+        logger.warning(f"Failed to create boto3 session with profile '{profile}': {e}")
+        session = boto3.Session()
 
-    session = boto3.Session(profile_name=profile) if profile else boto3.Session()
-    aws_region = get_aws_region(cluster_info)
-    print('aws_region is', aws_region)
+    # Authentication logic with proper error handling
+    try:
+        # 1. No authentication
+        if opensearch_no_auth:
+            logger.info('[NO AUTH] Attempting connection without authentication')
+            try:
+                return OpenSearch(**client_kwargs)
+            except Exception as e:
+                logger.error(f'[NO AUTH] Failed to connect without authentication: {e}')
+                raise AuthenticationError(f'Failed to connect without authentication: {e}')
 
-    # 1. Try no authentication if explicitly enabled
-    if os.getenv('OPENSEARCH_NO_AUTH', '').lower() == 'true':
-        logger.info(
-            '[NO AUTH] Attempting connection without authentication (OPENSEARCH_NO_AUTH=true)'
-        )
+        # 2. Header-based AWS credentials authentication (highest priority when provided)
+        if aws_access_key_id and aws_secret_access_key and aws_region:
+            logger.info('[HEADER AUTH] Using AWS credentials from headers')
+            try:
+                if not aws_region or (isinstance(aws_region, str) and not aws_region.strip()):
+                    raise AuthenticationError(
+                        'AWS region is required for header-based authentication'
+                    )
+
+                aws_auth = AWS4Auth(
+                    aws_access_key_id,
+                    aws_secret_access_key,
+                    aws_region.strip(),
+                    service_name,
+                    session_token=aws_session_token,
+                )
+                client_kwargs['http_auth'] = aws_auth
+                return OpenSearch(**client_kwargs)
+            except Exception as e:
+                logger.error(f'[HEADER AUTH] Failed to authenticate with header credentials: {e}')
+                raise AuthenticationError(f'Failed to authenticate with header credentials: {e}')
+
+        # 3. IAM role authentication
+        if iam_arn and iam_arn.strip():
+            logger.info(f'[IAM AUTH] Using IAM role authentication: {iam_arn}')
+            try:
+                if not aws_region or (isinstance(aws_region, str) and not aws_region.strip()):
+                    raise AuthenticationError('AWS region is required for IAM role authentication')
+
+                sts_client = session.client('sts', region_name=aws_region)
+                assumed_role = sts_client.assume_role(
+                    RoleArn=iam_arn.strip(), RoleSessionName='OpenSearchClientSession'
+                )
+                credentials = assumed_role['Credentials']
+
+                aws_auth = AWS4Auth(
+                    credentials['AccessKeyId'],
+                    credentials['SecretAccessKey'],
+                    aws_region,
+                    service_name,
+                    session_token=credentials['SessionToken'],
+                )
+                client_kwargs['http_auth'] = aws_auth
+                return OpenSearch(**client_kwargs)
+            except Exception as e:
+                logger.error(f'[IAM AUTH] Failed to assume IAM role {iam_arn}: {e}')
+                raise AuthenticationError(f'Failed to assume IAM role {iam_arn}: {e}')
+
+        # 4. Basic authentication
+        if opensearch_username and opensearch_password:
+            logger.info(f'[BASIC AUTH] Using basic authentication for user: {opensearch_username}')
+            try:
+                client_kwargs['http_auth'] = (opensearch_username.strip(), opensearch_password)
+                return OpenSearch(**client_kwargs)
+            except Exception as e:
+                logger.error(f'[BASIC AUTH] Failed to connect with basic authentication: {e}')
+                raise AuthenticationError(f'Failed to connect with basic authentication: {e}')
+
+        # 5. AWS credentials authentication
+        logger.info('[AWS CREDS] Attempting AWS credentials authentication')
         try:
-            return OpenSearch(**client_kwargs)
-        except Exception as e:
-            logger.error(f'[NO AUTH] Failed to connect without authentication: {str(e)}')
-
-    # 2. Try IAM auth
-    if iam_arn:
-        logger.info(f'[IAM AUTH] Using IAM role authentication: {iam_arn}')
-        try:
-            if not aws_region:
-                raise RuntimeError(
-                    'AWS region not found, please specify region using `aws configure`'
+            if not aws_region or (isinstance(aws_region, str) and not aws_region.strip()):
+                raise AuthenticationError(
+                    'AWS region is required for AWS credentials authentication'
                 )
 
-            sts_client = session.client('sts', region_name=aws_region)
-            assumed_role = sts_client.assume_role(
-                RoleArn=iam_arn, RoleSessionName='OpenSearchClientSession'
-            )
-            credentials = assumed_role['Credentials']
+            credentials = session.get_credentials()
+            if not credentials:
+                raise AuthenticationError('No AWS credentials found in session')
 
-            aws_auth = AWS4Auth(
-                credentials['AccessKeyId'],
-                credentials['SecretAccessKey'],
-                aws_region,
-                service_name,
-                session_token=credentials['SessionToken'],
-            )
-            client_kwargs['http_auth'] = aws_auth
-            return OpenSearch(**client_kwargs)
-        except Exception as e:
-            logger.error(f'[IAM AUTH] Failed to assume IAM role {iam_arn}: {str(e)}')
-
-    # 3. Try basic auth
-    if opensearch_username and opensearch_password:
-        logger.info(f'[BASIC AUTH] Using basic authentication: {opensearch_username}')
-        client_kwargs['http_auth'] = (opensearch_username, opensearch_password)
-        return OpenSearch(**client_kwargs)
-
-    # 4. Try to get credentials from boto3 session
-    try:
-        logger.info(f'[AWS CREDS] Using AWS credentials authentication')
-        credentials = session.get_credentials()
-        if not aws_region:
-            raise RuntimeError('AWS region not found, please specify region using `aws configure`')
-        if credentials:
             aws_auth = AWS4Auth(
                 refreshable_credentials=credentials,
                 service=service_name,
@@ -226,26 +461,154 @@ def initialize_client_with_cluster(cluster_info: ClusterInfo | None) -> OpenSear
             )
             client_kwargs['http_auth'] = aws_auth
             return OpenSearch(**client_kwargs)
-    except (boto3.exceptions.Boto3Error, Exception) as e:
-        logger.error(f'[AWS CREDS] Failed to get AWS credentials: {str(e)}')
+        except Exception as e:
+            logger.error(f'[AWS CREDS] Failed to authenticate with AWS credentials: {e}')
+            raise AuthenticationError(f'Failed to authenticate with AWS credentials: {e}')
 
-    raise RuntimeError('No valid AWS or basic authentication provided for OpenSearch')
+    except AuthenticationError:
+        raise
+    except Exception as e:
+        logger.error(f'Unexpected error during authentication: {e}')
+        raise AuthenticationError(f'Unexpected authentication error: {e}')
+
+    # This should never be reached, but just in case
+    raise AuthenticationError('No valid authentication method provided for OpenSearch')
 
 
-def initialize_client(args: baseToolArgs) -> OpenSearch:
-    """Initialize and return an OpenSearch client based on provided arguments.
+def get_aws_region_single_mode() -> Optional[str]:
+    """Get AWS region for single mode using environment variables.
 
-    Supports two modes:
-    - Multi-cluster: When args.opensearch_cluster_name is provided
-    - Single-cluster: When no cluster name is provided (uses environment variables)
-
-    Args:
-        args (baseToolArgs): Arguments containing optional opensearch_cluster_name
+    Priority order:
+    1. AWS_REGION environment variable
+    2. Profile (command line argument, then environment variable)
+    3. Default boto3 session region
 
     Returns:
-        OpenSearch: An initialized OpenSearch client instance
+        Optional[str]: AWS region, or None if not available (acceptable for basic auth/no auth)
+
     """
-    cluster_info = None
-    if args and args.opensearch_cluster_name:
-        cluster_info = get_cluster(args.opensearch_cluster_name)
-    return initialize_client_with_cluster(cluster_info)
+    try:
+        # Try AWS_REGION first
+        aws_region = os.getenv('AWS_REGION', '').strip()
+        if aws_region:
+            logger.debug(f'Using AWS_REGION: {aws_region}')
+            return aws_region
+
+        # Try command line argument, then environment variable
+        aws_profile = get_profile() or os.getenv('AWS_PROFILE', '').strip()
+        if aws_profile:
+            try:
+                session = boto3.Session(profile_name=aws_profile)
+                region = session.region_name
+                if region:
+                    logger.debug(f"Using region from AWS_PROFILE '{aws_profile}': {region}")
+                    return region
+            except Exception as e:
+                logger.warning(f"Failed to get region from AWS_PROFILE '{aws_profile}': {e}")
+
+        # Fall back to default session
+        try:
+            session = boto3.Session()
+            region = session.region_name
+            if region:
+                logger.debug(f'Using default boto3 session region: {region}')
+                return region
+        except Exception as e:
+            logger.warning(f'Failed to get region from default boto3 session: {e}')
+
+        # Return None if region cannot be determined
+        logger.debug('No AWS region found, but this may be acceptable for basic auth or no auth')
+        return None
+
+    except Exception as e:
+        logger.error(f'Unexpected error getting AWS region for single mode: {e}')
+        return None
+
+
+def get_aws_region_multi_mode(cluster_info: ClusterInfo) -> Optional[str]:
+    """Get AWS region for multi mode using cluster configuration.
+
+    Priority order:
+    1. cluster_info.aws_region
+    2. Region from cluster_info.profile
+    3. AWS_REGION environment variable
+    4. Profile (command line argument, then environment variable)
+    5. Default boto3 session region
+
+    Args:
+        cluster_info: Cluster information
+
+    Returns:
+        Optional[str]: AWS region, or None if not available (acceptable for basic auth/no auth)
+
+    """
+
+    try:
+        # Try cluster-specific region first
+        if cluster_info.aws_region and cluster_info.aws_region.strip():
+            logger.debug(f'Using cluster-specific AWS region: {cluster_info.aws_region}')
+            return cluster_info.aws_region.strip()
+
+        # Try cluster-specific profile
+        if cluster_info.profile and cluster_info.profile.strip():
+            try:
+                session = boto3.Session(profile_name=cluster_info.profile)
+                region = session.region_name
+                if region:
+                    logger.debug(
+                        f"Using region from cluster profile '{cluster_info.profile}': {region}"
+                    )
+                    return region
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get region from cluster profile '{cluster_info.profile}': {e}"
+                )
+
+        # Fall back to environment variables (same as single mode)
+        return get_aws_region_single_mode()
+
+    except Exception as e:
+        logger.error(f'Unexpected error getting AWS region for multi mode: {e}')
+        raise ConfigurationError(f"Failed to get AWS region for cluster '{cluster_info}': {e}")
+
+
+def _get_auth_from_headers() -> Dict[str, Optional[str]]:
+    """Extract authentication parameters from request headers.
+
+    Returns:
+        Dict containing:
+        - opensearch_url: OpenSearch cluster URL
+        - aws_region: AWS region
+        - aws_access_key_id: AWS access key ID
+        - aws_secret_access_key: AWS secret access key
+        - aws_session_token: AWS session token
+        - aws_service_name: AWS service name (es or aoss)
+        All values are None if headers are not available or not set.
+    """
+    result: Dict[str, Optional[str]] = {
+        'opensearch_url': None,
+        'aws_region': None,
+        'aws_access_key_id': None,
+        'aws_secret_access_key': None,
+        'aws_session_token': None,
+        'aws_service_name': None,
+    }
+
+    try:
+        request_context = request_ctx.get()
+        if request_context and hasattr(request_context, 'request'):
+            request = request_context.request
+            if request and isinstance(request, Request):
+                headers = dict(request.headers)
+                result['opensearch_url'] = headers.get('opensearch-url', '').strip() or None
+                result['aws_region'] = headers.get('aws-region', '').strip() or None
+                result['aws_access_key_id'] = headers.get('aws-access-key-id', '').strip() or None
+                result['aws_secret_access_key'] = (
+                    headers.get('aws-secret-access-key', '').strip() or None
+                )
+                result['aws_session_token'] = headers.get('aws-session-token', '').strip() or None
+                result['aws_service_name'] = headers.get('aws-service-name', '').strip() or None
+    except Exception as e:
+        logger.debug(f'Could not read headers from request context: {e}')
+
+    return result

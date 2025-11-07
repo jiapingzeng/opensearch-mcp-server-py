@@ -6,6 +6,7 @@ Simple test script for the GenericOpenSearchApiTool
 import asyncio
 import sys
 import os
+import pytest
 
 # Add the src directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
@@ -13,6 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 from tools.generic_api_tool import GenericOpenSearchApiArgs, generic_opensearch_api_tool
 
 
+@pytest.mark.asyncio
 async def test_generic_tool():
     """Test the generic OpenSearch API tool with a simple cluster health check."""
 

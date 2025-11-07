@@ -6,6 +6,7 @@
 
 # VSCode files
 .vscode/
+pyrightconfig.json
 
 # Coverage output
 .coverage

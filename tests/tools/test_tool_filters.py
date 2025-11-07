@@ -79,6 +79,13 @@ class TestIsToolCompatible:
 class TestGetTools:
     """Test cases for the get_tools function."""
 
+    def setup_method(self):
+        """Setup before each test method."""
+        # Set global mode for tests
+        from mcp_server_opensearch.global_state import set_mode
+
+        set_mode('single')
+
     @pytest.fixture
     def mock_tool_registry(self):
         """Return a deep copy of the mock tool registry for isolation."""
@@ -95,7 +102,11 @@ class TestGetTools:
 
     def test_get_tools_multi_mode_returns_all_tools(self, mock_tool_registry):
         """Test that multi mode returns all tools with base fields intact."""
-        result = get_tools(mock_tool_registry, mode='multi')
+        from mcp_server_opensearch.global_state import set_mode
+
+        set_mode('multi')  # Set mode to multi for this test
+
+        result = get_tools(mock_tool_registry)
         assert result == mock_tool_registry
         assert 'param1' in result['ListIndexTool']['input_schema']['properties']
         assert 'opensearch_cluster_name' in result['SearchIndexTool']['input_schema']['properties']
@@ -117,7 +128,7 @@ class TestGetTools:
         # Patch TOOL_REGISTRY to use our mock registry
         with patch('tools.tool_filter.TOOL_REGISTRY', mock_tool_registry):
             # Call get_tools in single mode
-            result = get_tools(mock_tool_registry, mode='single')
+            result = get_tools(mock_tool_registry)
 
             # Assertions
             assert 'ListIndexTool' in result
@@ -142,7 +153,7 @@ class TestGetTools:
         # Patch TOOL_REGISTRY to use our mock registry
         with patch('tools.tool_filter.TOOL_REGISTRY', mock_tool_registry):
             # Call get_tools in single mode with serverless environment
-            result = get_tools(mock_tool_registry, mode='single')
+            result = get_tools(mock_tool_registry)
 
             # is_tool_compatible should be called with None version, and should return True for serverless
             mock_is_compatible.assert_called()
@@ -177,7 +188,7 @@ class TestGetTools:
         # Patch TOOL_REGISTRY to use our test tool registry
         with patch('tools.tool_filter.TOOL_REGISTRY', tool_without_properties):
             # Call get_tools in single mode - should not raise error
-            result = get_tools(tool_without_properties, mode='single')
+            result = get_tools(tool_without_properties)
             assert 'ListIndexTool' in result
             assert 'properties' not in result['ListIndexTool']['input_schema']
 
@@ -207,7 +218,7 @@ class TestGetTools:
         with patch('tools.tool_filter.TOOL_REGISTRY', mock_tool_registry):
             # Call get_tools in single mode with logging capture
             with caplog.at_level('INFO'):
-                get_tools(mock_tool_registry, mode='single')
+                get_tools(mock_tool_registry)
                 assert 'Connected OpenSearch version: 2.5.0' in caplog.text
 
 
@@ -513,7 +524,7 @@ class TestAllowWriteSettings:
             patch('tools.tool_filter.process_tool_filter'),
             patch('tools.tool_filter.is_tool_compatible', return_value=True),
         ):
-            get_tools(mock_tool_registry, mode='single', config_file_path='/path/to/config.yml')
+            get_tools(mock_tool_registry, config_file_path='/path/to/config.yml')
 
             mock_resolve.assert_called_once_with('/path/to/config.yml')
             mock_set.assert_called_once_with(False)

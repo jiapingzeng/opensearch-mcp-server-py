@@ -16,6 +16,9 @@ def patch_opensearch_version():
     with (
         patch('opensearch.helper.get_opensearch_version', return_value='2.9.0'),
         patch('opensearch.client.initialize_client', return_value=Mock()),
+        # Mock circular import dependencies
+        patch('tools.tool_params.baseToolArgs', Mock()),
+        patch('mcp_server_opensearch.global_state.get_mode', return_value='single'),
     ):
         yield
 
@@ -65,7 +68,6 @@ class TestMCPServer:
         mock_apply_config.assert_called_once_with(ANY, 'some/path', {'key': 'val'})
         mock_get_tools.assert_called_once_with(
             tool_registry=mock_tool_registry,
-            mode='single',
             config_file_path='some/path',
         )
 

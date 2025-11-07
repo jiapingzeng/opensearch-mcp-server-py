@@ -15,7 +15,7 @@
 
 ## Overview
 
-The OpenSearch MCP (Model Context Protocol) Server Python provides a bridge between AI agents and OpenSearch clusters. It supports both single-cluster and multi-cluster configurations with various authentication methods including IAM roles, basic authentication, and AWS credentials.
+The OpenSearch MCP (Model Context Protocol) Server provides a bridge between AI agents and OpenSearch clusters. It supports both single-cluster and multi-cluster configurations with various authentication methods including IAM roles, basic authentication, AWS credentials, and header-based authentication.
 The server can be started in both STDIO and streaming modes.
 
 ### Streaming Server
@@ -215,10 +215,13 @@ The LLM should choose the appropriate cluster based on the operation context (e.
 ### Authentication Methods
 
 The server supports multiple authentication methods with the following priority order:
-1. **No Authentication** (only if `OPENSEARCH_NO_AUTH=true` environment variable is set)
-2. **IAM Role Authentication**
-3. **Basic Authentication**
-4. **AWS Credentials Authentication**
+1. **No Authentication** (only if `OPENSEARCH_NO_AUTH=true` environment variable is set, or `opensearch_no_auth: true` in multi mode config)
+2. **Header-Based Authentication** (only if `OPENSEARCH_HEADER_AUTH=true` environment variable is set in single mode, or `opensearch_header_auth: true` in multi mode config)
+3. **IAM Role Authentication**
+4. **Basic Authentication**
+5. **AWS Credentials Authentication**
+
+**Note:** In multi mode, both `opensearch_no_auth` and `opensearch_header_auth` can be configured per-cluster in the YAML configuration file.
 
 ### Single Mode Authentication
 
@@ -227,6 +230,25 @@ The server supports multiple authentication methods with the following priority 
 export OPENSEARCH_URL="<your_opensearch_domain_url>"
 export OPENSEARCH_NO_AUTH="true"
 ```
+
+#### Header-Based Authentication
+
+Header-based authentication allows you to provide authentication credentials via HTTP request headers. This is useful for dynamic authentication scenarios, especially when using the streaming server transport.
+
+**Enable header-based authentication:**
+```bash
+export OPENSEARCH_HEADER_AUTH="true"
+```
+
+**Headers when making requests:**
+- `opensearch-url`: OpenSearch cluster endpoint URL (if not set via env var)
+- `aws-region`: AWS region
+- `aws-access-key-id`: AWS access key ID
+- `aws-secret-access-key`: AWS secret access key
+- `aws-session-token`: AWS session token (for temporary credentials)
+- `aws-service-name`: AWS service name - `es` for OpenSearch or `aoss` for OpenSearch Serverless (defaults to `es`)
+
+**Note:** When `OPENSEARCH_HEADER_AUTH=true` (single mode) or `opensearch_header_auth: true` (multi mode), headers take priority over environment variables or cluster configuration values. If a header is not provided, the system falls back to the corresponding environment variable (single mode) or cluster configuration value (multi mode).
 
 #### IAM Role Authentication
 ```bash
@@ -298,6 +320,11 @@ clusters:
     aws_region: "us-east-1"
     profile: "your-aws-profile"
     is_serverless: true
+
+  # Header-Based Authentication
+  header-auth-cluster:
+    opensearch_header_auth: true
+    # When opensearch_header_auth is true, headers take priority over config values
 ```
 
 #### Authentication Methods in Multi Mode:
@@ -306,14 +333,21 @@ clusters:
    - Requires: `opensearch_url`, `opensearch_no_auth: true`
    - For OpenSearch clusters that allow anonymous access without authentication
 
-2. **IAM Role Authentication:**
+2. **Header-Based Authentication:**
+   - Requires: `opensearch_url`, `opensearch_header_auth: true`
+   - **Process**: When enabled, authentication parameters are read from HTTP request headers
+   - **Headers**: `opensearch-url`, `aws-region`, `aws-access-key-id`, `aws-secret-access-key`, `aws-session-token` (optional), `aws-service-name` (optional)
+   - **Priority**: Headers take priority over cluster configuration values
+   - **Use Case**: Useful for dynamic authentication in streaming/server environments where credentials are provided per-request
+
+3. **IAM Role Authentication:**
    - Requires: `opensearch_url`, `iam_arn`, `aws_region`, `profile` (optional)
    - **Process**: The server assumes the specified IAM role using AWS STS and then connects to the cluster using those temporary credentials
 
-3. **Basic Authentication:**
+4. **Basic Authentication:**
    - Requires: `opensearch_url`, `opensearch_username`, `opensearch_password`
 
-4. **AWS Credentials Authentication:**
+5. **AWS Credentials Authentication:**
    - Requires: `opensearch_url`, `profile` (optional)
    - Uses AWS credentials from the specified profile or default credentials
 
@@ -398,6 +432,7 @@ python -m mcp_server_opensearch --mode multi
 | `AWS_PROFILE` | No | `''` | AWS profile name |
 | `AWS_OPENSEARCH_SERVERLESS` | No | `''` | Set to `"true"` for OpenSearch Serverless |
 | `OPENSEARCH_NO_AUTH` | No | `''` | Set to `"true"` to connect without authentication |
+| `OPENSEARCH_HEADER_AUTH` | No | `''` | Set to `"true"` to enable header-based authentication (headers take priority over env vars) |
 | `OPENSEARCH_TIMEOUT` | No | `''` | Connection timeout in seconds for OpenSearch operations |
 
 ### SSL & Security Variables
@@ -435,6 +470,7 @@ When using multi-mode, each cluster in your YAML configuration file accepts the 
 | `profile` | string | No | AWS profile name |
 | `is_serverless` | boolean | No | Set to `true` for OpenSearch Serverless |
 | `opensearch_no_auth` | boolean | No | Set to `true` to connect without authentication |
+| `opensearch_header_auth` | boolean | No | Set to `true` to enable header-based authentication (headers take priority over config values) |
 | `timeout` | integer | No | Connection timeout in seconds for OpenSearch operations |
 
 *Required for respective authentication method (basic auth, IAM role, or AWS credentials)
@@ -444,8 +480,9 @@ When using multi-mode, each cluster in your YAML configuration file accepts the 
 | Authentication Method | Required Parameters | Optional Parameters |
 |----------------------|-------------------|-------------------|
 | **No Authentication** | `opensearch_url` | `opensearch_no_auth: true` |
-| **Basic Authentication** | `opensearch_url`, `opensearch_username`, `opensearch_password` | `profile` |
+| **Header-Based Authentication** | `opensearch_header_auth: true`, Required from header/config/env: `opensearch_url`, `aws-region`, `aws-access-key-id`, `aws-secret-access-key` | `aws-session-token`, `aws-service-name` |
 | **IAM Role Authentication** | `opensearch_url`, `iam_arn`, `aws_region` | `profile` |
+| **Basic Authentication** | `opensearch_url`, `opensearch_username`, `opensearch_password` | `profile` |
 | **AWS Credentials Authentication** | `opensearch_url` | `aws_region`, `profile` |
 | **OpenSearch Serverless** | `opensearch_url`, `aws_region` | `profile`, `is_serverless: true` |
 
