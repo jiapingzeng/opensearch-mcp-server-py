@@ -100,18 +100,20 @@ class TestGetTools:
         ):
             yield mock_get_version, mock_is_compatible
 
-    def test_get_tools_multi_mode_returns_all_tools(self, mock_tool_registry):
+    @pytest.mark.asyncio
+    async def test_get_tools_multi_mode_returns_all_tools(self, mock_tool_registry):
         """Test that multi mode returns all tools with base fields intact."""
         from mcp_server_opensearch.global_state import set_mode
 
         set_mode('multi')  # Set mode to multi for this test
 
-        result = get_tools(mock_tool_registry)
+        result = await get_tools(mock_tool_registry)
         assert result == mock_tool_registry
         assert 'param1' in result['ListIndexTool']['input_schema']['properties']
         assert 'opensearch_cluster_name' in result['SearchIndexTool']['input_schema']['properties']
 
-    def test_get_tools_single_mode_filters_and_removes_base_fields(
+    @pytest.mark.asyncio
+    async def test_get_tools_single_mode_filters_and_removes_base_fields(
         self, mock_tool_registry, mock_patches
     ):
         """Test that single mode filters by version AND removes base fields."""
@@ -128,7 +130,7 @@ class TestGetTools:
         # Patch TOOL_REGISTRY to use our mock registry
         with patch('tools.tool_filter.TOOL_REGISTRY', mock_tool_registry):
             # Call get_tools in single mode
-            result = get_tools(mock_tool_registry)
+            result = await get_tools(mock_tool_registry)
 
             # Assertions
             assert 'ListIndexTool' in result
@@ -139,8 +141,9 @@ class TestGetTools:
                 not in result['ListIndexTool']['input_schema']['properties']
             )
 
+    @pytest.mark.asyncio
     @patch.dict('os.environ', {'AWS_OPENSEARCH_SERVERLESS': 'true'})
-    def test_get_tools_single_mode_serverless_passes_compatibility_check(
+    async def test_get_tools_single_mode_serverless_passes_compatibility_check(
         self, mock_tool_registry, mock_patches
     ):
         """Test that serverless mode passes version compatibility checks."""
@@ -153,7 +156,7 @@ class TestGetTools:
         # Patch TOOL_REGISTRY to use our mock registry
         with patch('tools.tool_filter.TOOL_REGISTRY', mock_tool_registry):
             # Call get_tools in single mode with serverless environment
-            result = get_tools(mock_tool_registry)
+            result = await get_tools(mock_tool_registry)
 
             # is_tool_compatible should be called with None version, and should return True for serverless
             mock_is_compatible.assert_called()
@@ -166,7 +169,8 @@ class TestGetTools:
             assert 'ListIndexTool' in result
             assert 'SearchIndexTool' in result
 
-    def test_get_tools_single_mode_handles_missing_properties(self, mock_patches):
+    @pytest.mark.asyncio
+    async def test_get_tools_single_mode_handles_missing_properties(self, mock_patches):
         """Test that single mode handles schemas without properties field."""
         mock_get_version, mock_is_compatible = mock_patches
 
@@ -188,11 +192,12 @@ class TestGetTools:
         # Patch TOOL_REGISTRY to use our test tool registry
         with patch('tools.tool_filter.TOOL_REGISTRY', tool_without_properties):
             # Call get_tools in single mode - should not raise error
-            result = get_tools(tool_without_properties)
+            result = await get_tools(tool_without_properties)
             assert 'ListIndexTool' in result
             assert 'properties' not in result['ListIndexTool']['input_schema']
 
-    def test_get_tools_default_mode_is_single(self, mock_tool_registry, mock_patches):
+    @pytest.mark.asyncio
+    async def test_get_tools_default_mode_is_single(self, mock_tool_registry, mock_patches):
         """Test that get_tools defaults to single mode."""
         mock_get_version, mock_is_compatible = mock_patches
 
@@ -202,13 +207,14 @@ class TestGetTools:
         # Patch TOOL_REGISTRY to use our mock registry
         with patch('tools.tool_filter.TOOL_REGISTRY', mock_tool_registry):
             # Call get_tools without specifying mode
-            result = get_tools(mock_tool_registry)
+            result = await get_tools(mock_tool_registry)
             assert (
                 'opensearch_cluster_name'
                 not in result['SearchIndexTool']['input_schema']['properties']
             )
 
-    def test_get_tools_logs_version_info(self, mock_tool_registry, mock_patches, caplog):
+    @pytest.mark.asyncio
+    async def test_get_tools_logs_version_info(self, mock_tool_registry, mock_patches, caplog):
         """Test that get_tools logs version information in single mode."""
         mock_get_version, mock_is_compatible = mock_patches
         mock_get_version.return_value = Version.parse('2.5.0')
@@ -218,7 +224,7 @@ class TestGetTools:
         with patch('tools.tool_filter.TOOL_REGISTRY', mock_tool_registry):
             # Call get_tools in single mode with logging capture
             with caplog.at_level('INFO'):
-                get_tools(mock_tool_registry)
+                await get_tools(mock_tool_registry)
                 assert 'Connected OpenSearch version: 2.5.0' in caplog.text
 
 
@@ -502,7 +508,8 @@ class TestAllowWriteSettings:
 
     @patch('tools.tool_filter._resolve_allow_write_setting')
     @patch('tools.tool_filter.set_allow_write_setting')
-    def test_get_tools_calls_resolve_and_set_allow_write(self, mock_set, mock_resolve):
+    @pytest.mark.asyncio
+    async def test_get_tools_calls_resolve_and_set_allow_write(self, mock_set, mock_resolve):
         """Test that get_tools calls _resolve_allow_write_setting and set_allow_write_setting."""
         from tools.tool_filter import get_tools
 
@@ -524,7 +531,7 @@ class TestAllowWriteSettings:
             patch('tools.tool_filter.process_tool_filter'),
             patch('tools.tool_filter.is_tool_compatible', return_value=True),
         ):
-            get_tools(mock_tool_registry, config_file_path='/path/to/config.yml')
+            await get_tools(mock_tool_registry, config_file_path='/path/to/config.yml')
 
             mock_resolve.assert_called_once_with('/path/to/config.yml')
             mock_set.assert_called_once_with(False)

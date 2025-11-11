@@ -12,15 +12,15 @@ logger = logging.getLogger(__name__)
 
 # List all the helper functions, these functions perform a single rest call to opensearch
 # these functions will be used in tools folder to eventually write more complex tools
-def list_indices(args: ListIndicesArgs) -> json:
+async def list_indices(args: ListIndicesArgs) -> json:
     from .client import initialize_client
 
     client = initialize_client(args)
-    response = client.cat.indices(format='json')
+    response = await client.cat.indices(format='json')
     return response
 
 
-def get_index(args: ListIndicesArgs) -> json:
+async def get_index(args: ListIndicesArgs) -> json:
     """Get detailed information about a specific index.
 
     Args:
@@ -32,35 +32,35 @@ def get_index(args: ListIndicesArgs) -> json:
     from .client import initialize_client
 
     client = initialize_client(args)
-    response = client.indices.get(index=args.index)
+    response = await client.indices.get(index=args.index)
     return response
 
 
-def get_index_mapping(args: GetIndexMappingArgs) -> json:
+async def get_index_mapping(args: GetIndexMappingArgs) -> json:
     from .client import initialize_client
 
     client = initialize_client(args)
-    response = client.indices.get_mapping(index=args.index)
+    response = await client.indices.get_mapping(index=args.index)
     return response
 
 
-def search_index(args: SearchIndexArgs) -> json:
+async def search_index(args: SearchIndexArgs) -> json:
     from .client import initialize_client
 
     client = initialize_client(args)
-    response = client.search(index=args.index, body=args.query)
+    response = await client.search(index=args.index, body=args.query)
     return response
 
 
-def get_shards(args: GetShardsArgs) -> json:
+async def get_shards(args: GetShardsArgs) -> json:
     from .client import initialize_client
 
     client = initialize_client(args)
-    response = client.cat.shards(index=args.index, format='json')
+    response = await client.cat.shards(index=args.index, format='json')
     return response
 
 
-def get_segments(args: GetSegmentsArgs) -> json:
+async def get_segments(args: GetSegmentsArgs) -> json:
     """Get information about Lucene segments in indices.
 
     Args:
@@ -76,11 +76,11 @@ def get_segments(args: GetSegmentsArgs) -> json:
     # If index is provided, filter by that index
     index_param = args.index if args.index else None
 
-    response = client.cat.segments(index=index_param, format='json')
+    response = await client.cat.segments(index=index_param, format='json')
     return response
 
 
-def get_cluster_state(args: GetClusterStateArgs) -> json:
+async def get_cluster_state(args: GetClusterStateArgs) -> json:
     """Get the current state of the cluster.
 
     Args:
@@ -100,11 +100,11 @@ def get_cluster_state(args: GetClusterStateArgs) -> json:
     if args.index:
         params['index'] = args.index
 
-    response = client.cluster.state(**params)
+    response = await client.cluster.state(**params)
     return response
 
 
-def get_nodes(args: CatNodesArgs) -> json:
+async def get_nodes(args: CatNodesArgs) -> json:
     """Get information about nodes in the cluster.
 
     Args:
@@ -120,11 +120,11 @@ def get_nodes(args: CatNodesArgs) -> json:
     # If metrics is provided, use it as a parameter
     metrics_param = args.metrics if args.metrics else None
 
-    response = client.cat.nodes(format='json', h=metrics_param)
+    response = await client.cat.nodes(format='json', h=metrics_param)
     return response
 
 
-def get_index_info(args: GetIndexInfoArgs) -> json:
+async def get_index_info(args: GetIndexInfoArgs) -> json:
     """Get detailed information about an index including mappings, settings, and aliases.
 
     Args:
@@ -136,11 +136,11 @@ def get_index_info(args: GetIndexInfoArgs) -> json:
     from .client import initialize_client
 
     client = initialize_client(args)
-    response = client.indices.get(index=args.index)
+    response = await client.indices.get(index=args.index)
     return response
 
 
-def get_index_stats(args: GetIndexStatsArgs) -> json:
+async def get_index_stats(args: GetIndexStatsArgs) -> json:
     """Get statistics about an index.
 
     Args:
@@ -158,11 +158,11 @@ def get_index_stats(args: GetIndexStatsArgs) -> json:
     if args.metric:
         params['metric'] = args.metric
 
-    response = client.indices.stats(index=args.index, **params)
+    response = await client.indices.stats(index=args.index, **params)
     return response
 
 
-def get_query_insights(args: GetQueryInsightsArgs) -> json:
+async def get_query_insights(args: GetQueryInsightsArgs) -> json:
     """Get insights about top queries in the cluster.
 
     Args:
@@ -177,12 +177,12 @@ def get_query_insights(args: GetQueryInsightsArgs) -> json:
 
     # Use the transport.perform_request method to make a direct REST API call
     # since the Python client might not have a dedicated method for this endpoint
-    response = client.transport.perform_request(method='GET', url='/_insights/top_queries')
+    response = await client.transport.perform_request(method='GET', url='/_insights/top_queries')
 
     return response
 
 
-def get_nodes_hot_threads(args: GetNodesHotThreadsArgs) -> str:
+async def get_nodes_hot_threads(args: GetNodesHotThreadsArgs) -> str:
     """Get information about hot threads in the cluster nodes.
 
     Args:
@@ -197,12 +197,12 @@ def get_nodes_hot_threads(args: GetNodesHotThreadsArgs) -> str:
 
     # Use the transport.perform_request method to make a direct REST API call
     # The hot_threads API returns text, not JSON
-    response = client.transport.perform_request(method='GET', url='/_nodes/hot_threads')
+    response = await client.transport.perform_request(method='GET', url='/_nodes/hot_threads')
 
     return response
 
 
-def get_allocation(args: GetAllocationArgs) -> json:
+async def get_allocation(args: GetAllocationArgs) -> json:
     """Get information about shard allocation across nodes in the cluster.
 
     Args:
@@ -216,12 +216,12 @@ def get_allocation(args: GetAllocationArgs) -> json:
     client = initialize_client(args)
 
     # Use the cat.allocation method with JSON format
-    response = client.cat.allocation(format='json')
+    response = await client.cat.allocation(format='json')
 
     return response
 
 
-def get_long_running_tasks(args: GetLongRunningTasksArgs) -> json:
+async def get_long_running_tasks(args: GetLongRunningTasksArgs) -> json:
     """Get information about long-running tasks in the cluster, sorted by running time.
 
     Args:
@@ -236,7 +236,7 @@ def get_long_running_tasks(args: GetLongRunningTasksArgs) -> json:
 
     # Use the transport.perform_request method to make a direct REST API call
     # since we need to sort by running_time which might not be directly supported by the client
-    response = client.transport.perform_request(
+    response = await client.transport.perform_request(
         method='GET',
         url='/_cat/tasks',
         params={
@@ -252,7 +252,7 @@ def get_long_running_tasks(args: GetLongRunningTasksArgs) -> json:
     return response
 
 
-def get_nodes_info(args: GetNodesArgs) -> json:
+async def get_nodes_info(args: GetNodesArgs) -> json:
     """Get detailed information about nodes in the cluster.
 
     Args:
@@ -279,12 +279,12 @@ def get_nodes_info(args: GetNodesArgs) -> json:
     url = '/'.join(url_parts)
 
     # Use the transport.perform_request method to make a direct REST API call
-    response = client.transport.perform_request(method='GET', url=url)
+    response = await client.transport.perform_request(method='GET', url=url)
 
     return response
 
 
-def get_opensearch_version(args: baseToolArgs) -> Version:
+async def get_opensearch_version(args: baseToolArgs) -> Version:
     """Get the version of OpenSearch cluster.
 
     Returns:
@@ -294,7 +294,7 @@ def get_opensearch_version(args: baseToolArgs) -> Version:
 
     try:
         client = initialize_client(args)
-        response = client.info()
+        response = await client.info()
         return Version.parse(response['version']['number'])
     except Exception as e:
         logger.error(f'Error getting OpenSearch version: {e}')

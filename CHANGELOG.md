@@ -9,6 +9,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - Add header-based authentication + Code Clean up ([#117](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/117))
 
 ### Fixed
+- Fix Concurrency: Use Async OpenSearch client to improve concurrency ([#125](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/125))
 
 ### Removed
 

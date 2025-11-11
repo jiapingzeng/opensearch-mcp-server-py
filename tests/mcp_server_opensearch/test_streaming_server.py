@@ -10,14 +10,18 @@ from unittest.mock import AsyncMock, Mock, patch, MagicMock, ANY
 @pytest.fixture(autouse=True)
 def patch_opensearch_version():
     """Mock OpenSearch client and version check."""
+    from unittest.mock import AsyncMock
+    from semver import Version
+
     mock_client = Mock()
-    mock_client.info.return_value = {'version': {'number': '3.0.0'}}
+    mock_client.info = AsyncMock(return_value={'version': {'number': '3.0.0'}})
+
+    async def mock_get_version(*args, **kwargs):
+        return Version.parse('2.9.0')
 
     with (
-        patch('opensearch.helper.get_opensearch_version', return_value='2.9.0'),
-        patch('opensearch.client.initialize_client', return_value=Mock()),
-        # Mock circular import dependencies
-        patch('tools.tool_params.baseToolArgs', Mock()),
+        patch('opensearch.helper.get_opensearch_version', side_effect=mock_get_version),
+        patch('opensearch.client.initialize_client', return_value=mock_client),
         patch('mcp_server_opensearch.global_state.get_mode', return_value='single'),
     ):
         yield
@@ -142,13 +146,20 @@ class TestMCPStarletteApp:
 
         # Mock dependencies
         with (
-            patch('mcp_server_opensearch.streaming_server.get_tools', return_value={}),
+            patch(
+                'mcp_server_opensearch.streaming_server.get_tools',
+                new_callable=AsyncMock,
+                return_value={},
+            ),
             patch(
                 'mcp_server_opensearch.streaming_server.generate_tools_from_openapi',
+                new_callable=AsyncMock,
                 return_value=None,
             ),
             patch(
-                'mcp_server_opensearch.streaming_server.load_clusters_from_yaml', return_value=None
+                'mcp_server_opensearch.streaming_server.load_clusters_from_yaml',
+                new_callable=AsyncMock,
+                return_value=None,
             ),
         ):
             server = await create_mcp_server()
@@ -157,7 +168,7 @@ class TestMCPStarletteApp:
     def test_create_app(self, app_handler):
         """Test Starlette application creation and configuration."""
         app = app_handler.create_app()
-        assert len(app.routes) == 4
+        assert len(app.routes) == 5
 
         # Check routes
         assert app.routes[0].path == '/sse'

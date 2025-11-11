@@ -141,7 +141,7 @@ async def generic_opensearch_api_tool(args: GenericOpenSearchApiArgs) -> list[di
 
         # Make the API request using the transport layer
         logger.info(f'Making {method} request to {url}')
-        response = client.transport.perform_request(**request_params)
+        response = await client.transport.perform_request(**request_params)
 
         # Format the response
         if isinstance(response, str):

@@ -292,7 +292,7 @@ def process_tool_filter(
         logging.error(f'Error processing tool filter: {str(e)}')
 
 
-def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
+async def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
     """Filter and return available tools based on server mode and OpenSearch version.
 
     In 'multi' mode, returns all tools without filtering. In 'single' mode, filters tools
@@ -320,7 +320,7 @@ def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
     enabled = {}
 
     # Get OpenSearch version for compatibility checking (only in single mode)
-    version = get_opensearch_version(baseToolArgs(opensearch_cluster_name=''))
+    version = await get_opensearch_version(baseToolArgs(opensearch_cluster_name=''))
     logging.info(f'Connected OpenSearch version: {version}')
 
     env_config = {

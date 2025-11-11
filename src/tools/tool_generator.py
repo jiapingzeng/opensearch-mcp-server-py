@@ -249,7 +249,7 @@ def generate_tool_from_group(base_name: str, endpoints: List[Dict]) -> Dict[str,
                         type='text', text=f'Error initializing OpenSearch client: {str(e)}'
                     )
                 ]
-            check_tool_compatibility(tool_name, args)
+            await check_tool_compatibility(tool_name, args)
             # Process body and select endpoint
             body = process_body(params_dict.pop('body', None), tool_name)
             selected_endpoint = select_endpoint(endpoints, params_dict)
@@ -266,7 +266,7 @@ def generate_tool_from_group(base_name: str, endpoints: List[Dict]) -> Dict[str,
             api_path = f'/{formatted_path.lstrip("/")}'  # Ensure path starts with /
 
             # Execute the OpenSearch API request
-            response = request_client.transport.perform_request(
+            response = await request_client.transport.perform_request(
                 method=method, url=api_path, params=params_dict, body=body
             )
 

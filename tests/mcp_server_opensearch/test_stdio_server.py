@@ -29,12 +29,19 @@ MOCK_TOOL_REGISTRY = {
 @pytest.fixture(autouse=True)
 def patch_opensearch_version():
     """Mock OpenSearch client and version check."""
+    from unittest.mock import AsyncMock
+
     mock_client = Mock()
-    mock_client.info.return_value = {'version': {'number': '3.0.0'}}
+    mock_client.info = AsyncMock(return_value={'version': {'number': '3.0.0'}})
+
+    async def mock_get_version(*args, **kwargs):
+        from semver import Version
+
+        return Version.parse('2.9.0')
 
     with (
-        patch('opensearch.helper.get_opensearch_version', return_value='2.9.0'),
-        patch('opensearch.client.initialize_client', return_value=Mock()),
+        patch('opensearch.helper.get_opensearch_version', side_effect=mock_get_version),
+        patch('opensearch.client.initialize_client', return_value=mock_client),
     ):
         yield
 
@@ -42,8 +49,13 @@ def patch_opensearch_version():
 @pytest.fixture(autouse=True)
 def mock_generate_tools():
     """Mock the generate_tools_from_openapi function."""
+
+    async def mock_gen_tools():
+        return None
+
     with patch(
-        'mcp_server_opensearch.stdio_server.generate_tools_from_openapi', return_value=None
+        'mcp_server_opensearch.stdio_server.generate_tools_from_openapi',
+        side_effect=mock_gen_tools,
     ):
         yield
 
@@ -85,9 +97,13 @@ def mock_stdio():
 @pytest.fixture
 def mock_tool_registry():
     """Replace the tool registry with test data."""
+
+    async def mock_get_tools(*args, **kwargs):
+        return MOCK_TOOL_REGISTRY
+
     with patch(
         'mcp_server_opensearch.stdio_server.get_tools',
-        return_value=MOCK_TOOL_REGISTRY,
+        side_effect=mock_get_tools,
     ):
         yield MOCK_TOOL_REGISTRY
 

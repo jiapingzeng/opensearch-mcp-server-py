@@ -40,8 +40,8 @@ from opensearch.helper import (
 )
 
 
-def check_tool_compatibility(tool_name: str, args: baseToolArgs = None):
-    opensearch_version = get_opensearch_version(args)
+async def check_tool_compatibility(tool_name: str, args: baseToolArgs = None):
+    opensearch_version = await get_opensearch_version(args)
     if not is_tool_compatible(opensearch_version, TOOL_REGISTRY[tool_name]):
         tool_display_name = TOOL_REGISTRY[tool_name].get('display_name', tool_name)
         min_version = TOOL_REGISTRY[tool_name].get('min_version', '')
@@ -66,18 +66,18 @@ def check_tool_compatibility(tool_name: str, args: baseToolArgs = None):
 
 async def list_indices_tool(args: ListIndicesArgs) -> list[dict]:
     try:
-        check_tool_compatibility('ListIndexTool', args)
+        await check_tool_compatibility('ListIndexTool', args)
 
         # If index is provided, always return detailed information for that specific index
         if args.index:
-            index_info = get_index(args)
+            index_info = await get_index(args)
             formatted_info = json.dumps(index_info, indent=2)
             return [
                 {'type': 'text', 'text': f'Index information for {args.index}:\n{formatted_info}'}
             ]
 
         # Otherwise, list all indices
-        indices = list_indices(args)
+        indices = await list_indices(args)
 
         # If include_detail is False, return only pure list of index names
         if not args.include_detail:
@@ -96,8 +96,8 @@ async def list_indices_tool(args: ListIndicesArgs) -> list[dict]:
 
 async def get_index_mapping_tool(args: GetIndexMappingArgs) -> list[dict]:
     try:
-        check_tool_compatibility('IndexMappingTool', args)
-        mapping = get_index_mapping(args)
+        await check_tool_compatibility('IndexMappingTool', args)
+        mapping = await get_index_mapping(args)
         formatted_mapping = json.dumps(mapping, indent=2)
 
         return [{'type': 'text', 'text': f'Mapping for {args.index}:\n{formatted_mapping}'}]
@@ -107,8 +107,8 @@ async def get_index_mapping_tool(args: GetIndexMappingArgs) -> list[dict]:
 
 async def search_index_tool(args: SearchIndexArgs) -> list[dict]:
     try:
-        check_tool_compatibility('SearchIndexTool', args)
-        result = search_index(args)
+        await check_tool_compatibility('SearchIndexTool', args)
+        result = await search_index(args)
         formatted_result = json.dumps(result, indent=2)
 
         return [
@@ -123,8 +123,8 @@ async def search_index_tool(args: SearchIndexArgs) -> list[dict]:
 
 async def get_shards_tool(args: GetShardsArgs) -> list[dict]:
     try:
-        check_tool_compatibility('GetShardsTool', args)
-        result = get_shards(args)
+        await check_tool_compatibility('GetShardsTool', args)
+        result = await get_shards(args)
 
         if isinstance(result, dict) and 'error' in result:
             return [{'type': 'text', 'text': f'Error getting shards: {result["error"]}'}]
@@ -156,8 +156,8 @@ async def get_cluster_state_tool(args: GetClusterStateArgs) -> list[dict]:
         list[dict]: Cluster state information in MCP format
     """
     try:
-        check_tool_compatibility('GetClusterStateTool', args)
-        result = get_cluster_state(args)
+        await check_tool_compatibility('GetClusterStateTool', args)
+        result = await get_cluster_state(args)
 
         # Format the response for better readability
         formatted_result = json.dumps(result, indent=2)
@@ -184,8 +184,8 @@ async def get_segments_tool(args: GetSegmentsArgs) -> list[dict]:
         list[dict]: Segment information in MCP format
     """
     try:
-        check_tool_compatibility('GetSegmentsTool', args)
-        result = get_segments(args)
+        await check_tool_compatibility('GetSegmentsTool', args)
+        result = await get_segments(args)
 
         if isinstance(result, dict) and 'error' in result:
             return [{'type': 'text', 'text': f'Error getting segments: {result["error"]}'}]
@@ -231,8 +231,8 @@ async def cat_nodes_tool(args: CatNodesArgs) -> list[dict]:
         list[dict]: Node information in MCP format
     """
     try:
-        check_tool_compatibility('CatNodesTool', args)
-        result = get_nodes(args)
+        await check_tool_compatibility('CatNodesTool', args)
+        result = await get_nodes(args)
 
         if isinstance(result, dict) and 'error' in result:
             return [{'type': 'text', 'text': f'Error getting nodes: {result["error"]}'}]
@@ -274,8 +274,8 @@ async def get_index_info_tool(args: GetIndexInfoArgs) -> list[dict]:
         list[dict]: Index information in MCP format
     """
     try:
-        check_tool_compatibility('GetIndexInfoTool', args)
-        result = get_index_info(args)
+        await check_tool_compatibility('GetIndexInfoTool', args)
+        result = await get_index_info(args)
 
         # Format the response for better readability
         formatted_result = json.dumps(result, indent=2)
@@ -298,8 +298,8 @@ async def get_index_stats_tool(args: GetIndexStatsArgs) -> list[dict]:
         list[dict]: Index statistics in MCP format
     """
     try:
-        check_tool_compatibility('GetIndexStatsTool', args)
-        result = get_index_stats(args)
+        await check_tool_compatibility('GetIndexStatsTool', args)
+        result = await get_index_stats(args)
 
         # Format the response for better readability
         formatted_result = json.dumps(result, indent=2)
@@ -324,8 +324,8 @@ async def get_query_insights_tool(args: GetQueryInsightsArgs) -> list[dict]:
         list[dict]: Query insights in MCP format
     """
     try:
-        check_tool_compatibility('GetQueryInsightsTool', args)
-        result = get_query_insights(args)
+        await check_tool_compatibility('GetQueryInsightsTool', args)
+        result = await get_query_insights(args)
 
         # Format the response for better readability
         formatted_result = json.dumps(result, indent=2)
@@ -348,8 +348,8 @@ async def get_nodes_hot_threads_tool(args: GetNodesHotThreadsArgs) -> list[dict]
         list[dict]: Hot threads information in MCP format
     """
     try:
-        check_tool_compatibility('GetNodesHotThreadsTool', args)
-        result = get_nodes_hot_threads(args)
+        await check_tool_compatibility('GetNodesHotThreadsTool', args)
+        result = await get_nodes_hot_threads(args)
 
         # Create simple response message
         message = 'Hot threads information from /_nodes/hot_threads endpoint'
@@ -370,8 +370,8 @@ async def get_allocation_tool(args: GetAllocationArgs) -> list[dict]:
         list[dict]: Allocation information in MCP format
     """
     try:
-        check_tool_compatibility('GetAllocationTool', args)
-        result = get_allocation(args)
+        await check_tool_compatibility('GetAllocationTool', args)
+        result = await get_allocation(args)
 
         if isinstance(result, dict) and 'error' in result:
             return [
@@ -416,8 +416,8 @@ async def get_nodes_tool(args: GetNodesArgs) -> list[dict]:
         list[dict]: Detailed node information in MCP format
     """
     try:
-        check_tool_compatibility('GetNodesTool', args)
-        result = get_nodes_info(args)
+        await check_tool_compatibility('GetNodesTool', args)
+        result = await get_nodes_info(args)
 
         if isinstance(result, dict) and 'error' in result:
             return [
@@ -452,8 +452,8 @@ async def get_long_running_tasks_tool(args: GetLongRunningTasksArgs) -> list[dic
         list[dict]: Long-running tasks information in MCP format
     """
     try:
-        check_tool_compatibility('GetLongRunningTasksTool', args)
-        result = get_long_running_tasks(args)
+        await check_tool_compatibility('GetLongRunningTasksTool', args)
+        result = await get_long_running_tasks(args)
 
         if isinstance(result, dict) and 'error' in result:
             return [

@@ -3,7 +3,7 @@
 
 import json
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, AsyncMock
 
 
 class TestTools:
@@ -14,18 +14,19 @@ class TestTools:
 
         # Configure mock client methods to return proper data structures
         # These will be overridden in individual tests as needed
-        self.mock_client.cat.indices.return_value = []
-        self.mock_client.indices.get_mapping.return_value = {}
-        self.mock_client.indices.get.return_value = {}
-        self.mock_client.search.return_value = {}
-        self.mock_client.cat.shards.return_value = []
-        self.mock_client.cat.segments.return_value = []
-        self.mock_client.cat.nodes.return_value = []
-        self.mock_client.cat.allocation.return_value = []
-        self.mock_client.cluster.state.return_value = {}
-        self.mock_client.indices.stats.return_value = {}
-        self.mock_client.transport.perform_request.return_value = {}
-        self.mock_client.info.return_value = {'version': {'number': '2.19.0'}}
+        # Use AsyncMock for async methods
+        self.mock_client.cat.indices = AsyncMock(return_value=[])
+        self.mock_client.indices.get_mapping = AsyncMock(return_value={})
+        self.mock_client.indices.get = AsyncMock(return_value={})
+        self.mock_client.search = AsyncMock(return_value={})
+        self.mock_client.cat.shards = AsyncMock(return_value=[])
+        self.mock_client.cat.segments = AsyncMock(return_value=[])
+        self.mock_client.cat.nodes = AsyncMock(return_value=[])
+        self.mock_client.cat.allocation = AsyncMock(return_value=[])
+        self.mock_client.cluster.state = AsyncMock(return_value={})
+        self.mock_client.indices.stats = AsyncMock(return_value={})
+        self.mock_client.transport.perform_request = AsyncMock(return_value={})
+        self.mock_client.info = AsyncMock(return_value={'version': {'number': '2.19.0'}})
 
         # Patch initialize_client to always return our mock client
         self.init_client_patcher = patch(

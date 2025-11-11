@@ -19,9 +19,9 @@ from starlette.requests import Request
 
 from mcp_server_opensearch.clusters_information import ClusterInfo, get_cluster
 from mcp_server_opensearch.global_state import get_mode, get_profile
-from opensearchpy import OpenSearch, RequestsHttpConnection
-from requests_aws4auth import AWS4Auth
+from opensearchpy import AsyncOpenSearch, AsyncHttpConnection, AWSV4SignerAsyncAuth
 from tools.tool_params import baseToolArgs
+from botocore.credentials import Credentials
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ class ConfigurationError(OpenSearchClientError):
 
 
 # Public API Functions
-def initialize_client(args: baseToolArgs) -> OpenSearch:
+def initialize_client(args: baseToolArgs) -> AsyncOpenSearch:
     """Initialize and return an OpenSearch client based on the current mode.
 
     Behavior depends on the global mode:
@@ -100,7 +100,7 @@ def initialize_client(args: baseToolArgs) -> OpenSearch:
 
 
 # Private Implementation Functions
-def _initialize_client_single_mode() -> OpenSearch:
+def _initialize_client_single_mode() -> AsyncOpenSearch:
     """Initialize OpenSearch client for single mode using environment variables.
 
     Single mode uses environment variables for connection, with optional header-based auth:
@@ -200,7 +200,7 @@ def _initialize_client_single_mode() -> OpenSearch:
         raise ConfigurationError(f'Failed to initialize single mode client: {e}')
 
 
-def _initialize_client_multi_mode(cluster_info: ClusterInfo) -> OpenSearch:
+def _initialize_client_multi_mode(cluster_info: ClusterInfo) -> AsyncOpenSearch:
     """Initialize OpenSearch client for multi mode using cluster configuration.
 
     Multi mode uses cluster configuration from the provided ClusterInfo object.
@@ -303,7 +303,7 @@ def _create_opensearch_client(
     aws_access_key_id: Optional[str] = None,
     aws_secret_access_key: Optional[str] = None,
     aws_session_token: Optional[str] = None,
-) -> OpenSearch:
+) -> AsyncOpenSearch:
     """Common function to create OpenSearch client with authentication.
 
     This function handles the common authentication logic used by both
@@ -362,7 +362,7 @@ def _create_opensearch_client(
         'hosts': [opensearch_url],
         'use_ssl': (parsed_url.scheme == 'https'),
         'verify_certs': ssl_verify,
-        'connection_class': RequestsHttpConnection,
+        'connection_class': AsyncHttpConnection,
         'timeout': timeout,
     }
 
@@ -379,7 +379,7 @@ def _create_opensearch_client(
         if opensearch_no_auth:
             logger.info('[NO AUTH] Attempting connection without authentication')
             try:
-                return OpenSearch(**client_kwargs)
+                return AsyncOpenSearch(**client_kwargs)
             except Exception as e:
                 logger.error(f'[NO AUTH] Failed to connect without authentication: {e}')
                 raise AuthenticationError(f'Failed to connect without authentication: {e}')
@@ -392,16 +392,16 @@ def _create_opensearch_client(
                     raise AuthenticationError(
                         'AWS region is required for header-based authentication'
                     )
-
-                aws_auth = AWS4Auth(
-                    aws_access_key_id,
-                    aws_secret_access_key,
-                    aws_region.strip(),
-                    service_name,
-                    session_token=aws_session_token,
+                credentials = Credentials(
+                    access_key=aws_access_key_id,
+                    secret_key=aws_secret_access_key,
+                    token=aws_session_token,
+                )
+                aws_auth = AWSV4SignerAsyncAuth(
+                    credentials=credentials, region=aws_region.strip(), service=service_name
                 )
                 client_kwargs['http_auth'] = aws_auth
-                return OpenSearch(**client_kwargs)
+                return AsyncOpenSearch(**client_kwargs)
             except Exception as e:
                 logger.error(f'[HEADER AUTH] Failed to authenticate with header credentials: {e}')
                 raise AuthenticationError(f'Failed to authenticate with header credentials: {e}')
@@ -419,15 +419,11 @@ def _create_opensearch_client(
                 )
                 credentials = assumed_role['Credentials']
 
-                aws_auth = AWS4Auth(
-                    credentials['AccessKeyId'],
-                    credentials['SecretAccessKey'],
-                    aws_region,
-                    service_name,
-                    session_token=credentials['SessionToken'],
+                aws_auth = AWSV4SignerAsyncAuth(
+                    credentials=credentials, region=aws_region.strip(), service=service_name
                 )
                 client_kwargs['http_auth'] = aws_auth
-                return OpenSearch(**client_kwargs)
+                return AsyncOpenSearch(**client_kwargs)
             except Exception as e:
                 logger.error(f'[IAM AUTH] Failed to assume IAM role {iam_arn}: {e}')
                 raise AuthenticationError(f'Failed to assume IAM role {iam_arn}: {e}')
@@ -437,7 +433,7 @@ def _create_opensearch_client(
             logger.info(f'[BASIC AUTH] Using basic authentication for user: {opensearch_username}')
             try:
                 client_kwargs['http_auth'] = (opensearch_username.strip(), opensearch_password)
-                return OpenSearch(**client_kwargs)
+                return AsyncOpenSearch(**client_kwargs)
             except Exception as e:
                 logger.error(f'[BASIC AUTH] Failed to connect with basic authentication: {e}')
                 raise AuthenticationError(f'Failed to connect with basic authentication: {e}')
@@ -454,13 +450,11 @@ def _create_opensearch_client(
             if not credentials:
                 raise AuthenticationError('No AWS credentials found in session')
 
-            aws_auth = AWS4Auth(
-                refreshable_credentials=credentials,
-                service=service_name,
-                region=aws_region,
+            aws_auth = AWSV4SignerAsyncAuth(
+                credentials=credentials, region=aws_region.strip(), service=service_name
             )
             client_kwargs['http_auth'] = aws_auth
-            return OpenSearch(**client_kwargs)
+            return AsyncOpenSearch(**client_kwargs)
         except Exception as e:
             logger.error(f'[AWS CREDS] Failed to authenticate with AWS credentials: {e}')
             raise AuthenticationError(f'Failed to authenticate with AWS credentials: {e}')

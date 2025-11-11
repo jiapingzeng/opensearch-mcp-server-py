@@ -41,7 +41,7 @@ async def create_mcp_server(
 
     # Load clusters from YAML file
     if mode == 'multi':
-        load_clusters_from_yaml(config_file_path)
+        await load_clusters_from_yaml(config_file_path)
 
     server = Server('opensearch-mcp-server')
     # Call tool generator
@@ -51,7 +51,9 @@ async def create_mcp_server(
         TOOL_REGISTRY, config_file_path, cli_tool_overrides or {}
     )
     # Get enabled tools (tool filter)
-    enabled_tools = get_tools(tool_registry=customized_registry, config_file_path=config_file_path)
+    enabled_tools = await get_tools(
+        tool_registry=customized_registry, config_file_path=config_file_path
+    )
     logging.info(f'Enabled tools: {list(enabled_tools.keys())}')
 
     @server.list_tools()
@@ -141,6 +143,7 @@ class MCPStarletteApp:
                 Route('/health', endpoint=self.handle_health, methods=['GET']),
                 Mount('/messages/', app=self.sse.handle_post_message),
                 Mount('/mcp', app=self.handle_streamable_http),
+                Mount('/mcp/', app=self.handle_streamable_http),
             ],
             lifespan=self.lifespan,
         )

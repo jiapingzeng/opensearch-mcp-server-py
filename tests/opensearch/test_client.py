@@ -5,8 +5,7 @@ import boto3
 import os
 import pytest
 from opensearch.client import initialize_client, ConfigurationError, AuthenticationError
-from opensearchpy import RequestsHttpConnection
-from requests_aws4auth import AWS4Auth
+from opensearchpy import AsyncOpenSearch, AsyncHttpConnection, AWSV4SignerAsyncAuth
 from tools.tool_params import baseToolArgs
 from unittest.mock import Mock, patch
 
@@ -63,7 +62,7 @@ class TestOpenSearchClient:
 
         assert 'OPENSEARCH_URL environment variable is required but not set' in str(exc_info.value)
 
-    @patch('opensearch.client.OpenSearch')
+    @patch('opensearch.client.AsyncOpenSearch')
     @patch('opensearch.client.get_aws_region_single_mode')
     def test_initialize_client_basic_auth(self, mock_get_region, mock_opensearch):
         """Test client initialization with basic authentication."""
@@ -88,12 +87,12 @@ class TestOpenSearchClient:
             hosts=['https://test-opensearch-domain.com'],
             use_ssl=True,
             verify_certs=True,
-            connection_class=RequestsHttpConnection,
+            connection_class=AsyncHttpConnection,
             timeout=30,
             http_auth=('test-user', 'test-password'),
         )
 
-    @patch('opensearch.client.OpenSearch')
+    @patch('opensearch.client.AsyncOpenSearch')
     @patch('opensearch.client.boto3.Session')
     def test_initialize_client_aws_auth(self, mock_session, mock_opensearch):
         """Test client initialization with AWS IAM authentication."""
@@ -130,10 +129,10 @@ class TestOpenSearchClient:
         assert call_kwargs['hosts'] == ['https://test-opensearch-domain.com']
         assert call_kwargs['use_ssl'] is True
         assert call_kwargs['verify_certs'] is True
-        assert call_kwargs['connection_class'] == RequestsHttpConnection
-        assert isinstance(call_kwargs['http_auth'], AWS4Auth)
+        assert call_kwargs['connection_class'] == AsyncHttpConnection
+        assert isinstance(call_kwargs['http_auth'], AWSV4SignerAsyncAuth)
 
-    @patch('opensearch.client.OpenSearch')
+    @patch('opensearch.client.AsyncOpenSearch')
     @patch('opensearch.client.boto3.Session')
     def test_initialize_client_aws_auth_error(self, mock_session, mock_opensearch):
         """Test client initialization when AWS authentication fails."""
@@ -153,7 +152,7 @@ class TestOpenSearchClient:
             initialize_client(baseToolArgs(opensearch_cluster_name=''))
         assert 'Failed to authenticate with AWS credentials' in str(exc_info.value)
 
-    @patch('opensearch.client.OpenSearch')
+    @patch('opensearch.client.AsyncOpenSearch')
     @patch('opensearch.client.boto3.Session')
     def test_initialize_client_no_auth(self, mock_session, mock_opensearch):
         """Test client initialization when no authentication is available."""
@@ -170,7 +169,7 @@ class TestOpenSearchClient:
             initialize_client(baseToolArgs(opensearch_cluster_name=''))
         assert 'No AWS credentials found in session' in str(exc_info.value)
 
-    @patch('opensearch.client.OpenSearch')
+    @patch('opensearch.client.AsyncOpenSearch')
     @patch('opensearch.client.get_aws_region_single_mode')
     def test_initialize_client_no_auth_enabled(self, mock_get_region, mock_opensearch):
         """Test client initialization with OPENSEARCH_NO_AUTH=true."""
@@ -194,7 +193,7 @@ class TestOpenSearchClient:
             hosts=['https://test-opensearch-domain.com'],
             use_ssl=True,
             verify_certs=True,
-            connection_class=RequestsHttpConnection,
+            connection_class=AsyncHttpConnection,
             timeout=30,
         )
 
@@ -212,7 +211,7 @@ class TestOpenSearchClient:
         client = initialize_client(baseToolArgs(opensearch_cluster_name=''))
         assert client == mock_client
 
-    @patch('opensearch.client.OpenSearch')
+    @patch('opensearch.client.AsyncOpenSearch')
     @patch('opensearch.client.get_aws_region_multi_mode')
     def test__initialize_client_multi_mode_timeout(self, mock_get_region, mock_opensearch):
         """Test client initialization with cluster timeout."""
@@ -238,7 +237,7 @@ class TestOpenSearchClient:
         call_kwargs = mock_opensearch.call_args[1]
         assert call_kwargs['timeout'] == 60
 
-    @patch('opensearch.client.OpenSearch')
+    @patch('opensearch.client.AsyncOpenSearch')
     @patch('opensearch.client.get_aws_region_multi_mode')
     def test__initialize_client_multi_mode_no_auth(self, mock_get_region, mock_opensearch):
         """Test client initialization with no-auth from cluster config."""
@@ -263,11 +262,11 @@ class TestOpenSearchClient:
         assert call_kwargs['hosts'] == ['http://localhost:9200']
         assert call_kwargs['use_ssl'] is False  # http:// URL
         assert call_kwargs['verify_certs'] is True
-        assert call_kwargs['connection_class'] == RequestsHttpConnection
+        assert call_kwargs['connection_class'] == AsyncHttpConnection
         # Should not have http_auth when no-auth is True
         assert 'http_auth' not in call_kwargs
 
-    @patch('opensearch.client.OpenSearch')
+    @patch('opensearch.client.AsyncOpenSearch')
     @patch('opensearch.client.get_aws_region_multi_mode')
     def test_initialize_client_no_auth_priority_cluster_over_env(
         self, mock_get_region, mock_opensearch
@@ -297,7 +296,7 @@ class TestOpenSearchClient:
         # Should use no auth because cluster config takes priority
         assert 'http_auth' not in call_kwargs
 
-    @patch('opensearch.client.OpenSearch')
+    @patch('opensearch.client.AsyncOpenSearch')
     @patch('opensearch.client.get_cluster')
     @patch('opensearch.client.get_aws_region_multi_mode')
     def test_initialize_client_multi_cluster_no_auth(

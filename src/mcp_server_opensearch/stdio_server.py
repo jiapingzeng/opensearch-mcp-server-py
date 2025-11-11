@@ -34,7 +34,7 @@ async def serve(
     server = Server('opensearch-mcp-server')
     # Load clusters from YAML file
     if mode == 'multi':
-        load_clusters_from_yaml(config_file_path)
+        await load_clusters_from_yaml(config_file_path)
 
     # Call tool generator
     await generate_tools_from_openapi()
@@ -43,7 +43,9 @@ async def serve(
         TOOL_REGISTRY, config_file_path, cli_tool_overrides or {}
     )
     # Get enabled tools (tool filter)
-    enabled_tools = get_tools(tool_registry=customized_registry, config_file_path=config_file_path)
+    enabled_tools = await get_tools(
+        tool_registry=customized_registry, config_file_path=config_file_path
+    )
     logging.info(f'Enabled tools: {list(enabled_tools.keys())}')
 
     @server.list_tools()
