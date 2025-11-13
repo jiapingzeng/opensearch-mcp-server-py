@@ -23,6 +23,10 @@ class TestOpenSearchClient:
             'OPENSEARCH_NO_AUTH',
             'OPENSEARCH_SSL_VERIFY',
             'OPENSEARCH_TIMEOUT',
+            'AWS_IAM_ARN',
+            'AWS_ACCESS_KEY_ID',
+            'AWS_SECRET_ACCESS_KEY',
+            'AWS_SESSION_TOKEN',
         ]:
             if key in os.environ:
                 self.original_env[key] = os.environ[key]
@@ -39,6 +43,10 @@ class TestOpenSearchClient:
             'OPENSEARCH_NO_AUTH',
             'OPENSEARCH_SSL_VERIFY',
             'OPENSEARCH_TIMEOUT',
+            'AWS_IAM_ARN',
+            'AWS_ACCESS_KEY_ID',
+            'AWS_SECRET_ACCESS_KEY',
+            'AWS_SESSION_TOKEN',
         ]:
             if key in os.environ:
                 del os.environ[key]
@@ -351,6 +359,10 @@ class TestOpenSearchClientContextManager:
             'OPENSEARCH_NO_AUTH',
             'OPENSEARCH_SSL_VERIFY',
             'OPENSEARCH_TIMEOUT',
+            'AWS_IAM_ARN',
+            'AWS_ACCESS_KEY_ID',
+            'AWS_SECRET_ACCESS_KEY',
+            'AWS_SESSION_TOKEN',
         ]:
             if key in os.environ:
                 del os.environ[key]

@@ -455,7 +455,12 @@ def _create_opensearch_client(
                 assumed_role = sts_client.assume_role(
                     RoleArn=iam_arn.strip(), RoleSessionName='OpenSearchClientSession'
                 )
-                credentials = assumed_role['Credentials']
+                creds_dict = assumed_role['Credentials']
+                credentials = Credentials(
+                    access_key=creds_dict['AccessKeyId'],
+                    secret_key=creds_dict['SecretAccessKey'],
+                    token=creds_dict.get('SessionToken'),
+                )
 
                 aws_auth = AWSV4SignerAsyncAuth(
                     credentials=credentials, region=aws_region.strip(), service=service_name
