@@ -11,7 +11,8 @@ authentication methods and connection modes (single vs multi-cluster).
 import boto3
 import logging
 import os
-from typing import Any, Dict, Optional
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator, Dict, Optional
 from urllib.parse import urlparse
 
 from mcp.server.lowlevel.server import request_ctx
@@ -97,6 +98,43 @@ def initialize_client(args: baseToolArgs) -> AsyncOpenSearch:
     except Exception as e:
         logger.error(f'Unexpected error in client initialization: {e}')
         raise ConfigurationError(f'Failed to initialize OpenSearch client: {e}')
+
+
+@asynccontextmanager
+async def get_opensearch_client(args: baseToolArgs) -> AsyncIterator[AsyncOpenSearch]:
+    """Async context manager for OpenSearch client lifecycle management.
+
+    This context manager ensures that OpenSearch clients are properly closed after use,
+    preventing connection leaks and enabling graceful server shutdown.
+
+    Usage:
+        async with get_opensearch_client(args) as client:
+            # Use client for operations
+            result = await client.info()
+
+    Args:
+        args (baseToolArgs): Arguments containing optional opensearch_cluster_name
+
+    Yields:
+        AsyncOpenSearch: An initialized OpenSearch client instance
+
+    Raises:
+        ConfigurationError: If in multi mode but no cluster name provided or invalid mode
+        AuthenticationError: If authentication fails
+    """
+    client = None
+    try:
+        logger.debug('Creating OpenSearch client')
+        client = initialize_client(args)
+        yield client
+    finally:
+        if client is not None:
+            try:
+                logger.debug('Closing OpenSearch client')
+                await client.close()
+            except Exception as e:
+                # Log but don't propagate cleanup errors to avoid masking original errors
+                logger.warning(f'Error closing OpenSearch client: {e}')
 
 
 # Private Implementation Functions

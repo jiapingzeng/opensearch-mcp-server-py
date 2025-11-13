@@ -116,17 +116,9 @@ async def load_clusters_from_yaml(file_path: str) -> None:
                     ssl_verify=cluster_config.get('ssl_verify', None),
                     opensearch_header_auth=cluster_config.get('opensearch_header_auth', None),
                 )
-                # Check if possible to connect to the cluster
-                is_connected, error_message = await check_cluster_connection(cluster_info)
-                if not is_connected:
-                    result['errors'].append(
-                        f"Error connecting to cluster '{cluster_name}': {error_message}"
-                    )
-                    continue
-                else:
-                    # Add cluster to registry
-                    add_cluster(name=cluster_name, cluster_info=cluster_info)
 
+                # Add cluster to registry without checking connection
+                add_cluster(name=cluster_name, cluster_info=cluster_info)
                 result['loaded_clusters'].append(cluster_name)
 
             except Exception as e:
@@ -141,23 +133,3 @@ async def load_clusters_from_yaml(file_path: str) -> None:
 
     except yaml.YAMLError as e:
         raise yaml.YAMLError(f'Invalid YAML format in {file_path}: {str(e)}')
-
-
-async def check_cluster_connection(cluster_info: ClusterInfo) -> tuple[bool, str]:
-    """Check if the cluster is reachable by attempting to connect.
-
-    Args:
-        cluster_info: ClusterInfo object containing cluster configuration
-
-    Returns:
-        tuple[bool, str]: (True, "") if connection successful, (False, error_message) otherwise
-    """
-    try:
-        # Lazy import to avoid circular dependency
-        from opensearch.client import _initialize_client_multi_mode
-
-        client = _initialize_client_multi_mode(cluster_info)
-        await client.ping()
-        return True, ''
-    except Exception as e:
-        return False, str(e)

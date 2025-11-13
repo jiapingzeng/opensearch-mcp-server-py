@@ -10,6 +10,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Fixed
 - Fix Concurrency: Use Async OpenSearch client to improve concurrency ([#125](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/125))
+- [Fix] Close OpenSearch client gracefully ([#126](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/126))
 
 ### Removed
 

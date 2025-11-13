@@ -113,50 +113,49 @@ async def generic_opensearch_api_tool(args: GenericOpenSearchApiArgs) -> list[di
         if not args.path.startswith('/'):
             return [{'type': 'text', 'text': 'Error: API path must start with "/"'}]
 
-        # Initialize OpenSearch client
-        from opensearch.client import initialize_client
+        # Initialize OpenSearch client with context manager for proper cleanup
+        from opensearch.client import get_opensearch_client
 
-        client = initialize_client(args)
+        async with get_opensearch_client(args) as client:
+            # Build the request URL
+            url = args.path
+            if args.query_params:
+                # Convert query parameters to URL-encoded string
+                query_string = urlencode(args.query_params)
+                url = f'{args.path}?{query_string}'
 
-        # Build the request URL
-        url = args.path
-        if args.query_params:
-            # Convert query parameters to URL-encoded string
-            query_string = urlencode(args.query_params)
-            url = f'{args.path}?{query_string}'
+            # Prepare request parameters
+            request_params = {'method': method, 'url': url}
 
-        # Prepare request parameters
-        request_params = {'method': method, 'url': url}
+            # Add body for methods that support it
+            if args.body is not None and method in ['POST', 'PUT', 'PATCH']:
+                if isinstance(args.body, (dict, list)):
+                    request_params['body'] = json.dumps(args.body)
+                else:
+                    request_params['body'] = args.body
 
-        # Add body for methods that support it
-        if args.body is not None and method in ['POST', 'PUT', 'PATCH']:
-            if isinstance(args.body, (dict, list)):
-                request_params['body'] = json.dumps(args.body)
+            # Add custom headers if provided
+            if args.headers:
+                request_params['headers'] = args.headers
+
+            # Make the API request using the transport layer
+            logger.info(f'Making {method} request to {url}')
+            response = await client.transport.perform_request(**request_params)
+
+            # Format the response
+            if isinstance(response, str):
+                # Some APIs return plain text (like hot_threads)
+                formatted_response = response
             else:
-                request_params['body'] = args.body
+                # Most APIs return JSON
+                formatted_response = json.dumps(response, indent=2)
 
-        # Add custom headers if provided
-        if args.headers:
-            request_params['headers'] = args.headers
+            # Create descriptive message
+            message = f'OpenSearch API Response ({method} {args.path})'
+            if args.query_params:
+                message += f' with query params: {args.query_params}'
 
-        # Make the API request using the transport layer
-        logger.info(f'Making {method} request to {url}')
-        response = await client.transport.perform_request(**request_params)
-
-        # Format the response
-        if isinstance(response, str):
-            # Some APIs return plain text (like hot_threads)
-            formatted_response = response
-        else:
-            # Most APIs return JSON
-            formatted_response = json.dumps(response, indent=2)
-
-        # Create descriptive message
-        message = f'OpenSearch API Response ({method} {args.path})'
-        if args.query_params:
-            message += f' with query params: {args.query_params}'
-
-        return [{'type': 'text', 'text': f'{message}:\n{formatted_response}'}]
+            return [{'type': 'text', 'text': f'{message}:\n{formatted_response}'}]
 
     except Exception as e:
         error_message = f'Error calling OpenSearch API ({args.method} {args.path}): {str(e)}'

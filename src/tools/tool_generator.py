@@ -225,7 +225,7 @@ def generate_tool_from_group(base_name: str, endpoints: List[Dict]) -> Dict[str,
     # Create the tool function that will execute the OpenSearch API
     async def tool_func(params: BaseModel) -> list[TextContent]:
         try:
-            from opensearch.client import initialize_client
+            from opensearch.client import get_opensearch_client
 
             tool_name = f'{base_name.replace("_", "")}Tool'
             params_dict = params.model_dump() if hasattr(params, 'model_dump') else {}
@@ -242,40 +242,42 @@ def generate_tool_from_group(base_name: str, endpoints: List[Dict]) -> Dict[str,
                         base_args[field] = ''
 
                 args = baseToolArgs(**base_args)
-                request_client = initialize_client(args)
             except Exception as e:
                 return [
                     TextContent(
                         type='text', text=f'Error initializing OpenSearch client: {str(e)}'
                     )
                 ]
-            await check_tool_compatibility(tool_name, args)
-            # Process body and select endpoint
-            body = process_body(params_dict.pop('body', None), tool_name)
-            selected_endpoint = select_endpoint(endpoints, params_dict)
 
-            # Prepare request
-            formatted_path = selected_endpoint['path']
-            for param_name in path_parameters:
-                if param_name in params_dict:
-                    formatted_path = formatted_path.replace(
-                        f'{{{param_name}}}', str(params_dict[param_name])
-                    )
-                    del params_dict[param_name]
-            method = selected_endpoint['method'].upper()  # HTTP method (GET, POST, etc.)
-            api_path = f'/{formatted_path.lstrip("/")}'  # Ensure path starts with /
+            # Use context manager to ensure proper client cleanup
+            async with get_opensearch_client(args) as request_client:
+                await check_tool_compatibility(tool_name, args)
+                # Process body and select endpoint
+                body = process_body(params_dict.pop('body', None), tool_name)
+                selected_endpoint = select_endpoint(endpoints, params_dict)
 
-            # Execute the OpenSearch API request
-            response = await request_client.transport.perform_request(
-                method=method, url=api_path, params=params_dict, body=body
-            )
+                # Prepare request
+                formatted_path = selected_endpoint['path']
+                for param_name in path_parameters:
+                    if param_name in params_dict:
+                        formatted_path = formatted_path.replace(
+                            f'{{{param_name}}}', str(params_dict[param_name])
+                        )
+                        del params_dict[param_name]
+                method = selected_endpoint['method'].upper()  # HTTP method (GET, POST, etc.)
+                api_path = f'/{formatted_path.lstrip("/")}'  # Ensure path starts with /
 
-            return [
-                TextContent(
-                    type='text',
-                    text=json.dumps(response) if not isinstance(response, str) else response,
+                # Execute the OpenSearch API request
+                response = await request_client.transport.perform_request(
+                    method=method, url=api_path, params=params_dict, body=body
                 )
-            ]
+
+                return [
+                    TextContent(
+                        type='text',
+                        text=json.dumps(response) if not isinstance(response, str) else response,
+                    )
+                ]
 
         except Exception as e:
             return [TextContent(type='text', text=f'Error: {str(e)}')]

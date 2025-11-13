@@ -335,3 +335,190 @@ class TestOpenSearchClient:
         assert call_kwargs['hosts'] == ['http://localhost:9200']
         assert call_kwargs['use_ssl'] is False
         assert 'http_auth' not in call_kwargs
+
+
+class TestOpenSearchClientContextManager:
+    """Tests for the get_opensearch_client() async context manager."""
+
+    def setup_method(self):
+        """Setup before each test method."""
+        # Clear environment variables to ensure clean test state
+        for key in [
+            'OPENSEARCH_USERNAME',
+            'OPENSEARCH_PASSWORD',
+            'AWS_REGION',
+            'OPENSEARCH_URL',
+            'OPENSEARCH_NO_AUTH',
+            'OPENSEARCH_SSL_VERIFY',
+            'OPENSEARCH_TIMEOUT',
+        ]:
+            if key in os.environ:
+                del os.environ[key]
+
+        # Set global mode for tests
+        from mcp_server_opensearch.global_state import set_mode
+
+        set_mode('single')
+
+    @pytest.mark.asyncio
+    @patch('opensearch.client.AsyncOpenSearch')
+    @patch('opensearch.client.get_aws_region_single_mode')
+    async def test_context_manager_successful_creation_and_cleanup(
+        self, mock_get_region, mock_opensearch
+    ):
+        """Test that context manager creates client and calls close() on exit."""
+        from opensearch.client import get_opensearch_client
+
+        # Set environment variables
+        os.environ['OPENSEARCH_URL'] = 'https://test-opensearch-domain.com'
+        os.environ['OPENSEARCH_USERNAME'] = 'test-user'
+        os.environ['OPENSEARCH_PASSWORD'] = 'test-password'
+
+        # Mock AWS region
+        mock_get_region.return_value = 'us-east-1'
+
+        # Mock OpenSearch client with close method
+        mock_client = Mock()
+        mock_client.close = Mock(return_value=None)
+        mock_opensearch.return_value = mock_client
+
+        # Use context manager
+        async with get_opensearch_client(baseToolArgs(opensearch_cluster_name='')) as client:
+            assert client == mock_client
+
+        # Verify close was called
+        mock_client.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch('opensearch.client.AsyncOpenSearch')
+    @patch('opensearch.client.get_aws_region_single_mode')
+    async def test_context_manager_cleanup_on_exception(self, mock_get_region, mock_opensearch):
+        """Test that context manager calls close() even when exception occurs."""
+        from opensearch.client import get_opensearch_client
+
+        # Set environment variables
+        os.environ['OPENSEARCH_URL'] = 'https://test-opensearch-domain.com'
+        os.environ['OPENSEARCH_USERNAME'] = 'test-user'
+        os.environ['OPENSEARCH_PASSWORD'] = 'test-password'
+
+        # Mock AWS region
+        mock_get_region.return_value = 'us-east-1'
+
+        # Mock OpenSearch client with close method
+        mock_client = Mock()
+        mock_client.close = Mock(return_value=None)
+        mock_opensearch.return_value = mock_client
+
+        # Use context manager and raise exception
+        with pytest.raises(RuntimeError):
+            async with get_opensearch_client(baseToolArgs(opensearch_cluster_name='')) as client:
+                assert client == mock_client
+                raise RuntimeError('Test exception')
+
+        # Verify close was still called
+        mock_client.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch('opensearch.client.AsyncOpenSearch')
+    @patch('opensearch.client.get_aws_region_single_mode')
+    async def test_context_manager_cleanup_error_logged_not_propagated(
+        self, mock_get_region, mock_opensearch
+    ):
+        """Test that cleanup errors are logged but not propagated."""
+        from opensearch.client import get_opensearch_client
+
+        # Set environment variables
+        os.environ['OPENSEARCH_URL'] = 'https://test-opensearch-domain.com'
+        os.environ['OPENSEARCH_USERNAME'] = 'test-user'
+        os.environ['OPENSEARCH_PASSWORD'] = 'test-password'
+
+        # Mock AWS region
+        mock_get_region.return_value = 'us-east-1'
+
+        # Mock OpenSearch client with close method that raises exception
+        mock_client = Mock()
+        mock_client.close = Mock(side_effect=Exception('Cleanup error'))
+        mock_opensearch.return_value = mock_client
+
+        # Use context manager - should not raise cleanup exception
+        async with get_opensearch_client(baseToolArgs(opensearch_cluster_name='')) as client:
+            assert client == mock_client
+
+        # Verify close was called
+        mock_client.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch('opensearch.client.AsyncOpenSearch')
+    @patch('opensearch.client.get_aws_region_single_mode')
+    async def test_context_manager_cleanup_error_does_not_mask_original_exception(
+        self, mock_get_region, mock_opensearch
+    ):
+        """Test that cleanup errors don't mask the original exception."""
+        from opensearch.client import get_opensearch_client
+
+        # Set environment variables
+        os.environ['OPENSEARCH_URL'] = 'https://test-opensearch-domain.com'
+        os.environ['OPENSEARCH_USERNAME'] = 'test-user'
+        os.environ['OPENSEARCH_PASSWORD'] = 'test-password'
+
+        # Mock AWS region
+        mock_get_region.return_value = 'us-east-1'
+
+        # Mock OpenSearch client with close method that raises exception
+        mock_client = Mock()
+        mock_client.close = Mock(side_effect=Exception('Cleanup error'))
+        mock_opensearch.return_value = mock_client
+
+        # Use context manager and raise exception - should get original exception
+        with pytest.raises(RuntimeError, match='Original exception'):
+            async with get_opensearch_client(baseToolArgs(opensearch_cluster_name='')) as client:
+                assert client == mock_client
+                raise RuntimeError('Original exception')
+
+        # Verify close was still called
+        mock_client.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch('opensearch.client.AsyncOpenSearch')
+    @patch('opensearch.client.get_aws_region_single_mode')
+    async def test_context_manager_multiple_sequential_calls(
+        self, mock_get_region, mock_opensearch
+    ):
+        """Test that multiple sequential context manager calls each create and close clients."""
+        from opensearch.client import get_opensearch_client
+
+        # Set environment variables
+        os.environ['OPENSEARCH_URL'] = 'https://test-opensearch-domain.com'
+        os.environ['OPENSEARCH_USERNAME'] = 'test-user'
+        os.environ['OPENSEARCH_PASSWORD'] = 'test-password'
+
+        # Mock AWS region
+        mock_get_region.return_value = 'us-east-1'
+
+        # Mock OpenSearch clients
+        mock_client1 = Mock()
+        mock_client1.close = Mock(return_value=None)
+        mock_client2 = Mock()
+        mock_client2.close = Mock(return_value=None)
+        mock_client3 = Mock()
+        mock_client3.close = Mock(return_value=None)
+
+        mock_opensearch.side_effect = [mock_client1, mock_client2, mock_client3]
+
+        # First call
+        async with get_opensearch_client(baseToolArgs(opensearch_cluster_name='')) as client:
+            assert client == mock_client1
+        mock_client1.close.assert_called_once()
+
+        # Second call
+        async with get_opensearch_client(baseToolArgs(opensearch_cluster_name='')) as client:
+            assert client == mock_client2
+        mock_client2.close.assert_called_once()
+
+        # Third call
+        async with get_opensearch_client(baseToolArgs(opensearch_cluster_name='')) as client:
+            assert client == mock_client3
+        mock_client3.close.assert_called_once()
+
+        # Verify all three clients were created
+        assert mock_opensearch.call_count == 3

@@ -166,6 +166,7 @@ async def serve(
         app=app,
         host=host,
         port=port,
+        timeout_graceful_shutdown=10,
     )
     server = uvicorn.Server(config)
     await server.serve()

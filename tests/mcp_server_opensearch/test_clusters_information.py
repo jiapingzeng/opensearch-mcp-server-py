@@ -9,7 +9,6 @@ from mcp_server_opensearch.clusters_information import (
     add_cluster,
     get_cluster,
     load_clusters_from_yaml,
-    check_cluster_connection,
     cluster_registry,
 )
 
@@ -142,13 +141,7 @@ clusters:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
             f.write(yaml_content)
             f.flush()
-
-            with patch(
-                'mcp_server_opensearch.clusters_information.check_cluster_connection',
-                new_callable=AsyncMock,
-            ) as mock_check:
-                mock_check.return_value = (True, '')
-                await load_clusters_from_yaml(f.name)
+            await load_clusters_from_yaml(f.name)
 
         os.unlink(f.name)
 
@@ -186,13 +179,7 @@ clusters:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
             f.write(yaml_content)
             f.flush()
-
-            with patch(
-                'mcp_server_opensearch.clusters_information.check_cluster_connection',
-                new_callable=AsyncMock,
-            ) as mock_check:
-                mock_check.return_value = (True, '')
-                await load_clusters_from_yaml(f.name)
+            await load_clusters_from_yaml(f.name)
 
         os.unlink(f.name)
 
@@ -223,13 +210,7 @@ clusters:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
             f.write(yaml_content)
             f.flush()
-
-            with patch(
-                'mcp_server_opensearch.clusters_information.check_cluster_connection',
-                new_callable=AsyncMock,
-            ) as mock_check:
-                mock_check.return_value = (True, '')
-                await load_clusters_from_yaml(f.name)
+            await load_clusters_from_yaml(f.name)
 
         os.unlink(f.name)
 
@@ -237,8 +218,8 @@ clusters:
         assert len(cluster_registry) == 0
 
     @pytest.mark.asyncio
-    async def test_load_clusters_from_yaml_connection_failure(self):
-        """Test loading cluster that fails connection check."""
+    async def test_load_clusters_from_yaml_without_connection_check(self):
+        """Test loading cluster without connection validation."""
         yaml_content = """
 clusters:
   unreachable_cluster:
@@ -248,18 +229,14 @@ clusters:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
             f.write(yaml_content)
             f.flush()
-
-            with patch(
-                'mcp_server_opensearch.clusters_information.check_cluster_connection',
-                new_callable=AsyncMock,
-            ) as mock_check:
-                mock_check.return_value = (False, 'Connection timeout')
-                await load_clusters_from_yaml(f.name)
+            await load_clusters_from_yaml(f.name)
 
         os.unlink(f.name)
 
-        # Cluster should not be added due to connection failure
-        assert len(cluster_registry) == 0
+        # Cluster should be added even if potentially unreachable (no connection check)
+        assert len(cluster_registry) == 1
+        assert 'unreachable_cluster' in cluster_registry
+        assert cluster_registry['unreachable_cluster'].opensearch_url == 'https://unreachable:9200'
 
     @pytest.mark.asyncio
     async def test_load_clusters_from_yaml_file_not_found(self):
@@ -308,49 +285,3 @@ clusters:
         """Test loading from None path."""
         await load_clusters_from_yaml(None)
         assert len(cluster_registry) == 0
-
-
-class TestCheckClusterConnection:
-    @pytest.mark.asyncio
-    async def test_check_cluster_connection_success(self):
-        """Test successful cluster connection."""
-        cluster = ClusterInfo(opensearch_url='https://localhost:9200')
-
-        with patch('opensearch.client._initialize_client_multi_mode') as mock_init:
-            mock_client = MagicMock()
-            mock_client.ping = AsyncMock(return_value=True)
-            mock_init.return_value = mock_client
-
-            success, error = await check_cluster_connection(cluster)
-
-            assert success is True
-            assert error == ''
-            mock_client.ping.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_check_cluster_connection_failure(self):
-        """Test failed cluster connection."""
-        cluster = ClusterInfo(opensearch_url='https://unreachable:9200')
-
-        with patch('opensearch.client._initialize_client_multi_mode') as mock_init:
-            mock_init.side_effect = Exception('Connection timeout')
-
-            success, error = await check_cluster_connection(cluster)
-
-            assert success is False
-            assert 'Connection timeout' in error
-
-    @pytest.mark.asyncio
-    async def test_check_cluster_connection_client_ping_failure(self):
-        """Test cluster connection where client.ping() fails."""
-        cluster = ClusterInfo(opensearch_url='https://localhost:9200')
-
-        with patch('opensearch.client._initialize_client_multi_mode') as mock_init:
-            mock_client = MagicMock()
-            mock_client.ping = AsyncMock(side_effect=Exception('Authentication failed'))
-            mock_init.return_value = mock_client
-
-            success, error = await check_cluster_connection(cluster)
-
-            assert success is False
-            assert 'Authentication failed' in error

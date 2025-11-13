@@ -8,6 +8,9 @@
 .vscode/
 pyrightconfig.json
 
+# Kiro IDE
+.kiro/
+
 # Coverage output
 .coverage
 .coverage.*
