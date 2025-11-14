@@ -7,6 +7,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Added
 
 ### Fixed
+- Fixed AWS Signature mismatch when all indices are listed by ListIndexTool ([#133](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/133))
 
 ### Removed
 
