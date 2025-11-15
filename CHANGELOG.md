@@ -7,7 +7,15 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Added
 
 ### Fixed
+- Fix AWS auth issues for cat based tools, pin OpenSearchPy to 2.18.0 ([#135](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/135))
+### Removed
 
+## [Released 0.5.1]
+
+### Added
+
+### Fixed
+- Fix IAM role based auth (#129)
 ### Removed
 
 ## [Released 0.5.0]

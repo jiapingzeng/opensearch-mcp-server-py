@@ -5,7 +5,9 @@
 ## Table of Contents
 - [Overview](#overview)
 - [Development Setup](#development-setup)
+- [Local Testing and Development Workflow](#local-testing-and-development-workflow)
 - [Running the Server](#running-the-server)
+- [Foolproof Build Testing Workflow](#foolproof-build-testing-workflow)
 - [Development Configuration](#development-configuration)
 - [Managing Dependencies](#managing-dependencies)
 - [Adding Custom Tools](#adding-custom-tools)
@@ -26,56 +28,142 @@ cd opensearch-mcp-server-py
 
 ### 2. Set Up Development Environment
 
+Follow the [Local Testing and Development Workflow](#local-testing-and-development-workflow) section below for complete setup instructions.
+
+## Local Testing and Development Workflow
+
+### Foolproof Local Testing Workflow
+
+**All commands must be run from the project root directory** (where `pyproject.toml` is located).
+
+#### First Time Setup
+
 ```bash
-# Create & activate a virtual environment
-uv venv 
+# From project root
+cd /path/to/opensearch-mcp-server-py
+
+# 1. Update lock file (ensures uv.lock matches pyproject.toml)
+uv lock
+
+# 2. Create venv and install everything (dependencies + package in editable mode)
+uv sync
+
+# 3. Activate the venv
 source .venv/bin/activate
 
-# Install dependencies
-uv sync
+# 4. Run the server
+python -m mcp_server_opensearch --transport stream --port 9900 --debug
 ```
 
-### 3. Verify Installation
+#### Daily Testing (After Setup)
 
 ```bash
-# Navigate to src directory (required for running the server)
-cd src
-
-# Test that the server can start
-uv run python -m mcp_server_opensearch --help
+# From project root
+source .venv/bin/activate
+python -m mcp_server_opensearch --transport stream --port 9900 --debug
 ```
+
+#### After Changing Dependencies in pyproject.toml
+
+```bash
+# From project root
+# 1. Update lock file
+uv lock
+
+# 2. Sync environment (updates dependencies and package)
+uv sync
+
+# 3. Run the server
+source .venv/bin/activate
+python -m mcp_server_opensearch --transport stream --port 9900 --debug
+```
+
+### Common Questions
+
+**Q: Do I need to run `uv lock` before testing?**  
+A: Only if you changed `pyproject.toml`. For code changes in `src/`, just activate venv and run.
+
+**Q: What does `uv sync` do?**  
+A: Creates `.venv`, installs all dependencies from `uv.lock`, and installs your package in editable mode. Everything in one command.
+
+**Q: Where do I run commands from?**  
+A: Project root (where `pyproject.toml` is located).
+
+**Q: Do I need to rebuild after code changes?**  
+A: No. `uv sync` installs the package in editable mode, so changes in `src/` are picked up automatically.
+
+**Q: Can I use a different venv name?**  
+A: Yes, but `.venv` is the default. Use `uv sync --python <path>` or set `UV_PROJECT_ENVIRONMENT` environment variable.
+
+**Q: How do I clean/reset my venv and start fresh?**  
+A: Delete `.venv` and run `uv sync` again:
+```bash
+# From project root
+rm -rf .venv
+uv sync
+source .venv/bin/activate
+python -m mcp_server_opensearch --transport stream --port 9900 --debug
+```
+This gives you a completely fresh environment with all dependencies reinstalled.
 
 ## Running the Server
 
-**Important**: These commands must be run from the `src` directory.
+After setting up your environment (see above), you can run the server from the project root:
 
-### Development Mode
 ```bash
-cd src
+# Activate venv (if not already activated)
+source .venv/bin/activate
+
+# Run streaming server (recommended for testing)
+python -m mcp_server_opensearch --transport stream --port 9900 --debug
 
 # Run stdio server (default)
-uv run python -m mcp_server_opensearch 
-
-# Run streaming server (SSE/HTTP streaming)
-uv run python -m mcp_server_opensearch --transport stream
-
-# Verify using the health endpoint
-curl http://localhost:9900/health
+python -m mcp_server_opensearch
 
 # Run with custom AWS profile
-uv run python -m mcp_server_opensearch --profile my-profile
+python -m mcp_server_opensearch --profile my-profile
+
+# Run in multi mode with config file
+python -m mcp_server_opensearch --mode multi --config config/clusters.yml --transport stream
 ```
 
-### Multi Mode Development
+## Foolproof Build Testing Workflow
+
+Test the package exactly as end users will install it (before releasing to PyPI).
+
+**All commands must be run from the project root directory.**
+
+#### Complete Build and Test Workflow
+
 ```bash
-cd src
+# From project root
+cd /path/to/opensearch-mcp-server-py
 
-# Run stdio server in multi mode with custom config file
-uv run python -m mcp_server_opensearch --mode multi --config ../config/dev-clusters.yml
+# Step 1: Build the package
+python3 -m venv .venv-clean
+source .venv-clean/bin/activate
+pip install --upgrade build twine
+rm -rf dist/ build/
+find . -name "*.egg-info" -type d -exec rm -rf {} + 2>/dev/null || true
+python -m build
 
-# Run streaming server (SSE/HTTP streaming) in multi mode with custom config file
-uv run python -m mcp_server_opensearch --mode multi --config ../config/dev-clusters.yml --transport stream
+# Step 2: Test the built package in a fresh environment
+python3 -m venv .venv-test-install
+source .venv-test-install/bin/activate
+pip install dist/opensearch_mcp_server_py-*.whl
+opensearch-mcp-server-py --transport stream --port 9900 --debug
 ```
+
+#### Common Questions
+
+**Q: Why do I need separate venvs for build and test?**  
+A: To ensure a clean build without contamination from your dev environment, and a fresh test that matches end-user installation.
+
+**Q: Can I reuse the build/test venvs?**  
+A: Yes, but delete and recreate them for truly clean builds before releases.
+
+**Q: What files are created?**  
+A: `dist/opensearch_mcp_server_py-X.X.X-py3-none-any.whl` and `.tar.gz` - these are what get published to PyPI.
 
 ## Development Configuration
 
@@ -137,7 +225,7 @@ Create an MCP configuration file for your AI agent to connect to your developmen
 
 ### Adding New Dependencies
 ```bash
-# Add a new package
+# Add a new package (automatically updates pyproject.toml, uv.lock, and installs)
 uv add <package-name>
 
 # Add with specific version
@@ -147,12 +235,10 @@ uv add <package-name>==1.2.3
 uv add --dev <package-name>
 ```
 
-> **Note**: This automatically updates `pyproject.toml`, `uv.lock`, and installs in the virtual environment.
-
 ### Updating Dependencies
 ```bash
-# Update after manual pyproject.toml changes
-uv lock 
+# After manually editing pyproject.toml, update lock file and sync
+uv lock
 uv sync
 
 # Update all dependencies to latest versions
