@@ -16,7 +16,7 @@ async def list_indices(args: ListIndicesArgs) -> json:
     from .client import get_opensearch_client
 
     async with get_opensearch_client(args) as client:
-        response = await client.cat.indices()
+        response = await client.cat.indices(format='json')
         return response
 
 
