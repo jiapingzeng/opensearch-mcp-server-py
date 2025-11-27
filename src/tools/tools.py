@@ -21,6 +21,7 @@ from .tool_params import (
 )
 from .utils import is_tool_compatible
 from opensearch.helper import (
+    convert_search_results_to_csv,
     get_allocation,
     get_cluster_state,
     get_index,
@@ -110,14 +111,23 @@ async def search_index_tool(args: SearchIndexArgs) -> list[dict]:
     try:
         await check_tool_compatibility('SearchIndexTool', args)
         result = await search_index(args)
-        formatted_result = json.dumps(result, indent=2)
-
-        return [
-            {
-                'type': 'text',
-                'text': f'Search results from {args.index}:\n{formatted_result}',
-            }
-        ]
+        
+        if args.format.lower() == 'csv':
+            csv_result = convert_search_results_to_csv(result)
+            return [
+                {
+                    'type': 'text',
+                    'text': f'Search results from {args.index} (CSV format):\n{csv_result}',
+                }
+            ]
+        else:
+            formatted_result = json.dumps(result, indent=2)
+            return [
+                {
+                    'type': 'text',
+                    'text': f'Search results from {args.index} (JSON format):\n{formatted_result}',
+                }
+            ]
     except Exception as e:
         return [{'type': 'text', 'text': f'Error searching index: {str(e)}'}]
 

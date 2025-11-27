@@ -85,6 +85,7 @@ Advanced analysis tools for data analysis and troubleshooting.
   - `opensearch_url` (optional): The OpenSearch cluster URL to connect to
   - `index` (required): The name of the index to search in
   - `query` (required): The search query in OpenSearch Query DSL format
+  - `format` (optional): The format of SearchIndexTool response. options are csv and json
 
 - **GetShardsTool**
   - `opensearch_url` (optional): The OpenSearch cluster URL to connect to

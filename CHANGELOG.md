@@ -5,6 +5,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [Unreleased]
 
 ### Added
+- Convert JSON to CSV for search index tool result ([#140](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/140))
 
 ### Fixed
 - Fix AWS auth issues for cat based tools, pin OpenSearchPy to 2.18.0 ([#135](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/135))

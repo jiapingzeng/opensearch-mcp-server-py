@@ -80,6 +80,7 @@ class GetIndexMappingArgs(baseToolArgs):
 class SearchIndexArgs(baseToolArgs):
     index: str = Field(description='The name of the index to search in')
     query: Any = Field(description='The search query in OpenSearch query DSL format')
+    format: str = Field(default='json', description='Output format: "json" or "csv"')
 
 
 class GetShardsArgs(baseToolArgs):
