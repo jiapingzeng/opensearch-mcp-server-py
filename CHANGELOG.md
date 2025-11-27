@@ -22,6 +22,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Added
 - Add `GenericOpenSearchApiTool` - A flexible, general-purpose tool that can interact with any OpenSearch API endpoint, addressing tool explosion and reducing context size. Supports all HTTP methods with write operation protection via `OPENSEARCH_SETTINGS_ALLOW_WRITE` environment variable. Closes [#109](https://github.com/opensearch-project/opensearch-mcp-server-py/issues/109)
 - Add header-based authentication + Code Clean up ([#117](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/117))
+- Add skills tools integration ([#121](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/121))
 
 ### Fixed
 - Fix Concurrency: Use Async OpenSearch client to improve concurrency ([#125](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/125))

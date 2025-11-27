@@ -61,6 +61,13 @@ The following tools are available but disabled by default. To enable them, see t
 - [GetAllocationTool](https://docs.opensearch.org/docs/latest/api-reference/cat/cat-allocation/): Gets information about shard allocation across nodes in the cluster from the /\_cat/allocation endpoint.
 - [GetLongRunningTasksTool](https://docs.opensearch.org/docs/latest/api-reference/cat/cat-tasks/): Gets information about long-running tasks in the cluster, sorted by running time in descending order.
 
+### Skills Tools (Enabled by Default)
+
+Advanced analysis tools for data analysis and troubleshooting.
+
+- [DataDistributionTool](https://docs.opensearch.org/latest/ml-commons-plugin/agents-tools/tools/data-distribution-tool/): Analyzes data distribution patterns and field value frequencies within OpenSearch indices. Supports both single dataset analysis and comparative analysis between two time periods to identify distribution changes.
+- [LogPatternAnalysisTool](https://docs.opensearch.org/latest/ml-commons-plugin/agents-tools/tools/log-pattern-analysis-tool/): Detects anomalous log patterns and sequences through comparative analysis between baseline and selection time ranges. Supports log sequence analysis with trace correlation, log pattern difference analysis, and log insights analysis for error detection.
+
 ### Tool Parameters
 
 - **ListIndexTool**
@@ -154,6 +161,27 @@ The following tools are available but disabled by default. To enable them, see t
 - **GetLongRunningTasksTool**
   - `opensearch_url` (optional): The OpenSearch cluster URL to connect to
   - `limit` (optional): The maximum number of tasks to return. Default is 10.
+
+- **DataDistributionTool**
+
+  - `index` (required): Target OpenSearch index name.
+  - `selectionTimeRangeStart` (required): Start time for analysis target period.
+  - `selectionTimeRangeEnd` (required): End time for analysis target period.
+  - `timeField` (required): Date/time field for filtering.
+  - `baselineTimeRangeStart` (optional): Start time for baseline period.
+  - `baselineTimeRangeEnd` (optional): End time for baseline period.
+  - `size` (optional): Maximum number of documents to analyze. Default is 1000.
+
+- **LogPatternAnalysisTool**
+
+  - `index` (required): Target OpenSearch index name containing log data.
+  - `logFieldName` (required): Field containing raw log messages to analyze.
+  - `selectionTimeRangeStart` (required): Start time for analysis target period.
+  - `selectionTimeRangeEnd` (required): End time for analysis target period.
+  - `timeField` (required): Date/time field for time-based filtering.
+  - `traceFieldName` (optional): Field for trace/correlation ID.
+  - `baseTimeRangeStart` (optional): Start time for baseline comparison period.
+  - `baseTimeRangeEnd` (optional): End time for baseline comparison period.
 
 > More tools coming soon. [Click here](DEVELOPER_GUIDE.md#contributing)
 

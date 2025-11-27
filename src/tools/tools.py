@@ -38,6 +38,7 @@ from opensearch.helper import (
     list_indices,
     search_index,
 )
+from .skills_tools import SKILLS_TOOLS_REGISTRY
 
 
 async def check_tool_compatibility(tool_name: str, args: baseToolArgs = None):
@@ -492,6 +493,7 @@ from .generic_api_tool import GenericOpenSearchApiArgs, generic_opensearch_api_t
 
 # Registry of available OpenSearch tools with their metadata
 TOOL_REGISTRY = {
+    **SKILLS_TOOLS_REGISTRY,
     'ListIndexTool': {
         'display_name': 'ListIndexTool',
         'description': 'Lists indices in the OpenSearch cluster. By default, returns a filtered list of index names only to minimize response size. Set include_detail=true to return full metadata from cat.indices (docs.count, store.size, etc.). If an index parameter is provided, returns detailed information for that specific index including mappings and settings.',

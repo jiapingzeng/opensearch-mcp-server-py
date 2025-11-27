@@ -171,6 +171,8 @@ def process_tool_filter(
             'ExplainTool',
             'MsearchTool',
             'GenericOpenSearchApiTool',
+            'DataDistributionTool',
+            'LogPatternAnalysisTool',
         ]
 
         # Build core tools list using display names

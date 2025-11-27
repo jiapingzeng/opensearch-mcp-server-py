@@ -32,6 +32,36 @@ MOCK_TOOL_REGISTRY = {
         'min_version': '2.0.0',
         'max_version': '3.0.0',
     },
+    'DataDistributionTool': {
+        'display_name': 'DataDistributionTool',
+        'description': 'Analyze data distribution patterns',
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'opensearch_cluster_name': {'type': 'string'},
+                'index': {'type': 'string'},
+            },
+        },
+        'function': MagicMock(),
+        'args_model': MagicMock(),
+        'min_version': '3.3.0',
+        'http_methods': 'POST',
+    },
+    'LogPatternAnalysisTool': {
+        'display_name': 'LogPatternAnalysisTool',
+        'description': 'Analyze log patterns',
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'opensearch_cluster_name': {'type': 'string'},
+                'index': {'type': 'string'},
+            },
+        },
+        'function': MagicMock(),
+        'args_model': MagicMock(),
+        'min_version': '3.3.0',
+        'http_methods': 'POST',
+    },
 }
 
 
@@ -212,6 +242,51 @@ class TestGetTools:
                 'opensearch_cluster_name'
                 not in result['SearchIndexTool']['input_schema']['properties']
             )
+
+    @pytest.mark.asyncio
+    async def test_get_tools_skills_tools_version_filtering(self, mock_tool_registry, mock_patches):
+        """Test that skills tools are filtered based on version compatibility."""
+        mock_get_version, mock_is_compatible = mock_patches
+
+        # Setup mocks - simulate OpenSearch 2.5.0 (below skills tools min version 3.3.0)
+        mock_get_version.return_value = Version.parse('2.5.0')
+
+        # Mock compatibility: skills tools should be incompatible with 2.5.0
+        def mock_compatibility(version, tool_info):
+            min_version = tool_info.get('min_version', '1.0.0')
+            return version >= Version.parse(min_version)
+
+        mock_is_compatible.side_effect = mock_compatibility
+
+        # Patch TOOL_REGISTRY to use our mock registry
+        with patch('tools.tool_filter.TOOL_REGISTRY', mock_tool_registry):
+            result = await get_tools(mock_tool_registry)
+
+            # Skills tools should be filtered out due to version incompatibility
+            assert 'DataDistributionTool' not in result
+            assert 'LogPatternAnalysisTool' not in result
+            # Other tools should still be present
+            assert 'ListIndexTool' in result
+            assert 'SearchIndexTool' in result
+
+    @pytest.mark.asyncio
+    async def test_get_tools_skills_tools_compatible_version(self, mock_tool_registry, mock_patches):
+        """Test that skills tools are included when OpenSearch version is compatible."""
+        mock_get_version, mock_is_compatible = mock_patches
+
+        # Setup mocks - simulate OpenSearch 3.5.0 (above skills tools min version 3.3.0)
+        mock_get_version.return_value = Version.parse('3.5.0')
+        mock_is_compatible.return_value = True  # All tools compatible
+
+        # Patch TOOL_REGISTRY to use our mock registry
+        with patch('tools.tool_filter.TOOL_REGISTRY', mock_tool_registry):
+            result = await get_tools(mock_tool_registry)
+
+            # All tools should be present including skills tools
+            assert 'DataDistributionTool' in result
+            assert 'LogPatternAnalysisTool' in result
+            assert 'ListIndexTool' in result
+            assert 'SearchIndexTool' in result
 
     @pytest.mark.asyncio
     async def test_get_tools_logs_version_info(self, mock_tool_registry, mock_patches, caplog):
