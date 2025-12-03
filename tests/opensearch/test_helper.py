@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
+import json
 from tools.tool_params import (
     GetIndexMappingArgs,
     GetShardsArgs,
@@ -514,4 +515,27 @@ class TestOpenSearchHelper:
         result = convert_search_results_to_csv(search_results)
         assert "count" in result
         assert "0" in result
+
+    def test_normalize_scientific_notation(self):
+        import importlib.util
+        import os
+        spec = importlib.util.spec_from_file_location("helper", os.path.join(os.path.dirname(__file__),
+                                                                             '../../src/opensearch/helper.py'))
+        helper = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(helper)
+        normalize_scientific_notation = helper.normalize_scientific_notation
+        query_dsl = {
+            "query": {
+                "range": {
+                    "timestamp": {
+                        "gte": 1732693003E+3,
+                        "lte": 173.5
+                    }
+                }
+            }
+        }
+        result = normalize_scientific_notation(query_dsl)
+        assert "1732693003000" in json.dumps(result)
+        assert "173.5" in json.dumps(result)
+
        

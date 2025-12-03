@@ -5,6 +5,9 @@ import json
 import logging
 import csv
 import io
+import math
+from decimal import Decimal
+import json
 from semver import Version
 from tools.tool_params import *
 
@@ -50,7 +53,8 @@ async def search_index(args: SearchIndexArgs) -> json:
     from .client import get_opensearch_client
 
     async with get_opensearch_client(args) as client:
-        response = await client.search(index=args.index, body=args.query)
+        query = normalize_scientific_notation(args.query)
+        response = await client.search(index=args.index, body=query)
         return response
 
 
@@ -415,3 +419,106 @@ async def get_opensearch_version(args: baseToolArgs) -> Version:
     except Exception as e:
         logger.error(f'Error getting OpenSearch version: {e}')
         return None
+
+def plain_float(value):
+    """Convert a float to a non-scientific notation number.
+
+    This function is intended to normalize floating-point values so that
+    when they are serialized to JSON they do not appear in scientific
+    notation (e.g., `1.23E10`), which some APIs (like OpenSearch) may
+    reject for numeric fields such as epoch millis.
+
+    Args:
+        value (float | None): The input floating-point value to normalize.
+            If None, NaN, or an infinite value is passed, it is treated
+            as invalid.
+
+    Returns:
+        int | float | None:
+            - `None` if `value` is None, NaN, or infinite.
+            - An `int` if the normalized representation has no fractional
+              part (e.g., `1.000E3` → `1000`).
+            - A `float` if the normalized representation has a fractional
+              part (e.g., `1.234E2` → `123.4`).
+    """
+    if value is None or math.isnan(value) or math.isinf(value):
+        return None
+
+    d = Decimal(str(value)).normalize()
+    s = format(d, "f")
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+    if s == "" or s == "-":
+        s = "0"
+
+    if "." not in s:
+        return int(s)
+    else:
+        return float(s)
+
+
+def _convert_value(v):
+    """Recursively normalize scientific-notation floats inside a structure.
+
+    This is an internal helper that walks nested Python objects and applies
+    `plain_float` to all `float` values. Only `float` instances are touched;
+    strings and other scalar types are left unchanged.
+
+    Args:
+        v (Any): A value that may be a dict, list, float, or any other type.
+            - If `v` is a `dict`, all values are processed recursively.
+            - If `v` is a `list`, all elements are processed recursively.
+            - If `v` is a `float`, it is passed through `plain_float`.
+            - Any other type is returned as-is.
+
+    Returns:
+        Any: A new structure of the same shape with all `float` values
+        normalized (non-scientific notation) where possible.
+    """
+    if isinstance(v, dict):
+        return {k: _convert_value(sub) for k, sub in v.items()}
+    elif isinstance(v, list):
+        return [_convert_value(sub) for sub in v]
+    elif isinstance(v, float):
+        return plain_float(v)
+    else:
+        return v
+
+
+def normalize_scientific_notation(body):
+    """Normalize scientific-notation floats in a request body.
+
+    This function is meant to be used before sending a request body to
+    OpenSearch (or similar APIs) to ensure that numeric values do not
+    appear in scientific notation, which can cause parsing errors for
+    date/epoch fields.
+
+    The function supports both Python objects and JSON strings:
+
+    - If `body` is a `dict` or `list`, it is processed recursively.
+    - If `body` is a JSON `str`, it is first deserialized with
+      `json.loads`, then processed, and the resulting Python object
+      is returned.
+
+    Args:
+        body (dict | list | str): The request body to normalize. It can be:
+            - A nested Python structure (`dict` / `list`) containing floats.
+            - A JSON string representing such a structure.
+
+    Returns:
+        dict | list:
+            The normalized Python structure (usually a dict) with all floats
+            converted to non-scientific notation numeric values where possible.
+            This object can be passed directly to `opensearch-py` as `body`.
+
+    Raises:
+        json.JSONDecodeError: If `body` is a string that is not valid JSON.
+    """
+    if isinstance(body, str):
+        # Treat as JSON string
+        data = json.loads(body)
+        return _convert_value(data)
+    else:
+        # Treat as Python object (dict / list / etc.)
+        return _convert_value(body)
+
