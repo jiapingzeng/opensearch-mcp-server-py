@@ -197,7 +197,7 @@ class TestTools:
 
     @pytest.mark.asyncio
     async def test_list_indices_tool_with_index(self):
-        """When index is provided, returns detailed info for a single index."""
+        """When index is provided with include_detail=True (default), returns detailed info."""
         # Setup: mock detailed index info as returned by OpenSearch indices.get
         mock_index_info = {
             'index1': {
@@ -207,7 +207,7 @@ class TestTools:
             }
         }
         self.mock_client.indices.get.return_value = mock_index_info
-        # Execute
+        # Execute - include_detail defaults to True
         args = self.ListIndicesArgs(index='index1', opensearch_cluster_name='')
         result = await self._list_indices_tool(args)
         # Assert
@@ -223,27 +223,29 @@ class TestTools:
         self.mock_client.indices.get.assert_called_once_with(index='index1')
 
     @pytest.mark.asyncio
-    async def test_list_indices_tool_with_index_filtered(self):
-        """Deprecated behavior removed: index with include_detail=False should still return details (kept to ensure no regression to name-only)."""
-        # Setup detailed info
-        mock_index_info = {
-            'index1': {
-                'aliases': {},
-                'mappings': {'properties': {'field1': {'type': 'text'}}},
-                'settings': {'index': {'number_of_shards': '1', 'number_of_replicas': '1'}},
-            }
-        }
-        self.mock_client.indices.get.return_value = mock_index_info
-        # Execute
+    async def test_list_indices_tool_with_index_pattern_no_detail(self):
+        """When index pattern provided with include_detail=False, returns matching index names."""
+        # Setup - mock cat.indices to return indices matching pattern
+        self.mock_client.cat.indices.return_value = [
+            {'index': 'cwl-2024-01', 'health': 'green'},
+            {'index': 'cwl-2024-02', 'health': 'green'},
+        ]
+        
+        # Execute - explicitly set include_detail=False with pattern
         args = self.ListIndicesArgs(
-            index='index1', include_detail=False, opensearch_cluster_name=''
+            index='cwl*', include_detail=False, opensearch_cluster_name=''
         )
         result = await self._list_indices_tool(args)
-        # Assert still returns details
+        
+        # Assert - should return only the matching index names
         assert len(result) == 1
         assert result[0]['type'] == 'text'
-        assert 'Index information for index1' in result[0]['text']
-        self.mock_client.indices.get.assert_called_once_with(index='index1')
+        payload = json.loads(result[0]['text'].split('\n', 1)[1])
+        assert payload == ['cwl-2024-01', 'cwl-2024-02']
+        
+        # cat.indices should be called (not indices.get) when include_detail=False
+        self.mock_client.cat.indices.assert_called_once_with(format='json')
+        self.mock_client.indices.get.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_list_indices_tool_error(self):
