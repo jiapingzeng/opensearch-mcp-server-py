@@ -51,7 +51,7 @@ class TestOpenSearchHelper:
         # Assert
         assert result == mock_response
         mock_get_client.assert_called_once_with(ListIndicesArgs(opensearch_cluster_name=''))
-        mock_client.cat.indices.assert_called_once_with(format='json')
+        mock_client.cat.indices.assert_called_once_with(index=None, format='json')
 
     @pytest.mark.asyncio
     @patch('opensearch.client.get_opensearch_client')
@@ -537,5 +537,3 @@ class TestOpenSearchHelper:
         result = normalize_scientific_notation(query_dsl)
         assert "1732693003000" in json.dumps(result)
         assert "173.5" in json.dumps(result)
-
-       
