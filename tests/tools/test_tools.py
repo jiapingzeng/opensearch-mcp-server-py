@@ -151,7 +151,7 @@ class TestTools:
         assert '"docs.count": "100"' in result[0]['text']
         assert '"index": "index2"' in result[0]['text']
         assert '"docs.count": "200"' in result[0]['text']
-        self.mock_client.cat.indices.assert_called_once_with(format='json')
+        self.mock_client.cat.indices.assert_called_once_with(index=None, format='json')
 
     @pytest.mark.asyncio
     async def test_list_indices_tool_include_detail_false(self):
@@ -193,7 +193,7 @@ class TestTools:
         payload = json.loads(result[0]['text'].split('\n', 1)[1])
         assert payload == ['index1', 'index2']
         assert 'docs.count' not in result[0]['text']
-        self.mock_client.cat.indices.assert_called_once_with(format='json')
+        self.mock_client.cat.indices.assert_called_once_with(index=None, format='json')
 
     @pytest.mark.asyncio
     async def test_list_indices_tool_with_index(self):
@@ -243,8 +243,8 @@ class TestTools:
         payload = json.loads(result[0]['text'].split('\n', 1)[1])
         assert payload == ['cwl-2024-01', 'cwl-2024-02']
         
-        # cat.indices should be called (not indices.get) when include_detail=False
-        self.mock_client.cat.indices.assert_called_once_with(format='json')
+        # cat.indices should be called with the pattern when include_detail=False
+        self.mock_client.cat.indices.assert_called_once_with(index='cwl*', format='json')
         self.mock_client.indices.get.assert_not_called()
 
     @pytest.mark.asyncio
@@ -258,7 +258,7 @@ class TestTools:
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Error listing indices: Test error' in result[0]['text']
-        self.mock_client.cat.indices.assert_called_once_with(format='json')
+        self.mock_client.cat.indices.assert_called_once_with(index=None, format='json')
 
     @pytest.mark.asyncio
     async def test_get_index_mapping_tool(self):

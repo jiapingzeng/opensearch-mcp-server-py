@@ -21,7 +21,9 @@ async def list_indices(args: ListIndicesArgs) -> json:
     from .client import get_opensearch_client
 
     async with get_opensearch_client(args) as client:
-        response = await client.cat.indices(format='json')
+        # Pass index parameter if provided to filter results by pattern or specific index
+        index_param = args.index if args.index else None
+        response = await client.cat.indices(index=index_param, format='json')
         return response
 
 
@@ -521,4 +523,3 @@ def normalize_scientific_notation(body):
     else:
         # Treat as Python object (dict / list / etc.)
         return _convert_value(body)
-
