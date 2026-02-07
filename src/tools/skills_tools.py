@@ -40,8 +40,8 @@ async def call_opensearch_tool(tool_name: str, parameters: Dict[str, Any], args:
                 body={'parameters': parameters}
             )
 
-        logger.info(f"Tool {tool_name} result: {json.dumps(response, indent=2)}")
-        formatted_result = json.dumps(response, indent=2)
+        logger.info(f"Tool {tool_name} result: {json.dumps(response, separators=(',', ':'))}")
+        formatted_result = json.dumps(response, separators=(',', ':'))
         return [{'type': 'text', 'text': f'{tool_name} result:\n{formatted_result}'}]
 
     except Exception as e:

@@ -311,7 +311,7 @@ def convert_search_results_to_csv(search_results: dict) -> str:
     
     # Handle aggregations-only queries
     if has_aggregations and not has_hits:
-        return json.dumps(search_results['aggregations'], indent=2)
+        return json.dumps(search_results['aggregations'], separators=(',', ':'))
     
     # Handle hits-only queries
     if has_hits and not has_aggregations:
@@ -320,7 +320,7 @@ def convert_search_results_to_csv(search_results: dict) -> str:
     # Handle queries with both hits and aggregations
     if has_hits and has_aggregations:
         hits_csv = _convert_hits_to_csv(search_results['hits']['hits'])
-        aggregations_json = json.dumps(search_results['aggregations'], indent=2)
+        aggregations_json = json.dumps(search_results['aggregations'], separators=(',', ':'))
         return f"SEARCH HITS:\n{hits_csv}\n\nAGGREGATIONS:\n{aggregations_json}"
     
     return "No search results to convert"

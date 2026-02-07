@@ -79,7 +79,7 @@ class TestSkillsTools:
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'DataDistributionTool result:' in result[0]['text']
-        assert '"status": "success"' in result[0]['text']
+        assert '"status":"success"' in result[0]['text']
         self.mock_client.transport.perform_request.assert_called_once_with(
             'POST',
             '/_plugins/_ml/tools/_execute/DataDistributionTool',

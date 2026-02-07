@@ -75,14 +75,14 @@ async def list_indices_tool(args: ListIndicesArgs) -> list[dict]:
             if args.index:
                 # Return detailed information for specific index or pattern
                 index_info = await get_index(args)
-                formatted_info = json.dumps(index_info, indent=2)
+                formatted_info = json.dumps(index_info, separators=(',', ':'))
                 return [
                     {'type': 'text', 'text': f'Index information for {args.index}:\n{formatted_info}'}
                 ]
             else:
                 # Return full metadata for all indices
                 indices = await list_indices(args)
-                formatted_indices = json.dumps(indices, indent=2)
+                formatted_indices = json.dumps(indices, separators=(',', ':'))
                 return [{'type': 'text', 'text': f'All indices information:\n{formatted_indices}'}]
         else:
             # Return minimal information (names only)
@@ -90,7 +90,7 @@ async def list_indices_tool(args: ListIndicesArgs) -> list[dict]:
             index_names = [
                 item.get('index') for item in indices if isinstance(item, dict) and 'index' in item
             ]
-            formatted_names = json.dumps(index_names, indent=2)
+            formatted_names = json.dumps(index_names, separators=(',', ':'))
             return [{'type': 'text', 'text': f'Indices:\n{formatted_names}'}]
     except Exception as e:
         return [{'type': 'text', 'text': f'Error listing indices: {str(e)}'}]
@@ -100,7 +100,7 @@ async def get_index_mapping_tool(args: GetIndexMappingArgs) -> list[dict]:
     try:
         await check_tool_compatibility('IndexMappingTool', args)
         mapping = await get_index_mapping(args)
-        formatted_mapping = json.dumps(mapping, indent=2)
+        formatted_mapping = json.dumps(mapping, separators=(',', ':'))
 
         return [{'type': 'text', 'text': f'Mapping for {args.index}:\n{formatted_mapping}'}]
     except Exception as e:
@@ -121,7 +121,7 @@ async def search_index_tool(args: SearchIndexArgs) -> list[dict]:
                 }
             ]
         else:
-            formatted_result = json.dumps(result, indent=2)
+            formatted_result = json.dumps(result, separators=(',', ':'))
             return [
                 {
                     'type': 'text',
@@ -171,7 +171,7 @@ async def get_cluster_state_tool(args: GetClusterStateArgs) -> list[dict]:
         result = await get_cluster_state(args)
 
         # Format the response for better readability
-        formatted_result = json.dumps(result, indent=2)
+        formatted_result = json.dumps(result, separators=(',', ':'))
 
         # Create response message based on what was requested
         message = 'Cluster state information'
@@ -289,7 +289,7 @@ async def get_index_info_tool(args: GetIndexInfoArgs) -> list[dict]:
         result = await get_index_info(args)
 
         # Format the response for better readability
-        formatted_result = json.dumps(result, indent=2)
+        formatted_result = json.dumps(result, separators=(',', ':'))
 
         # Create response message
         message = f'Detailed information for index: {args.index}'
@@ -313,7 +313,7 @@ async def get_index_stats_tool(args: GetIndexStatsArgs) -> list[dict]:
         result = await get_index_stats(args)
 
         # Format the response for better readability
-        formatted_result = json.dumps(result, indent=2)
+        formatted_result = json.dumps(result, separators=(',', ':'))
 
         # Create response message based on what was requested
         message = f'Statistics for index: {args.index}'
@@ -339,7 +339,7 @@ async def get_query_insights_tool(args: GetQueryInsightsArgs) -> list[dict]:
         result = await get_query_insights(args)
 
         # Format the response for better readability
-        formatted_result = json.dumps(result, indent=2)
+        formatted_result = json.dumps(result, separators=(',', ':'))
 
         # Create simple response message
         message = 'Query insights from /_insights/top_queries endpoint'
@@ -436,7 +436,7 @@ async def get_nodes_tool(args: GetNodesArgs) -> list[dict]:
             ]
 
         # Format the response for better readability
-        formatted_result = json.dumps(result, indent=2)
+        formatted_result = json.dumps(result, separators=(',', ':'))
 
         # Create response message based on what was requested
         message = 'Detailed node information'

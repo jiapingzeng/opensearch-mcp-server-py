@@ -148,7 +148,7 @@ async def generic_opensearch_api_tool(args: GenericOpenSearchApiArgs) -> list[di
                 formatted_response = response
             else:
                 # Most APIs return JSON
-                formatted_response = json.dumps(response, indent=2)
+                formatted_response = json.dumps(response, separators=(',', ':'))
 
             # Create descriptive message
             message = f'OpenSearch API Response ({method} {args.path})'

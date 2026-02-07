@@ -147,10 +147,10 @@ class TestTools:
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         # Should include the full JSON output by default
-        assert '"index": "index1"' in result[0]['text']
-        assert '"docs.count": "100"' in result[0]['text']
-        assert '"index": "index2"' in result[0]['text']
-        assert '"docs.count": "200"' in result[0]['text']
+        assert '"index":"index1"' in result[0]['text']
+        assert '"docs.count":"100"' in result[0]['text']
+        assert '"index":"index2"' in result[0]['text']
+        assert '"docs.count":"200"' in result[0]['text']
         self.mock_client.cat.indices.assert_called_once_with(index=None, format='json')
 
     @pytest.mark.asyncio
@@ -215,10 +215,10 @@ class TestTools:
         assert result[0]['type'] == 'text'
         assert 'Index information for index1' in result[0]['text']
         assert '"index1"' in result[0]['text']
-        assert '"number_of_shards": "1"' in result[0]['text']
+        assert '"number_of_shards":"1"' in result[0]['text']
         assert (
-            '"field1": {"type": "text"}' in result[0]['text']
-            or '"type": "text"' in result[0]['text']
+            '"field1":{"type":"text"}' in result[0]['text']
+            or '"type":"text"' in result[0]['text']
         )
         self.mock_client.indices.get.assert_called_once_with(index='index1')
 
@@ -403,8 +403,8 @@ class TestTools:
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Cluster state information' in result[0]['text']
-        assert '"cluster_name": "test-cluster"' in result[0]['text']
-        assert '"master_node": "node1"' in result[0]['text']
+        assert '"cluster_name":"test-cluster"' in result[0]['text']
+        assert '"master_node":"node1"' in result[0]['text']
         self.mock_client.cluster.state.assert_called_once_with()
 
     @pytest.mark.asyncio
@@ -431,7 +431,7 @@ class TestTools:
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Cluster state information for metric: nodes' in result[0]['text']
-        assert '"cluster_name": "test-cluster"' in result[0]['text']
+        assert '"cluster_name":"test-cluster"' in result[0]['text']
         assert '"nodes"' in result[0]['text']
         self.mock_client.cluster.state.assert_called_once_with(metric='nodes')
 
@@ -666,10 +666,10 @@ class TestTools:
         assert 'Detailed information for index: test-index' in result[0]['text']
         assert '"test-index"' in result[0]['text']
         assert (
-            '"field1": {"type": "text"}' in result[0]['text']
-            or '"type": "text"' in result[0]['text']
+            '"field1":{"type":"text"}' in result[0]['text']
+            or '"type":"text"' in result[0]['text']
         )
-        assert '"number_of_shards": "1"' in result[0]['text']
+        assert '"number_of_shards":"1"' in result[0]['text']
         self.mock_client.indices.get.assert_called_once_with(index='test-index')
 
     @pytest.mark.asyncio
@@ -725,8 +725,8 @@ class TestTools:
         assert result[0]['type'] == 'text'
         assert 'Statistics for index: test-index' in result[0]['text']
         assert (
-            '"docs": {"count": 1000, "deleted": 10}' in result[0]['text']
-            or '"count": 1000' in result[0]['text']
+            '"docs":{"count":1000,"deleted":10}' in result[0]['text']
+            or '"count":1000' in result[0]['text']
         )
         self.mock_client.indices.stats.assert_called_once_with(index='test-index')
 
@@ -759,8 +759,8 @@ class TestTools:
         assert result[0]['type'] == 'text'
         assert 'Statistics for index: test-index (metrics: search)' in result[0]['text']
         assert (
-            '"search": {"query_total": 200' in result[0]['text']
-            or '"query_total": 200' in result[0]['text']
+            '"search":{"query_total":200' in result[0]['text']
+            or '"query_total":200' in result[0]['text']
         )
         self.mock_client.indices.stats.assert_called_once_with(index='test-index', metric='search')
 
@@ -811,10 +811,10 @@ class TestTools:
         assert result[0]['type'] == 'text'
         assert 'Query insights from /_insights/top_queries endpoint' in result[0]['text']
         assert (
-            '"query": {"match": {"field": "value"}}' in result[0]['text']
+            '"query":{"match":{"field":"value"}}' in result[0]['text']
             or '"match"' in result[0]['text']
         )
-        assert '"count": 100' in result[0]['text']
+        assert '"count":100' in result[0]['text']
         self.mock_client.transport.perform_request.assert_called_once_with(
             method='GET', url='/_insights/top_queries'
         )
@@ -1092,9 +1092,9 @@ class TestTools:
         assert len(result) == 1
         assert result[0]['type'] == 'text'
         assert 'Detailed node information for all nodes' in result[0]['text']
-        assert '"name": "node-1"' in result[0]['text']
-        assert '"name": "node-2"' in result[0]['text']
-        assert '"cluster_name": "test-cluster"' in result[0]['text']
+        assert '"name":"node-1"' in result[0]['text']
+        assert '"name":"node-2"' in result[0]['text']
+        assert '"cluster_name":"test-cluster"' in result[0]['text']
         self.mock_client.transport.perform_request.assert_called_once_with(
             method='GET', url='/_nodes'
         )
@@ -1135,7 +1135,7 @@ class TestTools:
         assert result[0]['type'] == 'text'
         assert 'Detailed node information for nodes: master:true' in result[0]['text']
         assert '(metrics: process,transport)' in result[0]['text']
-        assert '"name": "master-node"' in result[0]['text']
+        assert '"name":"master-node"' in result[0]['text']
         self.mock_client.transport.perform_request.assert_called_once_with(
             method='GET', url='/_nodes/master:true/process,transport'
         )
