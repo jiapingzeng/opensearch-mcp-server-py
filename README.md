@@ -54,7 +54,7 @@ With this setup, agents pass `opensearch_url` and authentication parameters dire
 
 ```bash
 # Pre-built image
-docker run --rm -e OPENSEARCH_HOST=https://your-cluster:9200 opensearch-project/opensearch-mcp-server-py:latest
+docker run --rm -e OPENSEARCH_HOST=https://your-cluster:9200 opensearchproject/opensearch-mcp-server-py
 
 # Build locally
 docker build -t opensearch-mcp-server-py .
