@@ -7,6 +7,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Added
 
 - Set MCP `CallToolResult.isError` when tool responses indicate failure (`is_error`), so clients can distinguish errors from successful tool calls ([#265](https://github.com/opensearch-project/opensearch-mcp-server-py/issues/265))
+- Add skills tools for root-cause analysis (`DataDistributionTool`, `LogPatternAnalysisTool`, `MetricChangeAnalysisTool`) that surface categorical value shifts, ML-clustered log patterns, and percentile changes between a baseline and an anomaly window. Skills tools are in the `skills_tools` category and can be enabled via `enabled_categories: ["skills_tools"]` ([#259](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/259))
 - Add `PPLQueryTool` for executing PPL (Piped Processing Language) queries via `/_plugins/_ppl` endpoint, with support for `jdbc`, `csv`, and `raw` output formats. Tool is in the `observability` category. ([#257](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/257))
 
 
