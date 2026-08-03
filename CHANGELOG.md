@@ -9,6 +9,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Changed
 
 ### Fixed
+- Bind per-call connection credentials to the caller that supplied the URL ([#287](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/287))
 
 ### Removed
 
