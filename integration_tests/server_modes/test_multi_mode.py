@@ -22,7 +22,8 @@ def _build_multi_config():
     basic_pass = os.environ.get('IT_BASIC_AUTH_PASSWORD')
     aws_region = os.environ.get('IT_AWS_REGION')
 
-    cluster_config = {'opensearch_url': url}
+    ssl_verify = os.environ.get('OPENSEARCH_SSL_VERIFY', 'true').lower() != 'false'
+    cluster_config = {'opensearch_url': url, 'ssl_verify': ssl_verify}
 
     if basic_user and basic_pass:
         cluster_config['opensearch_username'] = basic_user
@@ -94,7 +95,7 @@ class TestMultiMode:
             for tool in tools.tools:
                 if tool.name == 'ListClustersTool':
                     continue
-                props = tool.inputSchema.get('properties', {})
+                props = tool.input_schema.get('properties', {})
                 assert 'opensearch_cluster_name' in props, (
                     f'Tool {tool.name} should expose opensearch_cluster_name in multi mode'
                 )
@@ -118,7 +119,10 @@ class TestMultiMode:
 
     async def test_call_tool_without_cluster_name_errors(self, multi_mode_setup):
         async with mcp_client(multi_mode_setup.url) as session:
-            result = await session.call_tool('ListIndexTool', arguments={})
+            result = await session.call_tool(
+                'ListIndexTool',
+                arguments={},
+            )
             assert_tool_error(result, 'opensearch_cluster_name')
 
     async def test_call_tool_with_nonexistent_cluster_errors(self, multi_mode_setup):
