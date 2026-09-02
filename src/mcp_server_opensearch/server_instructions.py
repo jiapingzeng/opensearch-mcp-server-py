@@ -94,16 +94,22 @@ def _resolve_enabled_disabled_categories() -> tuple[list[str], list[str]]:
 def are_skills_enabled() -> bool:
     """Check whether skills tools are enabled based on environment/config.
 
-    Skills are enabled when 'skills' appears in the enabled categories and NOT
-    in the disabled categories. Category state is resolved from the YAML config
-    file when present, otherwise from the OPENSEARCH_ENABLED_CATEGORIES /
+    Returns True when 'skills' or 'analytics' appears in the enabled
+    categories and NOT in the disabled categories.  'observability' alone
+    does NOT trigger this — it only enables PPLQueryTool and contains no
+    skills tools, so emitting skills-related server instructions would
+    reference tools the user hasn't enabled.
+
+    Category state is resolved from the YAML config file when present,
+    otherwise from the OPENSEARCH_ENABLED_CATEGORIES /
     OPENSEARCH_DISABLED_CATEGORIES environment variables — matching how
     ``process_tool_filter`` decides tool visibility.
     """
     enabled_cats, disabled_cats = _resolve_enabled_disabled_categories()
-    if 'skills' in disabled_cats:
+    trigger_names = ('analytics', 'skills')
+    if any(name in disabled_cats for name in trigger_names):
         return False
-    if 'skills' in enabled_cats:
+    if any(name in enabled_cats for name in trigger_names):
         return True
     return False
 

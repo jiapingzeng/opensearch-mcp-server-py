@@ -1,7 +1,12 @@
 import copy
 import pytest
 from semver import Version
-from tools.tool_filter import get_tools, process_tool_filter
+from tools.tool_filter import (
+    BUILTIN_CATEGORY_TOOLS,
+    build_category_map,
+    get_tools,
+    process_tool_filter,
+)
 from tools.utils import is_tool_compatible
 from unittest.mock import MagicMock, patch
 
@@ -63,6 +68,209 @@ MOCK_TOOL_REGISTRY = {
         'http_methods': 'POST',
     },
 }
+
+
+class TestBuildCategoryMap:
+    """Tests for build_category_map and BUILTIN_CATEGORY_TOOLS."""
+
+    def _registry(self, *keys):
+        return {k: {'display_name': k} for k in keys}
+
+    def test_known_core_tools_are_mapped(self):
+        registry = self._registry('ListIndexTool', 'SearchIndexTool', 'ClusterHealthTool')
+        result = build_category_map(registry)
+        assert 'ListIndexTool' in result['core_tools']
+        assert 'SearchIndexTool' in result['core_tools']
+        assert 'ClusterHealthTool' in result['core_tools']
+
+    def test_tools_absent_from_registry_are_excluded(self):
+        result = build_category_map({})
+        for category, tools in result.items():
+            assert tools == [], f'Expected empty list for {category}, got {tools}'
+
+    def test_all_builtin_categories_present(self):
+        result = build_category_map({})
+        for category in BUILTIN_CATEGORY_TOOLS:
+            assert category in result
+        assert 'analytics' in result
+        assert 'observability' in result
+        assert 'skills' in result
+
+    def test_custom_display_name_is_used(self):
+        registry = {'ListIndexTool': {'display_name': 'MyListTool'}}
+        result = build_category_map(registry)
+        assert 'MyListTool' in result['core_tools']
+        assert 'ListIndexTool' not in result['core_tools']
+
+    def test_search_relevance_tools_in_correct_category(self):
+        registry = self._registry('GetQuerySetTool', 'CreateExperimentTool')
+        result = build_category_map(registry)
+        assert 'GetQuerySetTool' in result['search_relevance']
+        assert 'CreateExperimentTool' in result['search_relevance']
+        assert 'GetQuerySetTool' not in result.get('core_tools', [])
+
+    def test_process_tool_filter_returns_category_map(self):
+        registry = {
+            'ListIndexTool': {'display_name': 'ListIndexTool', 'http_methods': 'GET'},
+            'ClusterHealthTool': {'display_name': 'ClusterHealthTool', 'http_methods': 'GET'},
+        }
+        result = process_tool_filter(tool_registry=registry, allow_write=True)
+        assert isinstance(result, dict)
+        assert 'core_tools' in result
+        assert 'ListIndexTool' in result['core_tools']
+
+    def test_process_tool_filter_returns_empty_dict_on_error(self):
+        result = process_tool_filter(tool_registry=None, allow_write=True)
+        assert result == {}
+
+    def test_skills_category_matches_skills_tools_registry(self):
+        """_SKILLS_TOOLS must contain every key from SKILLS_TOOLS_REGISTRY.
+
+        Prevents drift when a new tool is added to skills_tools.py but
+        not to the BUILTIN_CATEGORY_TOOLS constant.
+        """
+        pytest.importorskip('numpy', reason='skills_tools requires numpy')
+        from tools.skills_tools import SKILLS_TOOLS_REGISTRY
+
+        registry_keys = set(SKILLS_TOOLS_REGISTRY.keys())
+        category_keys = set(BUILTIN_CATEGORY_TOOLS['skills'])
+        assert category_keys == registry_keys, (
+            f'BUILTIN_CATEGORY_TOOLS["skills"] is out of sync with SKILLS_TOOLS_REGISTRY. '
+            f'Missing from category: {registry_keys - category_keys}. '
+            f'Extra in category: {category_keys - registry_keys}.'
+        )
+
+    def test_analytics_is_superset_of_observability_and_skills(self):
+        """Analytics must be exactly the union of observability + skills."""
+        expected = set(BUILTIN_CATEGORY_TOOLS['observability']) | set(
+            BUILTIN_CATEGORY_TOOLS['skills']
+        )
+        actual = set(BUILTIN_CATEGORY_TOOLS['analytics'])
+        assert actual == expected, (
+            f'analytics category is not the union of observability + skills. '
+            f'Missing: {expected - actual}. Extra: {actual - expected}.'
+        )
+
+
+class TestCategoryStamping:
+    """Tests that get_tools stamps the category field on enabled tools."""
+
+    def setup_method(self):
+        from mcp_server_opensearch.global_state import set_mode
+
+        set_mode('single')
+
+    @pytest.mark.asyncio
+    async def test_single_mode_stamps_category_on_core_tools(self):
+        registry = {
+            'ListIndexTool': {
+                'display_name': 'ListIndexTool',
+                'description': 'List indices',
+                'input_schema': {'type': 'object', 'properties': {}},
+                'function': MagicMock(),
+                'args_model': MagicMock(),
+                'min_version': '1.0.0',
+                'http_methods': 'GET',
+            },
+        }
+        with (
+            patch('tools.tool_filter.get_opensearch_version', return_value=Version.parse('2.5.0')),
+            patch('tools.tool_filter.is_tool_compatible', return_value=True),
+        ):
+            result = await get_tools(registry)
+
+        assert result['ListIndexTool']['category'] == 'core_tools'
+
+    @pytest.mark.asyncio
+    async def test_single_mode_tool_not_in_any_category_gets_empty_string(self):
+        registry = {
+            'ListIndexTool': {
+                'display_name': 'ListIndexTool',
+                'description': 'List indices',
+                'input_schema': {'type': 'object', 'properties': {}},
+                'function': MagicMock(),
+                'args_model': MagicMock(),
+                'min_version': '1.0.0',
+                'http_methods': 'GET',
+            },
+            'UnknownTool': {
+                'display_name': 'UnknownTool',
+                'description': 'Some tool',
+                'input_schema': {'type': 'object', 'properties': {}},
+                'function': MagicMock(),
+                'args_model': MagicMock(),
+                'min_version': '1.0.0',
+                'http_methods': 'GET',
+            },
+        }
+        with (
+            patch('tools.tool_filter.get_opensearch_version', return_value=Version.parse('2.5.0')),
+            patch('tools.tool_filter.is_tool_compatible', return_value=True),
+            patch.dict('os.environ', {'OPENSEARCH_ENABLED_TOOLS': 'ListIndexTool,UnknownTool'}),
+        ):
+            result = await get_tools(registry)
+
+        assert result['ListIndexTool']['category'] == 'core_tools'
+        assert result['UnknownTool']['category'] == ''
+
+    @pytest.mark.asyncio
+    async def test_multi_mode_stamps_category_on_tools(self):
+        from mcp_server_opensearch.global_state import set_mode
+
+        set_mode('multi')
+
+        registry = {
+            'ListIndexTool': {
+                'display_name': 'ListIndexTool',
+                'description': 'List indices',
+                'input_schema': {'type': 'object', 'properties': {}},
+                'function': MagicMock(),
+                'args_model': MagicMock(),
+                'http_methods': 'GET',
+            },
+            'SearchIndexTool': {
+                'display_name': 'SearchIndexTool',
+                'description': 'Search',
+                'input_schema': {'type': 'object', 'properties': {}},
+                'function': MagicMock(),
+                'args_model': MagicMock(),
+                'http_methods': 'GET, POST',
+            },
+        }
+        result = await get_tools(registry)
+
+        assert result['ListIndexTool']['category'] == 'core_tools'
+        assert result['SearchIndexTool']['category'] == 'core_tools'
+
+    @pytest.mark.asyncio
+    async def test_multi_mode_memory_tool_excluded_no_category_stamped(self):
+        from mcp_server_opensearch.global_state import set_mode
+
+        set_mode('multi')
+
+        registry = {
+            'ListIndexTool': {
+                'display_name': 'ListIndexTool',
+                'description': 'List indices',
+                'input_schema': {'type': 'object', 'properties': {}},
+                'function': MagicMock(),
+                'args_model': MagicMock(),
+                'http_methods': 'GET',
+            },
+            'SaveMemoryTool': {
+                'display_name': 'SaveMemoryTool',
+                'description': 'Save memory',
+                'input_schema': {'type': 'object', 'properties': {}},
+                'function': MagicMock(),
+                'args_model': MagicMock(),
+                'http_methods': 'POST',
+                'memory_tool': True,
+            },
+        }
+        result = await get_tools(registry)
+
+        assert 'ListIndexTool' in result
+        assert 'SaveMemoryTool' not in result
 
 
 class TestIsToolCompatible:
@@ -137,8 +345,27 @@ class TestGetTools:
 
         set_mode('multi')  # Set mode to multi for this test
 
+        # Snapshot original registry to verify it is NOT mutated
+        import copy
+
+        original_snapshot = copy.deepcopy(mock_tool_registry)
+
         result = await get_tools(mock_tool_registry)
-        assert result == mock_tool_registry
+
+        # Same tool names (minus memory tools)
+        expected_names = {
+            name for name, info in mock_tool_registry.items() if not info.get('memory_tool')
+        }
+        assert set(result.keys()) == expected_names
+
+        # Original registry must not be mutated (no 'category' key added)
+        for name, info in mock_tool_registry.items():
+            assert 'category' not in info, f'Original registry mutated for {name}'
+            assert info['input_schema'] == original_snapshot[name]['input_schema'], (
+                f'Original input_schema mutated for {name}'
+            )
+
+        # Returned tools should have category stamped and schema fields intact
         assert 'param1' in result['ListIndexTool']['input_schema']['properties']
         assert 'opensearch_cluster_name' in result['SearchIndexTool']['input_schema']['properties']
 
@@ -153,8 +380,8 @@ class TestGetTools:
         mock_get_version.return_value = Version.parse('2.5.0')
 
         # Mock compatibility: only ListIndexTool should be compatible
-        mock_is_compatible.side_effect = (
-            lambda version, tool_info: tool_info['min_version'] == '1.0.0'
+        mock_is_compatible.side_effect = lambda version, tool_info: (
+            tool_info['min_version'] == '1.0.0'
         )
 
         # Call get_tools in single mode
@@ -266,9 +493,9 @@ class TestGetTools:
     async def test_get_tools_skills_tools_compatible_version(
         self, mock_tool_registry, mock_patches
     ):
-        """Test that skills tools are excluded by default even when version is compatible.
+        """Test that analytics tools are excluded by default even when version is compatible.
 
-        Since they belong to the 'skills' category which is not enabled by default.
+        Since they belong to the 'analytics' category which is not enabled by default.
         """
         mock_get_version, mock_is_compatible = mock_patches
 
@@ -435,9 +662,13 @@ class TestProcessToolFilter:
         assert 'LogPatternAnalysisTool' not in registry
 
     def test_skills_category_can_be_enabled(self):
-        """Skills tools are exposed when the category is explicitly enabled."""
+        """Enabling 'skills' exposes only the 3 skills tools, not PPLQueryTool."""
         registry = {
             'ListIndexTool': {'display_name': 'ListIndexTool', 'http_methods': 'GET'},
+            'PPLQueryTool': {
+                'display_name': 'PPLQueryTool',
+                'http_methods': 'POST',
+            },
             'DataDistributionTool': {
                 'display_name': 'DataDistributionTool',
                 'http_methods': 'POST',
@@ -456,6 +687,65 @@ class TestProcessToolFilter:
         assert 'ListIndexTool' in registry
         assert 'DataDistributionTool' in registry
         assert 'LogPatternAnalysisTool' in registry
+        assert 'PPLQueryTool' not in registry, (
+            "'skills' should only enable the 3 skills tools, not PPLQueryTool"
+        )
+
+    def test_analytics_category_enables_all_four_tools(self):
+        """Enabling 'analytics' exposes all 4 tools (superset of observability + skills)."""
+        registry = {
+            'ListIndexTool': {'display_name': 'ListIndexTool', 'http_methods': 'GET'},
+            'PPLQueryTool': {
+                'display_name': 'PPLQueryTool',
+                'http_methods': 'POST',
+            },
+            'DataDistributionTool': {
+                'display_name': 'DataDistributionTool',
+                'http_methods': 'POST',
+            },
+            'LogPatternAnalysisTool': {
+                'display_name': 'LogPatternAnalysisTool',
+                'http_methods': 'POST',
+            },
+            'MetricChangeAnalysisTool': {
+                'display_name': 'MetricChangeAnalysisTool',
+                'http_methods': 'POST',
+            },
+        }
+        process_tool_filter(
+            tool_registry=registry,
+            enabled_categories='core_tools,analytics',
+            allow_write=True,
+        )
+
+        assert 'ListIndexTool' in registry
+        assert 'PPLQueryTool' in registry
+        assert 'DataDistributionTool' in registry
+        assert 'LogPatternAnalysisTool' in registry
+        assert 'MetricChangeAnalysisTool' in registry
+
+    def test_observability_category_enables_only_ppl(self):
+        """Enabling 'observability' exposes only PPLQueryTool."""
+        registry = {
+            'ListIndexTool': {'display_name': 'ListIndexTool', 'http_methods': 'GET'},
+            'PPLQueryTool': {
+                'display_name': 'PPLQueryTool',
+                'http_methods': 'POST',
+            },
+            'DataDistributionTool': {
+                'display_name': 'DataDistributionTool',
+                'http_methods': 'POST',
+            },
+        }
+        process_tool_filter(
+            tool_registry=registry,
+            enabled_categories='core_tools,observability',
+            allow_write=True,
+        )
+
+        assert 'ListIndexTool' in registry
+        assert 'PPLQueryTool' in registry
+        assert 'DataDistributionTool' not in registry
 
     def test_data_distribution_and_log_pattern_not_in_core_tools(self):
         """DataDistributionTool and LogPatternAnalysisTool are not part of core_tools category."""
@@ -836,8 +1126,8 @@ class TestAllowWriteCategories:
         process_tool_filter(
             tool_registry=registry,
             allow_write=False,
-            allow_write_categories=['search_relevance', 'skills'],
-            enabled_categories='core_tools,search_relevance,skills',
+            allow_write_categories=['search_relevance', 'analytics'],
+            enabled_categories='core_tools,search_relevance,analytics',
         )
 
         assert 'ListIndexTool' in registry
