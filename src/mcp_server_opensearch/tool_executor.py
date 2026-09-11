@@ -85,6 +85,30 @@ async def execute_tool(
         from tools.tool_params import validate_args_for_mode
 
         parsed = validate_args_for_mode(arguments, tool['args_model'])
+
+        # Reject tools OpenSearch Serverless cannot serve when this call resolves to
+        # a serverless connection. Returns immediately with a clear error instead of
+        # letting the request fail downstream (404 / long timeout).
+        from opensearch.client import is_serverless_connection
+        from tools.tool_filter import SERVERLESS_INCOMPATIBLE_TOOLS
+
+        if found_tool_key in SERVERLESS_INCOMPATIBLE_TOOLS and is_serverless_connection(parsed):
+            status = 'error'
+            error_type = 'ServerlessUnsupportedToolError'
+            is_error = True
+            return _build_call_tool_result(
+                [
+                    TextContent(
+                        type='text',
+                        text=(
+                            f"'{name}' is not supported on OpenSearch Serverless, which does "
+                            'not implement cluster, node, or monitoring APIs.'
+                        ),
+                    )
+                ],
+                is_error=True,
+            )
+
         result = await tool['function'](parsed)
 
         # Detect soft errors: tools catch exceptions internally and

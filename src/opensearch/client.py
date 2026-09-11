@@ -40,6 +40,54 @@ OPENSEARCH_SERVERLESS_SERVICE = 'aoss'
 DEFAULT_TIMEOUT = 30
 DEFAULT_SSL_VERIFY = True
 REDACTED_URL = '[unparseable URL redacted]'
+
+
+def _resolve_selected_cluster(name: Optional[str]) -> Optional[ClusterInfo]:
+    """Resolve the ClusterInfo the client would use for this call, or None in single mode.
+
+    Mirrors initialize_client's multi-mode resolution: header-defined datasources are
+    resolved (and index-aligned) via resolve_header_cluster, otherwise the YAML registry
+    is consulted. This keeps serverless detection correct when aws-service-name is a
+    per-datasource comma list rather than a scalar.
+    """
+    if get_mode() != 'multi':
+        return None
+    from mcp_server_opensearch.server_instructions import is_header_auth_enabled
+
+    try:
+        if is_header_auth_enabled():
+            return resolve_header_cluster(name or None)
+        if name:
+            return get_cluster(name)
+    except Exception:
+        return None
+    return None
+
+
+def is_serverless_connection(args: Optional[baseToolArgs] = None) -> bool:
+    """Best-effort detection of whether the current call targets OpenSearch Serverless (AOSS).
+
+    Mirrors the precedence used when building the client: explicit per-call flag, the
+    resolved multi-mode datasource (header-defined or YAML cluster), then the environment
+    flag and URL heuristic in single mode.
+    """
+    if args is not None and getattr(args, 'aws_opensearch_serverless', None) is not None:
+        return bool(args.aws_opensearch_serverless)
+
+    cluster_name = getattr(args, 'opensearch_cluster_name', '') if args is not None else ''
+    cluster = _resolve_selected_cluster(cluster_name)
+    if cluster is not None and cluster.is_serverless is not None:
+        return bool(cluster.is_serverless)
+
+    if os.getenv('AWS_OPENSEARCH_SERVERLESS', '').lower() == 'true':
+        return True
+
+    url = (getattr(args, 'opensearch_url', None) if args is not None else None) or os.getenv(
+        'OPENSEARCH_URL', ''
+    )
+    return 'aoss.amazonaws.com' in url.strip().lower()
+
+
 try:
     _VERSION = importlib.metadata.version('opensearch-mcp-server-py')
 except importlib.metadata.PackageNotFoundError:

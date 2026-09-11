@@ -16,6 +16,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Fixed
 - Bind per-call connection credentials to the caller that supplied the URL ([#287](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/287))
 - Fix CVEs by requiring `aiohttp>=3.14.3` and sync the `uv.lock` ([#294](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/294))
+- Do not advertise or run tools that OpenSearch Serverless (AOSS) cannot serve (cluster, node, and monitoring APIs such as `_cluster/health`, `_cat/nodes`, `_stats`). Serverless-incompatible tools are filtered from `tools/list` when the connection is known to be serverless and rejected at call time with a clear error otherwise. Also logs a warning instead of silently disabling version gating when the version probe fails ([#311](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/311))
 
 ### Removed
 
