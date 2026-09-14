@@ -2009,17 +2009,38 @@ class TestHeaderMultiDatasource:
 
     @patch('opensearch.client._create_opensearch_client')
     @patch('opensearch.client.request_context_var')
-    def test_missing_name_header_uses_placeholders(self, mock_request_ctx, mock_create):
-        """When opensearch-cluster-name is omitted, names default to cluster1..clusterN."""
+    def test_missing_name_header_with_multiple_urls_errors(
+        self, mock_request_ctx, mock_create, caplog
+    ):
+        """opensearch-cluster-name is required when more than one opensearch-url is routed."""
         from opensearch.client import get_header_cluster_names
 
         headers = self._headers()
         del headers['opensearch-cluster-name']
         self._ctx(mock_request_ctx, headers)
+
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(ConfigurationError, match='No OpenSearch datasource is available'):
+                get_header_cluster_names()
+        assert 'opensearch-cluster-name header is required' in caplog.text
+        mock_create.assert_not_called()
+
+    @patch('opensearch.client._create_opensearch_client')
+    @patch('opensearch.client.request_context_var')
+    def test_missing_name_header_single_url_uses_placeholder(self, mock_request_ctx, mock_create):
+        """A single datasource needs no name; an omitted header synthesizes one placeholder."""
+        from opensearch.client import get_header_cluster_names
+
+        headers = self._headers()
+        del headers['opensearch-cluster-name']
+        headers['opensearch-url'] = 'https://metrics.example.com'
+        headers['aws-service-name'] = 'aoss'
+        headers['aws-region'] = 'us-west-2'
+        self._ctx(mock_request_ctx, headers)
         mock_create.return_value = Mock()
 
-        assert get_header_cluster_names() == ['cluster1', 'cluster2']
-        initialize_client(baseToolArgs(opensearch_cluster_name='cluster2'))
+        assert get_header_cluster_names() == ['opensearch-cluster']
+        initialize_client(baseToolArgs(opensearch_cluster_name='opensearch-cluster'))
 
         kwargs = mock_create.call_args[1]
         assert kwargs['opensearch_url'] == 'https://metrics.example.com'

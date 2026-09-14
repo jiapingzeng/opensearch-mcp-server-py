@@ -407,11 +407,13 @@ For Bearer authentication:
 **Multiple datasources per request (multi mode):** With `--mode multi` (or `OPENSEARCH_MODE=multi`) and `OPENSEARCH_HEADER_AUTH=true`, a single request can carry several datasources as comma-separated, positionally aligned headers:
 
 - `opensearch-url`: `url0,url1,...`
-- `opensearch-cluster-name`: `name0,name1,...` — the LLM-facing selector (optional; defaults to `cluster1,cluster2,...` when omitted)
+- `opensearch-cluster-name`: `name0,name1,...` — LLM-facing selector. Required for >1 datasource; a single one defaults to `opensearch-cluster`
 - `aws-service-name`: `es,aoss,...`
 - `aws-region`: `region0,region1,...`
 
-All provided lists must align 1:1 (one entry per datasource) — a single value is not broadcast to multiple datasources. The credential headers (`aws-access-key-id`/`aws-secret-access-key`/`aws-session-token`, or `Authorization`) stay scalar and are shared across all datasources. The LLM calls `ListClustersTool` to discover the available names, then passes the chosen name as `opensearch_cluster_name` on each tool call; the server maps that name to its URL, region, and service. Header-defined datasources take precedence over the YAML cluster registry for that request.
+**Note:** The credential headers (`aws-access-key-id`/`aws-secret-access-key`/`aws-session-token`, or `Authorization`) stay scalar and are shared across all datasources.
+
+All provided lists must align 1:1 (one entry per datasource) — a single value is not broadcast to multiple datasources. The LLM calls `ListClustersTool` to discover the available names, then passes the chosen name as `opensearch_cluster_name` on each tool call; the server maps that name to its URL, region, and service. Header-defined datasources take precedence over the YAML cluster registry for that request.
 
 #### IAM Role Authentication
 ```bash

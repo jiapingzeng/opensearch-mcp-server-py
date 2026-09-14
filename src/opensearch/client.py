@@ -1302,14 +1302,20 @@ def _select_datasource_by_name(urls: list[str], names: list[str], requested: Opt
 
 
 def _datasource_names(urls: list[str], header_auth: Dict[str, Optional[str]]) -> list[str]:
-    """Datasource names from the opensearch-cluster-name header, or generated cluster1..clusterN.
+    """Datasource names from the opensearch-cluster-name header.
 
-    The name header is optional; when omitted we synthesize placeholder names so a client that
-    sends only the routing headers still works.
+    The name is the selection key, so it is required whenever more than one datasource is routed;
+    a single datasource needs no explicit name, so an omitted header synthesizes one placeholder.
     """
     names = _split_header_list(header_auth.get('cluster_names'))
     if not names:
-        names = [f'cluster{i + 1}' for i in range(len(urls))]
+        if len(urls) > 1:
+            logger.error(
+                'opensearch-cluster-name header is required when opensearch-url carries '
+                f'multiple values (got {len(urls)})'
+            )
+            raise ConfigurationError(_NO_DATASOURCE_MSG)
+        names = ['opensearch-cluster']
     return names
 
 
