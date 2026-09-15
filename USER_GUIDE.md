@@ -167,7 +167,7 @@ That's it! You are now ready to use your AI agent with OpenSearch tools.
 
 ## Server Modes
 
-The OpenSearch MCP server supports two modes of operation:
+The OpenSearch MCP server supports two modes of operation. Select the mode with the `--mode` flag or the `OPENSEARCH_MODE` environment variable (the flag takes precedence).
 
 ### Single Mode (Default)
 - Connects to a single OpenSearch cluster
@@ -403,6 +403,17 @@ For Bearer authentication:
 - `Authorization`: HTTP Bearer authentication header (format: `Bearer <token>`)
 
 **Note:** When `OPENSEARCH_HEADER_AUTH=true` (single mode) or `opensearch_header_auth: true` (multi mode), headers take priority over environment variables or cluster configuration values. If a header is not provided, the system falls back to the corresponding environment variable (single mode) or cluster configuration value (multi mode).
+
+**Multiple datasources per request (multi mode):** With `--mode multi` (or `OPENSEARCH_MODE=multi`) and `OPENSEARCH_HEADER_AUTH=true`, a single request can carry several datasources as comma-separated, positionally aligned headers:
+
+- `opensearch-url`: `url0,url1,...`
+- `opensearch-cluster-name`: `name0,name1,...` — LLM-facing selector. Required for >1 datasource; a single one defaults to `opensearch-cluster`
+- `aws-service-name`: `es,aoss,...`
+- `aws-region`: `region0,region1,...`
+
+**Note:** The credential headers (`aws-access-key-id`/`aws-secret-access-key`/`aws-session-token`, or `Authorization`) stay scalar and are shared across all datasources.
+
+All provided lists must align 1:1 (one entry per datasource) — a single value is not broadcast to multiple datasources. The LLM calls `ListClustersTool` to discover the available names, then passes the chosen name as `opensearch_cluster_name` on each tool call; the server maps that name to its URL, region, and service. Header-defined datasources take precedence over the YAML cluster registry for that request.
 
 #### IAM Role Authentication
 ```bash
