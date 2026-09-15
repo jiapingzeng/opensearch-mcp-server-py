@@ -90,9 +90,9 @@ async def execute_tool(
         # a serverless connection. Returns immediately with a clear error instead of
         # letting the request fail downstream (404 / long timeout).
         from opensearch.client import is_serverless_connection
-        from tools.tool_filter import SERVERLESS_INCOMPATIBLE_TOOLS
+        from tools.tool_filter import SERVERLESS_COMPATIBLE_TOOLS
 
-        if found_tool_key in SERVERLESS_INCOMPATIBLE_TOOLS and is_serverless_connection(parsed):
+        if found_tool_key not in SERVERLESS_COMPATIBLE_TOOLS and is_serverless_connection(parsed):
             status = 'error'
             error_type = 'ServerlessUnsupportedToolError'
             is_error = True

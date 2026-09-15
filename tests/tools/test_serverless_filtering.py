@@ -4,7 +4,7 @@
 import pytest
 from semver import Version
 from tools.tool_filter import (
-    SERVERLESS_INCOMPATIBLE_TOOLS,
+    SERVERLESS_COMPATIBLE_TOOLS,
     filter_serverless_incompatible,
     get_tools,
 )
@@ -40,11 +40,88 @@ class TestFilterHelper:
         assert 'ClusterHealthTool' not in registry
         assert 'GetShardsTool' not in registry
 
-    def test_expected_tools_are_flagged(self):
-        for name in ('ClusterHealthTool', 'GetShardsTool', 'CatNodesTool', 'GetIndexStatsTool'):
-            assert name in SERVERLESS_INCOMPATIBLE_TOOLS
-        for name in ('ListIndexTool', 'SearchIndexTool', 'CountTool', 'PPLQueryTool'):
-            assert name not in SERVERLESS_INCOMPATIBLE_TOOLS
+    def test_expected_tools_are_classified(self):
+        for name in ('ListIndexTool', 'SearchIndexTool', 'PPLQueryTool', 'ListClustersTool'):
+            assert name in SERVERLESS_COMPATIBLE_TOOLS
+        for name in ('ClusterHealthTool', 'GetShardsTool', 'CatNodesTool', 'GetQuerySetTool'):
+            assert name not in SERVERLESS_COMPATIBLE_TOOLS
+
+
+# Tools that are known to be unsupported on AOSS. Kept alongside the allowlist so
+# that test_every_registry_tool_is_classified fails when a new tool is added
+# without a conscious serverless-support decision (either add it to
+# SERVERLESS_COMPATIBLE_TOOLS or list it here). Grouped by the API they need.
+_KNOWN_SERVERLESS_INCOMPATIBLE = frozenset(
+    {
+        # cluster / node / monitoring APIs
+        'ClusterHealthTool',
+        'GetClusterStateTool',
+        'GetShardsTool',
+        'GetSegmentsTool',
+        'CatNodesTool',
+        'GetNodesTool',
+        'GetNodesHotThreadsTool',
+        'GetAllocationTool',
+        'GetLongRunningTasksTool',
+        'GetIndexStatsTool',
+        'GetQueryInsightsTool',
+        # Search Relevance Workbench (_plugins/_search_relevance)
+        'CreateSearchConfigurationTool',
+        'GetSearchConfigurationTool',
+        'DeleteSearchConfigurationTool',
+        'GetQuerySetTool',
+        'CreateQuerySetTool',
+        'SampleQuerySetTool',
+        'DeleteQuerySetTool',
+        'GetJudgmentListTool',
+        'CreateJudgmentListTool',
+        'CreateUBIJudgmentListTool',
+        'CreateLLMJudgmentListTool',
+        'DeleteJudgmentListTool',
+        'GetExperimentTool',
+        'CreateExperimentTool',
+        'DeleteExperimentTool',
+        'SearchQuerySetsTool',
+        'SearchSearchConfigurationsTool',
+        'SearchJudgmentsTool',
+        'SearchExperimentsTool',
+        # ml-commons memory (_plugins/_ml/memory, _plugins/_ml/memory_containers)
+        'SaveMemoryTool',
+        'SearchMemoryTool',
+        'DeleteMemoryTool',
+        'CreateAgenticMemorySessionTool',
+        'AddAgenticMemoriesTool',
+        'GetAgenticMemoryTool',
+        'UpdateAgenticMemoryTool',
+        'DeleteAgenticMemoryByIDTool',
+        'DeleteAgenticMemoryByQueryTool',
+        'SearchAgenticMemoryTool',
+    }
+)
+
+
+class TestClassificationSourceOfTruth:
+    def test_allowlist_and_incompatible_are_disjoint(self):
+        assert SERVERLESS_COMPATIBLE_TOOLS.isdisjoint(_KNOWN_SERVERLESS_INCOMPATIBLE)
+
+    def test_every_registry_tool_is_classified(self):
+        # Every registered tool must be an explicit serverless-support decision:
+        # either in the allowlist or in the known-incompatible set above.
+        from tools.tools import TOOL_REGISTRY
+
+        classified = SERVERLESS_COMPATIBLE_TOOLS | _KNOWN_SERVERLESS_INCOMPATIBLE
+        unclassified = set(TOOL_REGISTRY) - classified
+        assert not unclassified, (
+            f'Unclassified tools (add to SERVERLESS_COMPATIBLE_TOOLS if AOSS serves them, '
+            f'else to _KNOWN_SERVERLESS_INCOMPATIBLE): {sorted(unclassified)}'
+        )
+
+    def test_allowlisted_tools_exist_in_registry(self):
+        # ListClustersTool is multi-mode only but always registered.
+        from tools.tools import TOOL_REGISTRY
+
+        missing = SERVERLESS_COMPATIBLE_TOOLS - set(TOOL_REGISTRY)
+        assert not missing, f'Allowlisted tools not in TOOL_REGISTRY: {sorted(missing)}'
 
 
 class TestSingleModeListFiltering:

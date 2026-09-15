@@ -70,6 +70,14 @@ def make_enabled_tools(tool_key='TestTool', display_name=None, return_value=None
 
 
 class TestExecuteTool:
+    @pytest.fixture(autouse=True)
+    def _non_serverless(self):
+        # These tests exercise non-serverless execution paths. The serverless guard
+        # is covered in test_serverless_filtering.py; pin it off here so the mocked
+        # args (a bare Mock) don't read as a serverless connection.
+        with patch('opensearch.client.is_serverless_connection', return_value=False):
+            yield
+
     @pytest.mark.asyncio
     @patch('tools.tool_params.validate_args_for_mode')
     async def test_successful_execution_logs_success(self, mock_validate, caplog):

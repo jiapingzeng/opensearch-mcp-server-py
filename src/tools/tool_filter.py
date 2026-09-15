@@ -36,24 +36,26 @@ def _strip_schema_fields(schema: dict, fields) -> dict:
     return schema
 
 
-# Tools that target OpenSearch APIs which OpenSearch Serverless (AOSS) does not
-# implement (cluster, node and monitoring endpoints). They are filtered out at
-# list time when the connection is known to be serverless, and rejected at call
-# time otherwise. See:
+# Tools OpenSearch Serverless (AOSS) can serve. This is an allowlist because AOSS
+# supports far fewer tools than it rejects: it implements the index, document and
+# search data plane plus PPL, but not the cluster, node, monitoring, Search
+# Relevance Workbench or ml-commons memory APIs. Any tool not listed here is treated
+# as serverless-incompatible, so a newly added tool is excluded on AOSS until it is
+# explicitly verified and added. Membership was confirmed live against an AOSS
+# collection. See:
 # https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-genref.html
-SERVERLESS_INCOMPATIBLE_TOOLS: frozenset = frozenset(
+SERVERLESS_COMPATIBLE_TOOLS: frozenset = frozenset(
     {
-        'ClusterHealthTool',  # GET /_cluster/health
-        'GetClusterStateTool',  # GET /_cluster/state
-        'GetShardsTool',  # GET /_cat/shards
-        'GetSegmentsTool',  # GET /_cat/segments
-        'CatNodesTool',  # GET /_cat/nodes
-        'GetNodesTool',  # GET /_nodes
-        'GetNodesHotThreadsTool',  # GET /_nodes/hot_threads
-        'GetAllocationTool',  # GET /_cat/allocation
-        'GetLongRunningTasksTool',  # GET /_cat/tasks
-        'GetIndexStatsTool',  # GET /<index>/_stats
-        'GetQueryInsightsTool',  # GET /_insights/top_queries
+        'ListIndexTool',  # GET /_cat/indices
+        'IndexMappingTool',  # GET /<index>/_mapping
+        'GetIndexInfoTool',  # GET /<index>
+        'SearchIndexTool',  # POST /<index>/_search
+        'PPLQueryTool',  # POST /_plugins/_ppl
+        'DataDistributionTool',  # client-side analysis over _search/_count
+        'LogPatternAnalysisTool',  # client-side analysis over _search/_count
+        'MetricChangeAnalysisTool',  # client-side analysis over _search/_count
+        'GenericOpenSearchApiTool',  # passthrough; valid endpoints only
+        'ListClustersTool',  # server-side datasource listing, no backend call
     }
 )
 
@@ -61,7 +63,7 @@ SERVERLESS_INCOMPATIBLE_TOOLS: frozenset = frozenset(
 def filter_serverless_incompatible(registry: dict) -> None:
     """Remove tools that OpenSearch Serverless cannot serve from ``registry`` in place."""
     for key in list(registry.keys()):
-        if key in SERVERLESS_INCOMPATIBLE_TOOLS:
+        if key not in SERVERLESS_COMPATIBLE_TOOLS:
             registry.pop(key, None)
 
 
@@ -570,7 +572,7 @@ async def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
 
         # Skip tools OpenSearch Serverless cannot serve when connected to a
         # serverless endpoint (version gating can't catch these — the probe fails).
-        if serverless and name in SERVERLESS_INCOMPATIBLE_TOOLS:
+        if serverless and name not in SERVERLESS_COMPATIBLE_TOOLS:
             continue
 
         # If tool is not compatible with the current OpenSearch version, skip, don't enable
