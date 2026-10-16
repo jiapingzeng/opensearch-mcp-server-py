@@ -1319,7 +1319,10 @@ TOOL_REGISTRY = {
         'description': 'Executes a PPL (Piped Processing Language) query against OpenSearch. '
         'PPL provides a pipe-based syntax for querying data: source=<index> | <command> | <command>. '
         'Supports filtering (where), aggregation (stats), sorting (sort), deduplication (dedup), '
-        'field selection (fields), and more. Useful for log analytics and exploratory data analysis.',
+        'field selection (fields), and more. Useful for log analytics and exploratory data analysis. '
+        'By default the number of returned rows is capped by appending a "| head <size>" stage '
+        '(size defaults to 10, max 100). For aggregation queries (e.g. "... | stats count() by field"), '
+        'set size to 0 so no "| head" stage is appended and all aggregated rows are returned.',
         'input_schema': PplQueryArgs.model_json_schema(),
         'function': ppl_query_tool,
         'args_model': PplQueryArgs,

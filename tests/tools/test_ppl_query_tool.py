@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
+from pydantic import ValidationError
 from unittest.mock import AsyncMock, Mock, patch
 
 
@@ -54,7 +55,7 @@ class TestPPLQueryTool:
         self.mock_client.transport.perform_request.assert_called_once_with(
             method='POST',
             url='/_plugins/_ppl',
-            body='{"query": "source=my_index | stats count() by host"}',
+            body='{"query": "source=my_index | stats count() by host | head 10"}',
             params={},
         )
 
@@ -73,7 +74,7 @@ class TestPPLQueryTool:
         self.mock_client.transport.perform_request.assert_called_once_with(
             method='POST',
             url='/_plugins/_ppl',
-            body='{"query": "source=my_index | fields host"}',
+            body='{"query": "source=my_index | fields host | head 10"}',
             params={'format': 'csv'},
         )
 
@@ -107,3 +108,96 @@ class TestPPLQueryTool:
 
         call_kwargs = self.mock_client.transport.perform_request.call_args[1]
         assert call_kwargs['params'] == {}
+
+    @pytest.mark.asyncio
+    async def test_ppl_query_default_size_appends_head_10(self):
+        """Test that the default size appends '| head 10' to the query."""
+        self.mock_client.transport.perform_request.return_value = {'status': 200}
+
+        args = self.PplQueryArgs(
+            opensearch_cluster_name='test',
+            query='source=my_index',
+        )
+        await self._ppl_query_tool(args)
+
+        body = self.mock_client.transport.perform_request.call_args[1]['body']
+        assert body == '{"query": "source=my_index | head 10"}'
+
+    @pytest.mark.asyncio
+    async def test_ppl_query_custom_size(self):
+        """Test that a custom size is used in the appended head stage."""
+        self.mock_client.transport.perform_request.return_value = {'status': 200}
+
+        args = self.PplQueryArgs(
+            opensearch_cluster_name='test',
+            query='source=my_index',
+            size=25,
+        )
+        await self._ppl_query_tool(args)
+
+        body = self.mock_client.transport.perform_request.call_args[1]['body']
+        assert body == '{"query": "source=my_index | head 25"}'
+
+    @pytest.mark.asyncio
+    async def test_ppl_query_size_zero_skips_head(self):
+        """Test that size=0 does not append a '| head' stage (aggregation escape hatch)."""
+        self.mock_client.transport.perform_request.return_value = {'status': 200}
+
+        args = self.PplQueryArgs(
+            opensearch_cluster_name='test',
+            query='source=my_index | stats count() by status',
+            size=0,
+        )
+        await self._ppl_query_tool(args)
+
+        body = self.mock_client.transport.perform_request.call_args[1]['body']
+        assert body == '{"query": "source=my_index | stats count() by status"}'
+
+    @pytest.mark.asyncio
+    async def test_ppl_query_size_capped_at_100(self):
+        """Test that size is capped at the default max of 100."""
+        self.mock_client.transport.perform_request.return_value = {'status': 200}
+
+        args = self.PplQueryArgs(
+            opensearch_cluster_name='test',
+            query='source=my_index',
+            size=1000,
+        )
+        await self._ppl_query_tool(args)
+
+        body = self.mock_client.transport.perform_request.call_args[1]['body']
+        assert body == '{"query": "source=my_index | head 100"}'
+
+    @pytest.mark.asyncio
+    async def test_ppl_query_size_capped_by_configured_max(self):
+        """Test that size is capped by a configured max_size_limit on the registry."""
+        self.mock_client.transport.perform_request.return_value = {'status': 200}
+
+        from tools.tools import TOOL_REGISTRY
+
+        original = TOOL_REGISTRY['PPLQueryTool'].get('max_size_limit')
+        TOOL_REGISTRY['PPLQueryTool']['max_size_limit'] = 5
+        try:
+            args = self.PplQueryArgs(
+                opensearch_cluster_name='test',
+                query='source=my_index',
+                size=50,
+            )
+            await self._ppl_query_tool(args)
+
+            body = self.mock_client.transport.perform_request.call_args[1]['body']
+            assert body == '{"query": "source=my_index | head 5"}'
+        finally:
+            if original is None:
+                TOOL_REGISTRY['PPLQueryTool'].pop('max_size_limit', None)
+            else:
+                TOOL_REGISTRY['PPLQueryTool']['max_size_limit'] = original
+
+    def test_ppl_query_negative_size_rejected(self):
+        """Test that a negative size is rejected at validation (ge=0 constraint)."""
+        with pytest.raises(ValidationError):
+            self.PplQueryArgs(
+                opensearch_cluster_name='test',
+                query='source=my_index',
+                size=-1,
+            )

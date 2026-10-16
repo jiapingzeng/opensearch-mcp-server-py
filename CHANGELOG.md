@@ -5,6 +5,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [Unreleased]
 
 ### Added
+- Add a `size` parameter to `PPLQueryTool` to cap returned rows. ([#327](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/327))
 
 ### Changed
 

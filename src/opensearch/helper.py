@@ -1297,9 +1297,29 @@ def normalize_scientific_notation(body):
 async def ppl_query(args) -> json:
     """Execute a PPL query via /_plugins/_ppl endpoint."""
     from .client import get_opensearch_client
+    from tools.tools import TOOL_REGISTRY
 
     async with get_opensearch_client(args) as client:
-        body = {'query': args.query}
+        # Cap the number of rows returned, mirroring SearchIndexTool.
+        # PPL supports chaining multiple `head` stages; the effective limit is
+        # the minimum, so appending our cap safely enforces a ceiling even when
+        # the user's query already contains its own `head`.
+        #
+        # size == 0 is an explicit escape hatch: do NOT append `| head`. This is
+        # intended for aggregation queries (e.g. `... | stats count() by field`)
+        # where the output row count is already bounded by group cardinality and
+        # truncating would drop groups.
+        tool_info = TOOL_REGISTRY.get('PPLQueryTool', {})
+        max_size_limit = tool_info.get('max_size_limit', 100)  # Default to 100 if not configured
+        requested_size = getattr(args, 'size', None)
+        effective_size = min(requested_size, max_size_limit) if requested_size is not None else 10
+
+        if effective_size == 0:
+            query = args.query
+        else:
+            query = f'{args.query} | head {effective_size}'
+
+        body = {'query': query}
         fmt = args.format if args.format else 'jdbc'
         params = {}
         if fmt != 'jdbc':
