@@ -40,6 +40,12 @@ Provide opensearch_url plus the appropriate auth parameters for your target clus
 Parameters not provided fall back to server environment variables (if any).\
 """
 
+_MULTI_DATASOURCE_INSTRUCTIONS = """\
+Tools accept an optional opensearch_cluster_name that selects the OpenSearch datasource. \
+Omit it if only one datasource is configured. \
+Otherwise call ListClustersTool to get valid names.\
+"""
+
 _SKILLS_TOOLS_INSTRUCTIONS = """\
 This server provides advanced analysis tools for anomaly investigation. \
 These tools complement SearchIndexTool — use them together for best results:
@@ -167,8 +173,9 @@ def has_preconfigured_connection() -> bool:
 def get_server_instructions() -> str | None:
     """Return server instructions based on current configuration.
 
-    Only applies in single mode. In multi mode, dynamic connection params
-    are not supported, so no instructions are needed.
+    Dynamic connection instructions apply only in single mode; multi mode does not
+    support dynamic connection params. In multi mode with header auth, returns
+    instructions on when opensearch_cluster_name can be omitted.
 
     When dynamic mode is active in single mode (no pre-configured connection,
     or ``OPENSEARCH_DYNAMIC_CONNECTION=true``), returns instructions explaining
@@ -184,10 +191,13 @@ def get_server_instructions() -> str | None:
 
     parts = []
 
-    if get_mode() == 'single':
+    mode = get_mode()
+    if mode == 'single':
         # Header auth supplies URL/credentials in headers, so the LLM needs no instructions.
         if not is_header_auth_enabled() and is_dynamic_mode_enabled():
             parts.append(_DYNAMIC_CONNECTION_INSTRUCTIONS)
+    elif mode == 'multi' and is_header_auth_enabled():
+        parts.append(_MULTI_DATASOURCE_INSTRUCTIONS)
 
     if are_skills_enabled():
         parts.append(_SKILLS_TOOLS_INSTRUCTIONS)

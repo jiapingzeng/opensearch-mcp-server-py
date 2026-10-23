@@ -1443,6 +1443,23 @@ class TestListClustersTool:
         finally:
             os.environ.pop('OPENSEARCH_HEADER_AUTH', None)
 
+    @pytest.mark.asyncio
+    async def test_list_clusters_returns_placeholder_without_name_header(self):
+        """One datasource without a name header lists the name the server resolves."""
+        from starlette.requests import Request
+
+        os.environ['OPENSEARCH_HEADER_AUTH'] = 'true'
+        try:
+            mock_request = Mock(spec=Request)
+            mock_request.headers = {'opensearch-url': 'https://logs.example.com'}
+            with patch('opensearch.client.request_context_var') as mock_ctx:
+                mock_ctx.get.return_value = mock_request
+                result = await self._list_clusters_tool(self.ListClustersArgs())
+            parsed = json.loads(result[0]['text'].split('\n', 1)[1])
+            assert parsed == ['opensearch-cluster']
+        finally:
+            os.environ.pop('OPENSEARCH_HEADER_AUTH', None)
+
     def test_list_clusters_args_accepts_extra_fields(self):
         """Test that ListClustersArgs doesn't reject extra fields like opensearch_cluster_name."""
         args = self.ListClustersArgs(**{'opensearch_cluster_name': 'test'})

@@ -413,7 +413,7 @@ For Bearer authentication:
 
 **Note:** The credential headers (`aws-access-key-id`/`aws-secret-access-key`/`aws-session-token`, or `Authorization`) stay scalar and are shared across all datasources.
 
-All provided lists must align 1:1 (one entry per datasource) — a single value is not broadcast to multiple datasources. The LLM calls `ListClustersTool` to discover the available names, then passes the chosen name as `opensearch_cluster_name` on each tool call; the server maps that name to its URL, region, and service. Header-defined datasources take precedence over the YAML cluster registry for that request.
+All provided lists must align 1:1 (one entry per datasource) — a single value is not broadcast to multiple datasources. The LLM calls `ListClustersTool` to discover the available names, then passes the chosen name as `opensearch_cluster_name` on each tool call; the server maps that name to its URL, region, and service. Header-defined datasources take precedence over the YAML cluster registry for that request. In this mode `opensearch_cluster_name` is optional in tool schemas: omit it when the request carries a single datasource.
 
 #### IAM Role Authentication
 ```bash

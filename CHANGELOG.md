@@ -11,6 +11,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Fixed
 - Send boolean `query_params` of `GenericOpenSearchApiTool` as lowercase `true`/`false` instead of Python's `True`/`False`, which OpenSearch rejects with a 400 ([#320](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/320))
+- In multi mode with `OPENSEARCH_HEADER_AUTH=true`, advertise `opensearch_cluster_name` as optional (default `""`) with a description and server instructions saying to omit it for a single datasource and otherwise call `ListClustersTool`, so the LLM no longer guesses a name. Unknown or missing YAML cluster names in multi mode now list the configured clusters in the error
 
 ### Removed
 

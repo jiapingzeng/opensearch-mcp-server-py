@@ -22,7 +22,7 @@ from botocore.credentials import Credentials
 from contextlib import asynccontextmanager
 from http.client import HTTP_PORT, HTTPS_PORT
 from mcp_server_opensearch.client_context import request_context_var
-from mcp_server_opensearch.clusters_information import ClusterInfo, get_cluster
+from mcp_server_opensearch.clusters_information import ClusterInfo, cluster_registry, get_cluster
 from mcp_server_opensearch.global_state import get_mode, get_profile
 from opensearchpy import AsyncOpenSearch, AWSV4SignerAsyncAuth
 from starlette.requests import Request
@@ -146,14 +146,17 @@ def initialize_client(args: baseToolArgs) -> AsyncOpenSearch:
                     args.opensearch_cluster_name if args else None
                 )
             else:
+                available = ', '.join(cluster_registry)
                 if not args or not args.opensearch_cluster_name:
                     raise ConfigurationError(
-                        'In multi mode, opensearch_cluster_name must be provided'
+                        'In multi mode, opensearch_cluster_name must be provided. '
+                        f'Available: {available}'
                     )
                 cluster_info = get_cluster(args.opensearch_cluster_name)
                 if not cluster_info:
                     raise ConfigurationError(
-                        f'Cluster "{args.opensearch_cluster_name}" not found in configuration'
+                        f'Cluster "{args.opensearch_cluster_name}" not found in configuration. '
+                        f'Available: {available}'
                     )
 
             return _initialize_client_multi_mode(cluster_info)

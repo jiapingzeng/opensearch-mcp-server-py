@@ -24,8 +24,11 @@ def validate_args_for_mode(args_dict: Dict[str, Any], args_model_class: Type[T])
 
     args_dict = args_dict.copy()  # Don't modify the original
 
-    if mode == 'single':
-        # In single mode, add default values for base fields
+    # Empty name is ignored in single mode; header-auth multi mode maps it to the only datasource.
+    from mcp_server_opensearch.server_instructions import is_header_auth_enabled
+
+    cluster_name_optional = mode == 'single' or (mode == 'multi' and is_header_auth_enabled())
+    if cluster_name_optional:
         args_dict.setdefault('opensearch_cluster_name', '')
 
     try:

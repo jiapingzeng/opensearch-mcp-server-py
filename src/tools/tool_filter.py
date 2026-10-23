@@ -36,6 +36,22 @@ def _strip_schema_fields(schema: dict, fields) -> dict:
     return schema
 
 
+CLUSTER_NAME_OPTIONAL_DESCRIPTION = 'Omit if only one datasource is configured. Otherwise call ListClustersTool to get valid names.'
+
+
+def _make_cluster_name_optional(schema: dict) -> dict:
+    """Return a copy of ``schema`` with ``opensearch_cluster_name`` optional, defaulting to ''."""
+    schema = copy.deepcopy(schema)
+    prop = schema.get('properties', {}).get('opensearch_cluster_name')
+    if prop is None:
+        return schema
+    prop['default'] = ''
+    prop['description'] = CLUSTER_NAME_OPTIONAL_DESCRIPTION
+    if 'opensearch_cluster_name' in schema.get('required', []):
+        schema['required'].remove('opensearch_cluster_name')
+    return schema
+
+
 # Tools OpenSearch Serverless (AOSS) can serve. This is an allowlist because AOSS
 # supports far fewer tools than it rejects: it implements the index, document and
 # search data plane plus PPL, but not the cluster, node, monitoring, Search
@@ -497,6 +513,8 @@ async def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
     # opensearch_cluster_name to select a pre-configured cluster.
     # Memory tools are also excluded — they require OPENSEARCH_URL and single-mode
     # connection setup, and are not supported in multi mode.
+    # With header auth, an omitted opensearch_cluster_name selects the only datasource,
+    # so it is advertised as optional.
     if mode == 'multi':
         non_memory = {
             name: info for name, info in tool_registry.items() if not info.get('memory_tool')
@@ -512,6 +530,8 @@ async def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
         filtered_registry = {}
         for name, info in non_memory.items():
             schema = _strip_schema_fields(info['input_schema'], CONNECTION_OVERRIDE_FIELDS)
+            if is_header_auth_enabled():
+                schema = _make_cluster_name_optional(schema)
             entry = {**info, 'input_schema': schema}
             entry['category'] = tool_to_category.get(info.get('display_name', name).lower(), '')
             filtered_registry[name] = entry

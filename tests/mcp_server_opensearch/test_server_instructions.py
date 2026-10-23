@@ -111,6 +111,26 @@ class TestGetServerInstructions:
         set_mode('multi')
         assert get_server_instructions() is None
 
+    def test_multi_mode_header_auth_explains_cluster_name(self):
+        """Multi mode with header auth tells the LLM when it can omit opensearch_cluster_name."""
+        from mcp_server_opensearch.global_state import set_mode
+        from mcp_server_opensearch.server_instructions import get_server_instructions
+
+        set_mode('multi')
+        with patch.dict(os.environ, {'OPENSEARCH_HEADER_AUTH': 'true'}):
+            result = get_server_instructions()
+        assert result is not None
+        assert 'opensearch_cluster_name' in result
+        assert 'Omit it if only one datasource is configured' in result
+        assert 'call ListClustersTool to get valid names' in result
+
+    def test_single_mode_header_auth_has_no_cluster_name_instructions(self):
+        """Single mode hides opensearch_cluster_name, so header auth adds no instructions."""
+        from mcp_server_opensearch.server_instructions import get_server_instructions
+
+        with patch.dict(os.environ, {'OPENSEARCH_HEADER_AUTH': 'true'}):
+            assert get_server_instructions() is None
+
     def test_returns_none_when_url_configured(self):
         """When OPENSEARCH_URL is set, no instructions needed."""
         os.environ['OPENSEARCH_URL'] = 'https://my-cluster.example.com'
@@ -398,6 +418,59 @@ class TestConditionalSchemaStripping:
         schema = result['ListIndexTool']['input_schema']
         assert 'opensearch_url' in schema['properties']
         assert 'opensearch_url' not in schema.get('required', [])
+
+    def _make_model_registry(self):
+        """Registry entry whose schema comes from a real args model, so required is populated."""
+        from tools.tool_params import ListIndicesArgs
+
+        return {
+            'ListIndexTool': {
+                'display_name': 'ListIndexTool',
+                'description': 'List indices',
+                'input_schema': ListIndicesArgs.model_json_schema(),
+                'function': MagicMock(),
+                'args_model': ListIndicesArgs,
+            }
+        }
+
+    @pytest.mark.asyncio
+    async def test_multi_mode_header_auth_makes_cluster_name_optional(self):
+        """Multi mode with header auth advertises opensearch_cluster_name as optional."""
+        from mcp_server_opensearch.global_state import set_mode
+        from tools.tool_filter import get_tools
+
+        set_mode('multi')
+        os.environ['OPENSEARCH_HEADER_AUTH'] = 'true'
+        registry = self._make_model_registry()
+
+        result = await get_tools(registry)
+
+        schema = result['ListIndexTool']['input_schema']
+        prop = schema['properties']['opensearch_cluster_name']
+        assert 'opensearch_cluster_name' not in schema.get('required', [])
+        assert prop['default'] == ''
+        assert prop['description'] == (
+            'Omit if only one datasource is configured. '
+            'Otherwise call ListClustersTool to get valid names.'
+        )
+        # The static registry schema is not mutated.
+        assert 'opensearch_cluster_name' in registry['ListIndexTool']['input_schema']['required']
+
+    @pytest.mark.asyncio
+    async def test_multi_mode_without_header_auth_keeps_cluster_name_required(self):
+        """Multi mode with a YAML registry still requires opensearch_cluster_name."""
+        from mcp_server_opensearch.clusters_information import ClusterInfo, add_cluster
+        from mcp_server_opensearch.global_state import set_mode
+        from tools.tool_filter import get_tools
+
+        set_mode('multi')
+        add_cluster('prod', ClusterInfo(opensearch_url='https://prod.example.com'))
+
+        result = await get_tools(self._make_model_registry())
+
+        schema = result['ListIndexTool']['input_schema']
+        assert 'opensearch_cluster_name' in schema['required']
+        assert 'default' not in schema['properties']['opensearch_cluster_name']
 
     @pytest.mark.asyncio
     async def test_single_mode_header_auth_strips_overrides_and_cluster_name(self):

@@ -2063,6 +2063,41 @@ class TestHeaderMultiDatasource:
 
     @patch('opensearch.client._create_opensearch_client')
     @patch('opensearch.client.request_context_var')
+    def test_omitted_name_arg_selects_only_datasource(self, mock_request_ctx, mock_create):
+        """A tool call that omits opensearch_cluster_name validates and selects the only datasource."""
+        from tools.tool_params import ListIndicesArgs, validate_args_for_mode
+
+        headers = self._headers()
+        del headers['opensearch-cluster-name']
+        headers['opensearch-url'] = 'https://metrics.example.com'
+        headers['aws-service-name'] = 'aoss'
+        headers['aws-region'] = 'us-west-2'
+        self._ctx(mock_request_ctx, headers)
+        mock_create.return_value = Mock()
+
+        args = validate_args_for_mode({'index': 'logs-*'}, ListIndicesArgs)
+        assert args.opensearch_cluster_name == ''
+        initialize_client(args)
+
+        assert mock_create.call_args[1]['opensearch_url'] == 'https://metrics.example.com'
+
+    @patch('opensearch.client._create_opensearch_client')
+    @patch('opensearch.client.request_context_var')
+    def test_omitted_name_arg_with_multiple_datasources_lists_names(
+        self, mock_request_ctx, mock_create
+    ):
+        """Omitting the name with several datasources fails with the valid names."""
+        from tools.tool_params import ListIndicesArgs, validate_args_for_mode
+
+        self._ctx(mock_request_ctx, self._headers())
+
+        args = validate_args_for_mode({'index': 'logs-*'}, ListIndicesArgs)
+        with pytest.raises(ConfigurationError, match='Available: logs, metrics'):
+            initialize_client(args)
+        mock_create.assert_not_called()
+
+    @patch('opensearch.client._create_opensearch_client')
+    @patch('opensearch.client.request_context_var')
     def test_header_url_is_caller_supplied_and_forbids_ambient(
         self, mock_request_ctx, mock_create
     ):
@@ -2140,3 +2175,45 @@ class TestHeaderSingleDatasource:
         kwargs = mock_create.call_args[1]
         assert kwargs['opensearch_url'] == 'https://only.example.com'
         assert kwargs['aws_region'] == 'us-east-1'
+
+
+class TestYamlMultiDatasource:
+    """Multi mode without header auth: datasources come from the YAML cluster registry."""
+
+    def setup_method(self):
+        from mcp_server_opensearch.clusters_information import ClusterInfo, add_cluster
+        from mcp_server_opensearch.global_state import set_mode
+
+        os.environ.pop('OPENSEARCH_HEADER_AUTH', None)
+        set_mode('multi')
+        add_cluster('logs', ClusterInfo(opensearch_url='https://logs.example.com'))
+        add_cluster('metrics', ClusterInfo(opensearch_url='https://metrics.example.com'))
+
+    def teardown_method(self):
+        from mcp_server_opensearch.clusters_information import cluster_registry
+        from mcp_server_opensearch.global_state import set_mode
+
+        cluster_registry.clear()
+        set_mode('single')
+
+    def test_omitted_name_arg_is_still_required(self):
+        """Without header auth the cluster name stays a required argument."""
+        from tools.tool_params import ListIndicesArgs, validate_args_for_mode
+
+        with pytest.raises(ValueError, match="Missing required field: 'opensearch_cluster_name'"):
+            validate_args_for_mode({'index': 'logs-*'}, ListIndicesArgs)
+
+    @patch('opensearch.client._create_opensearch_client')
+    def test_empty_name_errors_and_lists_clusters(self, mock_create):
+        with pytest.raises(ConfigurationError, match='must be provided. Available: logs, metrics'):
+            initialize_client(baseToolArgs(opensearch_cluster_name=''))
+        mock_create.assert_not_called()
+
+    @patch('opensearch.client._create_opensearch_client')
+    def test_unknown_name_errors_and_lists_clusters(self, mock_create):
+        with pytest.raises(
+            ConfigurationError,
+            match='"traces" not found in configuration. Available: logs, metrics',
+        ):
+            initialize_client(baseToolArgs(opensearch_cluster_name='traces'))
+        mock_create.assert_not_called()
