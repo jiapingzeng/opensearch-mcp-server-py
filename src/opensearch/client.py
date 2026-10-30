@@ -1344,12 +1344,16 @@ def _select_datasource_by_name(urls: list[str], names: list[str], requested: Opt
             'Multiple datasources are configured; opensearch_cluster_name is required to '
             f'select one. Available: {available}'
         )
-    if requested not in names:
-        raise ConfigurationError(
-            f'opensearch_cluster_name "{requested}" is not among the configured datasources: '
-            f'{available}'
-        )
-    return names.index(requested)
+    if requested in names:
+        return names.index(requested)
+    # LLMs vary case when guessing; accept a case-insensitive match only when it is unique.
+    folded = [i for i, n in enumerate(names) if n.casefold() == requested.casefold()]
+    if len(folded) == 1:
+        return folded[0]
+    raise ConfigurationError(
+        f'opensearch_cluster_name "{requested}" is not among the configured datasources: '
+        f'{available}'
+    )
 
 
 def _datasource_names(urls: list[str], header_auth: Dict[str, Optional[str]]) -> list[str]:
