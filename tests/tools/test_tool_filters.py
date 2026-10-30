@@ -1486,7 +1486,7 @@ class TestMultiModeToolFilter:
         return {name for name, info in tools.items() if not info.get('memory_tool')}
 
     @staticmethod
-    async def _tools(mode):
+    async def _tools(mode, config_file_path=''):
         from mcp_server_opensearch.global_state import set_mode
 
         set_mode(mode)
@@ -1494,7 +1494,7 @@ class TestMultiModeToolFilter:
             patch('tools.tool_filter.get_opensearch_version', return_value=Version.parse('3.3.0')),
             patch('tools.tool_filter.is_tool_compatible', return_value=True),
         ):
-            return await get_tools(TestMultiModeToolFilter._registry())
+            return await get_tools(TestMultiModeToolFilter._registry(), config_file_path)
 
     @pytest.mark.asyncio
     async def test_enabled_categories_exclude_other_tools(self, clean_env):
@@ -1585,3 +1585,101 @@ class TestMultiModeToolFilter:
         await get_tools(registry)
 
         assert set(registry) == keys
+
+    SEARCH_RELEVANCE_WRITE_TOOLS = (
+        'CreateExperimentTool',
+        'CreateJudgmentListTool',
+        'CreateLLMJudgmentListTool',
+        'CreateQuerySetTool',
+        'CreateSearchConfigurationTool',
+        'CreateUBIJudgmentListTool',
+        'DeleteExperimentTool',
+        'DeleteJudgmentListTool',
+        'DeleteQuerySetTool',
+        'DeleteSearchConfigurationTool',
+        'SampleQuerySetTool',
+    )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('mode', ['multi', 'single'])
+    async def test_config_file_without_settings_allows_write(self, tmp_path, mode):
+        config = tmp_path / 'config.yml'
+        config.write_text('tool_filters:\n  enabled_categories:\n    - search_relevance\n')
+
+        result = await self._tools(mode, str(config))
+
+        for write_tool in self.SEARCH_RELEVANCE_WRITE_TOOLS:
+            assert write_tool in result
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('mode', ['multi', 'single'])
+    async def test_config_file_allow_write_false_hides_write_tools(self, tmp_path, mode):
+        config = tmp_path / 'config.yml'
+        config.write_text(
+            'tool_filters:\n'
+            '  enabled_categories:\n'
+            '    - search_relevance\n'
+            '  settings:\n'
+            '    allow_write: false\n'
+        )
+
+        result = await self._tools(mode, str(config))
+
+        assert 'GetQuerySetTool' in result
+        for write_tool in self.SEARCH_RELEVANCE_WRITE_TOOLS:
+            assert write_tool not in result
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('mode', ['multi', 'single'])
+    async def test_env_allow_write_false_applies_when_config_file_omits_it(
+        self, tmp_path, clean_env, mode
+    ):
+        clean_env.setenv('OPENSEARCH_SETTINGS_ALLOW_WRITE', 'false')
+        config = tmp_path / 'config.yml'
+        config.write_text('tool_filters:\n  enabled_categories:\n    - search_relevance\n')
+
+        result = await self._tools(mode, str(config))
+
+        assert 'GetQuerySetTool' in result
+        for write_tool in self.SEARCH_RELEVANCE_WRITE_TOOLS:
+            assert write_tool not in result
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('mode', ['multi', 'single'])
+    async def test_env_allow_write_false_applies_when_settings_omit_it(
+        self, tmp_path, clean_env, mode
+    ):
+        clean_env.setenv('OPENSEARCH_SETTINGS_ALLOW_WRITE', 'false')
+        config = tmp_path / 'config.yml'
+        config.write_text(
+            'tool_filters:\n'
+            '  enabled_categories:\n'
+            '    - search_relevance\n'
+            '  settings:\n'
+            '    allow_write_categories:\n'
+            '      - core_tools\n'
+        )
+
+        result = await self._tools(mode, str(config))
+
+        assert 'GetQuerySetTool' in result
+        for write_tool in self.SEARCH_RELEVANCE_WRITE_TOOLS:
+            assert write_tool not in result
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('mode', ['multi', 'single'])
+    async def test_config_allow_write_true_overrides_env_false(self, tmp_path, clean_env, mode):
+        clean_env.setenv('OPENSEARCH_SETTINGS_ALLOW_WRITE', 'false')
+        config = tmp_path / 'config.yml'
+        config.write_text(
+            'tool_filters:\n'
+            '  enabled_categories:\n'
+            '    - search_relevance\n'
+            '  settings:\n'
+            '    allow_write: true\n'
+        )
+
+        result = await self._tools(mode, str(config))
+
+        for write_tool in self.SEARCH_RELEVANCE_WRITE_TOOLS:
+            assert write_tool in result

@@ -348,7 +348,8 @@ def process_tool_filter(
             # Get settings
             settings = tool_filters.get('settings', {})
             if settings:
-                allow_write = settings.get('allow_write', True)
+                if 'allow_write' in settings:
+                    allow_write = settings['allow_write']
                 if 'allow_write_categories' in settings:
                     allow_write_categories = settings.get('allow_write_categories', [])
 
@@ -461,11 +462,14 @@ def process_tool_filter(
         return build_category_map(tool_registry) if tool_registry else {}
 
 
-def _apply_tool_filters(tool_registry: dict, config_file_path: str = '') -> dict:
+def _apply_tool_filters(
+    tool_registry: dict, allow_write: bool, config_file_path: str = ''
+) -> dict:
     """Apply category, tool, regex and allow_write filters to ``tool_registry`` in place.
 
     Filters come from the config file when one is given, otherwise from environment
-    variables. Returns the category → display-name map used for category stamping.
+    variables. ``allow_write`` is the value resolved by ``_resolve_allow_write_setting``.
+    Returns the category → display-name map used for category stamping.
     """
     env_config = {
         'enabled_tools': os.getenv('OPENSEARCH_ENABLED_TOOLS', ''),
@@ -475,7 +479,6 @@ def _apply_tool_filters(tool_registry: dict, config_file_path: str = '') -> dict
         'disabled_categories': os.getenv('OPENSEARCH_DISABLED_CATEGORIES', ''),
         'enabled_tools_regex': os.getenv('OPENSEARCH_ENABLED_TOOLS_REGEX', ''),
         'disabled_tools_regex': os.getenv('OPENSEARCH_DISABLED_TOOLS_REGEX', ''),
-        'allow_write': os.getenv('OPENSEARCH_SETTINGS_ALLOW_WRITE', 'true').lower() == 'true',
         'allow_write_categories': parse_comma_separated(
             os.getenv('OPENSEARCH_SETTINGS_ALLOW_WRITE_CATEGORIES', '')
         )
@@ -489,6 +492,7 @@ def _apply_tool_filters(tool_registry: dict, config_file_path: str = '') -> dict
     return process_tool_filter(
         tool_registry=tool_registry,
         filter_path=config_file_path if config_file_path else None,
+        allow_write=allow_write,
         **{k: v for k, v in env_config.items() if not config_file_path},
     )
 
@@ -539,7 +543,7 @@ async def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
         # Filter a copy so the caller's registry is not mutated. Multi-only tools
         # (cluster discovery) are kept regardless of the filter configuration.
         filtered = dict(non_memory)
-        category_to_tools = _apply_tool_filters(filtered, config_file_path)
+        category_to_tools = _apply_tool_filters(filtered, resolved_allow_write, config_file_path)
         kept = {
             name: info
             for name, info in non_memory.items()
@@ -578,7 +582,7 @@ async def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
         )
 
     # Apply tool filtering, update the TOOL_REGISTRY
-    category_to_tools = _apply_tool_filters(tool_registry, config_file_path)
+    category_to_tools = _apply_tool_filters(tool_registry, resolved_allow_write, config_file_path)
     tool_to_category = {dn.lower(): cat for cat, dns in category_to_tools.items() for dn in dns}
 
     for name, info in tool_registry.items():
