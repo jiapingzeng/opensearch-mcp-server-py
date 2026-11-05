@@ -19,6 +19,7 @@ import logging
 import time
 from mcp.types import CallToolResult, ContentBlock, TextContent
 from mcp_server_opensearch.client_context import client_name_var
+from tools.ui_resources import cap_structured_content
 
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ def _build_call_tool_result(result: list, is_error: bool) -> CallToolResult:
     # Convert a tool's raw content list into a CallToolResult.
 
     content: list[ContentBlock] = []
+    structured = None
     for item in result or []:
         if isinstance(item, dict):
             content.append(
@@ -36,9 +38,13 @@ def _build_call_tool_result(result: list, is_error: bool) -> CallToolResult:
                     text=item.get('text', ''),
                 )
             )
+            if structured is None and not is_error:
+                structured = cap_structured_content(item.get('structured'))
         else:
             content.append(item)
 
+    if structured is not None:
+        return CallToolResult(content=content, is_error=is_error, structured_content=structured)
     return CallToolResult(content=content, is_error=is_error)
 
 

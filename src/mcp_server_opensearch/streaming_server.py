@@ -8,11 +8,10 @@ import uvicorn
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
-from mcp.shared.exceptions import MCPError
-from mcp.types import CallToolRequestParams, CallToolResult, ListToolsResult, TextContent, Tool
 from mcp_server_opensearch.client_context import ClientNameMiddleware
 from mcp_server_opensearch.clusters_information import load_clusters_from_yaml
 from mcp_server_opensearch.global_state import set_config_file_path, set_mode, set_profile
+from mcp_server_opensearch.mcp_handlers import build_handlers, configure_apps
 from mcp_server_opensearch.server_instructions import get_server_instructions
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -60,51 +59,13 @@ async def create_mcp_server(
     )
     logging.info(f'Enabled tools: {list(enabled_tools.keys())}')
 
-    async def _list_tools(ctx, params) -> ListToolsResult:
-        tools = []
-        for tool_name, tool_info in enabled_tools.items():
-            tools.append(
-                Tool(
-                    name=tool_info.get('display_name', tool_name),
-                    description=tool_info['description'],
-                    input_schema=tool_info['input_schema'],
-                    annotations=tool_info.get('annotations'),
-                    meta={'category': tool_info['category']}
-                    if tool_info.get('category')
-                    else None,  # type: ignore[call-arg]
-                )
-            )
-        return ListToolsResult(tools=tools)
-
-    async def _call_tool(ctx, params: CallToolRequestParams) -> CallToolResult:
-        from mcp_server_opensearch.client_context import request_context_var
-        from mcp_server_opensearch.tool_executor import _build_call_tool_result, execute_tool
-
-        token = request_context_var.set(ctx.request)
-        try:
-            return await execute_tool(params.name, params.arguments or {}, enabled_tools)
-        except MCPError:
-            raise
-        except Exception as e:
-            return _build_call_tool_result(
-                [
-                    TextContent(
-                        type='text',
-                        text=str(e),
-                    )
-                ],
-                is_error=True,
-            )
-        finally:
-            request_context_var.reset(token)
-
     # Server instructions guide the LLM on dynamic connection params (single mode only)
     server = Server(
         'opensearch-mcp-server',
         instructions=get_server_instructions(),
-        on_list_tools=_list_tools,
-        on_call_tool=_call_tool,
+        **build_handlers(enabled_tools),
     )
+    configure_apps(server)
 
     return server
 

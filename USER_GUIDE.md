@@ -689,6 +689,12 @@ If the port is omitted, this server inserts the usual HTTP(S) default so traffic
 |----------|----------|---------|-------------|
 | `OPENSEARCH_MEMORY_CONTAINER_ID` | No | `''` | Memory container ID for agentic memory tools. When set, `memory_container_id` is pre-filled in all tool calls. Enable the tools via the `agentic_memory` category. See [Agentic Memory Tools](MEMORY.md#agentic-memory-tools) for setup. Config file `agentic_memory.memory_container_id` takes precedence over this variable. |
 
+### MCP Apps Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OPENSEARCH_MCP_APPS_ENABLED` | No | `"false"` | When `"true"`, advertises the MCP Apps extension (`io.modelcontextprotocol/ui`), serves the `ui://opensearch/results` view, links it to `SearchIndexTool` and `PPLQueryTool` through `_meta.ui.resourceUri`, and adds `structuredContent` (omitted above 1 MiB) to their results. Text results are unchanged. Hosts with MCP Apps support render the results as a sortable table; other hosts ignore it. |
+
 ### Logging & Monitoring Variables
 
 | Variable | Required | Default | Description |

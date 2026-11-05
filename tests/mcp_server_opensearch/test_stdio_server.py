@@ -66,6 +66,7 @@ def mock_server():
     # Create mock class and instance
     mock = Mock()
     mock_instance = Mock()
+    mock_instance.extensions = {}
 
     # Set up the instance's create_initialization_options
     mock_instance.create_initialization_options.return_value = {

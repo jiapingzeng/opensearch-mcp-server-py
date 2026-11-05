@@ -46,6 +46,12 @@ from .tool_params import (
     SearchSearchConfigurationsArgs,
     baseToolArgs,
 )
+from .ui_resources import (
+    RESULTS_VIEW_URI,
+    apps_enabled,
+    ppl_rows_payload,
+    search_hits_payload,
+)
 from .utils import format_json, is_tool_compatible
 from mcp_server_opensearch.clusters_information import cluster_registry
 from opensearch.helper import (
@@ -193,20 +199,21 @@ async def search_index_tool(args: SearchIndexArgs) -> list[dict]:
 
         if args.format.lower() == 'csv':
             csv_result = convert_search_results_to_csv(result)
-            return [
-                {
-                    'type': 'text',
-                    'text': f'Search results from {args.index} (CSV format):\n{csv_result}',
-                }
-            ]
+            item = {
+                'type': 'text',
+                'text': f'Search results from {args.index} (CSV format):\n{csv_result}',
+            }
         else:
             formatted_result = format_json(result)
-            return [
-                {
-                    'type': 'text',
-                    'text': f'Search results from {args.index} (JSON format):\n{formatted_result}',
-                }
-            ]
+            item = {
+                'type': 'text',
+                'text': f'Search results from {args.index} (JSON format):\n{formatted_result}',
+            }
+        if apps_enabled():
+            item['structured'] = search_hits_payload(
+                result, args.opensearch_cluster_name, args.index
+            )
+        return [item]
     except Exception as e:
         return log_tool_error('SearchIndexTool', e, 'searching index', index=args.index)
 
@@ -975,7 +982,10 @@ async def ppl_query_tool(args: PplQueryArgs) -> list[dict]:
             formatted_result = result
         else:
             formatted_result = format_json(result)
-        return [{'type': 'text', 'text': f'PPL query results:\n{formatted_result}'}]
+        item = {'type': 'text', 'text': f'PPL query results:\n{formatted_result}'}
+        if apps_enabled():
+            item['structured'] = ppl_rows_payload(result, args.opensearch_cluster_name, args.query)
+        return [item]
     except Exception as e:
         return log_tool_error('PPLQueryTool', e, 'executing PPL query')
 
@@ -1006,6 +1016,7 @@ TOOL_REGISTRY = {
     },
     'SearchIndexTool': {
         'display_name': 'SearchIndexTool',
+        'ui_resource_uri': RESULTS_VIEW_URI,
         'description': 'Searches an index using a query written in query domain-specific language (DSL) in OpenSearch. PREREQUISITE: You need to know the mappings of the index before constructing queries.',
         'input_schema': SearchIndexArgs.model_json_schema(),
         'function': search_index_tool,
@@ -1365,6 +1376,7 @@ TOOL_REGISTRY = {
     },
     'PPLQueryTool': {
         'display_name': 'PPLQueryTool',
+        'ui_resource_uri': RESULTS_VIEW_URI,
         'description': 'Executes a PPL (Piped Processing Language) query against OpenSearch. '
         'PPL provides a pipe-based syntax for querying data: source=<index> | <command> | <command>. '
         'Supports filtering (where), aggregation (stats), sorting (sort), deduplication (dedup), '

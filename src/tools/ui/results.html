@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenSearch results</title>
+<style>
+  :root { color-scheme: light dark; }
+  html, body { margin: 0; background: transparent; }
+  body {
+    font-family: var(--font-sans, system-ui, sans-serif);
+    font-size: var(--font-text-sm-size, 13px);
+    line-height: var(--font-text-sm-line-height, 1.4);
+    color: var(--color-text-primary, light-dark(#1f2328, #e6edf3));
+  }
+  #app { padding: 8px; background: var(--color-background-primary, light-dark(#ffffff, #0d1117)); }
+  header { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-bottom: 6px; }
+  header .title { font-weight: var(--font-weight-semibold, 600); }
+  header .stat { color: var(--color-text-secondary, light-dark(#59636e, #9198a1)); }
+  header .spacer { flex: 1; }
+  .notice { padding: 8px; border-radius: var(--border-radius-md, 6px);
+    background: var(--color-background-secondary, light-dark(#f6f8fa, #161b22)); }
+  .notice.error { color: var(--color-text-danger, light-dark(#d1242f, #f85149)); }
+  .scroll { max-height: 480px; overflow: auto;
+    border: var(--border-width-regular, 1px) solid var(--color-border-primary, light-dark(#d1d9e0, #3d444d));
+    border-radius: var(--border-radius-md, 6px); }
+  :root[data-display-mode="fullscreen"] .scroll { max-height: none; }
+  table { border-collapse: collapse; width: 100%; font-family: var(--font-mono, ui-monospace, monospace); }
+  th, td { text-align: left; padding: 4px 8px; white-space: nowrap; vertical-align: top;
+    border-bottom: var(--border-width-regular, 1px) solid var(--color-border-secondary, light-dark(#e3e8ee, #30363d)); }
+  th { position: sticky; top: 0; cursor: pointer; user-select: none;
+    background: var(--color-background-secondary, light-dark(#f6f8fa, #161b22));
+    font-weight: var(--font-weight-semibold, 600); }
+  th[aria-sort="ascending"]::after { content: " \25B2"; }
+  th[aria-sort="descending"]::after { content: " \25BC"; }
+  tbody tr.row { cursor: pointer; }
+  tbody tr.row:hover { background: var(--color-background-tertiary, light-dark(#eef1f4, #1c2128)); }
+  td.null { color: var(--color-text-tertiary, light-dark(#818b98, #6e7681)); }
+  tr.detail pre { margin: 0; white-space: pre-wrap; word-break: break-word; max-width: 100%; }
+  h3 { font-size: var(--font-heading-xs-size, 13px); margin: 12px 0 4px; }
+  button, details summary { font: inherit; cursor: pointer; color: inherit; }
+  button { background: var(--color-background-secondary, light-dark(#f6f8fa, #161b22));
+    border: var(--border-width-regular, 1px) solid var(--color-border-primary, light-dark(#d1d9e0, #3d444d));
+    border-radius: var(--border-radius-sm, 4px); padding: 2px 8px; }
+  details.columns { margin-bottom: 6px; }
+  details.columns label { margin-right: 10px; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div id="app"><div class="notice">Waiting for tool result…</div></div>
+<script>
+(function () {
+  'use strict';
+  var PROTOCOL_VERSION = '2026-01-26';
+  var CELL_MAX = 120;
+  var root = document.documentElement;
+  var app = document.getElementById('app');
+  var hostContext = {};
+  var nextId = 1;
+  var pending = {};
+
+  function send(msg) { window.parent.postMessage(Object.assign({ jsonrpc: '2.0' }, msg), '*'); }
+  function request(method, params) {
+    var id = nextId++;
+    return new Promise(function (resolve, reject) {
+      pending[id] = { resolve: resolve, reject: reject };
+      send({ id: id, method: method, params: params || {} });
+    });
+  }
+  function notify(method, params) { send({ method: method, params: params || {} }); }
+
+  function el(tag, text, cls) {
+    var node = document.createElement(tag);
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    if (cls) node.className = cls;
+    return node;
+  }
+
+  function applyHostContext(ctx) {
+    if (!ctx) return;
+    if (ctx.styles) hostContext.styles = ctx.styles;
+    ['theme', 'displayMode', 'availableDisplayModes', 'containerDimensions', 'safeAreaInsets']
+      .forEach(function (k) { if (k in ctx) hostContext[k] = ctx[k]; });
+    if (hostContext.theme) { root.dataset.theme = hostContext.theme; root.style.colorScheme = hostContext.theme; }
+    var vars = hostContext.styles && hostContext.styles.variables;
+    if (vars) Object.keys(vars).forEach(function (k) { if (vars[k]) root.style.setProperty(k, vars[k]); });
+    root.dataset.displayMode = hostContext.displayMode || 'inline';
+    var dims = hostContext.containerDimensions || {};
+    root.style.height = dims.height ? dims.height + 'px' : '';
+    root.style.maxHeight = dims.maxHeight ? dims.maxHeight + 'px' : '';
+    var inset = hostContext.safeAreaInsets;
+    if (inset) document.body.style.padding = inset.top + 'px ' + inset.right + 'px ' + inset.bottom + 'px ' + inset.left + 'px';
+    if (lastResult) render(lastResult);
+  }
+
+  function cellText(v) {
+    if (v === null || v === undefined) return '';
+    var s = typeof v === 'object' ? JSON.stringify(v) : String(v);
+    return s.length > CELL_MAX ? s.slice(0, CELL_MAX - 1) + '\u2026' : s;
+  }
+
+  function compare(a, b) {
+    if (a === b) return 0;
+    if (a === null || a === undefined) return 1;
+    if (b === null || b === undefined) return -1;
+    if (typeof a === 'number' && typeof b === 'number') return a - b;
+    return cellText(a).localeCompare(cellText(b), undefined, { numeric: true });
+  }
+
+  function buildTable(columns, rows, withDetail) {
+    var state = { col: -1, dir: 1, hidden: {} };
+    var wrap = el('div');
+    var picker = null;
+    if (withDetail && columns.length > 4) {
+      picker = el('details', null, 'columns');
+      picker.appendChild(el('summary', 'Columns'));
+      columns.forEach(function (c, i) {
+        var label = el('label');
+        var box = document.createElement('input');
+        box.type = 'checkbox'; box.checked = true;
+        box.addEventListener('change', function () { state.hidden[i] = !box.checked; draw(); });
+        label.appendChild(box); label.appendChild(document.createTextNode(' ' + c));
+        picker.appendChild(label);
+      });
+      wrap.appendChild(picker);
+    }
+    var scroll = el('div', null, 'scroll');
+    var table = el('table');
+    scroll.appendChild(table);
+    wrap.appendChild(scroll);
+
+    function draw() {
+      table.textContent = '';
+      var visible = columns.map(function (_, i) { return i; }).filter(function (i) { return !state.hidden[i]; });
+      var thead = el('thead'); var hr = el('tr');
+      visible.forEach(function (i) {
+        var th = el('th', columns[i]);
+        if (state.col === i) th.setAttribute('aria-sort', state.dir > 0 ? 'ascending' : 'descending');
+        th.addEventListener('click', function () {
+          state.dir = state.col === i ? -state.dir : 1; state.col = i; draw();
+        });
+        hr.appendChild(th);
+      });
+      thead.appendChild(hr); table.appendChild(thead);
+      var order = rows.map(function (_, i) { return i; });
+      if (state.col >= 0) order.sort(function (x, y) { return state.dir * compare(rows[x][state.col], rows[y][state.col]); });
+      var tbody = el('tbody');
+      order.forEach(function (r) {
+        var row = rows[r];
+        var tr = el('tr', null, 'row');
+        visible.forEach(function (i) {
+          var v = row[i];
+          var td = el('td', cellText(v), v === null || v === undefined ? 'null' : '');
+          if (v !== null && v !== undefined) td.title = typeof v === 'object' ? JSON.stringify(v) : String(v);
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+        if (withDetail) {
+          tr.addEventListener('click', function () {
+            var next = tr.nextSibling;
+            if (next && next.className === 'detail') { next.remove(); return; }
+            var obj = {};
+            columns.forEach(function (c, i) { if (row[i] !== undefined) obj[c] = row[i]; });
+            var dtr = el('tr', null, 'detail'); var td = el('td');
+            td.colSpan = visible.length;
+            td.appendChild(el('pre', JSON.stringify(obj, null, 2)));
+            dtr.appendChild(td);
+            tr.parentNode.insertBefore(dtr, tr.nextSibling);
+          });
+        }
+      });
+      table.appendChild(tbody);
+    }
+    draw();
+    return wrap;
+  }
+
+  function header(data) {
+    var h = el('header');
+    var m = data.meta || {};
+    var title = data.kind === 'ppl_rows' ? 'PPL' : 'Search ' + (m.index || '');
+    h.appendChild(el('span', title, 'title'));
+    if (data.cluster) h.appendChild(el('span', 'cluster: ' + data.cluster, 'stat'));
+    if (m.total !== undefined && m.total !== null)
+      h.appendChild(el('span', 'total: ' + m.total + (m.total_relation === 'gte' ? '+' : ''), 'stat'));
+    h.appendChild(el('span', 'rows: ' + (data.rows || []).length, 'stat'));
+    if (m.took !== undefined && m.took !== null) h.appendChild(el('span', 'took: ' + m.took + ' ms', 'stat'));
+    if (m._shards) h.appendChild(el('span', 'shards: ' + m._shards.successful + '/' + m._shards.total, 'stat'));
+    if (m.timed_out) h.appendChild(el('span', 'timed out', 'stat'));
+    h.appendChild(el('span', null, 'spacer'));
+    var modes = hostContext.availableDisplayModes || [];
+    if (modes.indexOf('fullscreen') >= 0) {
+      var full = hostContext.displayMode === 'fullscreen';
+      var btn = el('button', full ? 'Exit fullscreen' : 'Fullscreen');
+      btn.addEventListener('click', function () {
+        request('ui/request-display-mode', { mode: full ? 'inline' : 'fullscreen' })
+          .then(function (r) { if (r && r.mode) applyHostContext({ displayMode: r.mode }); }, function () {});
+      });
+      h.appendChild(btn);
+    }
+    return h;
+  }
+
+  var lastResult = null;
+  function render(result) {
+    lastResult = result;
+    app.textContent = '';
+    var data = result && result.structuredContent;
+    if (result && result.isError) {
+      var text = (result.content || []).map(function (c) { return c.text || ''; }).join('\n');
+      app.appendChild(el('div', text || 'Tool call failed.', 'notice error'));
+    } else if (!data || !Array.isArray(data.columns) || !Array.isArray(data.rows)) {
+      app.appendChild(el('div', 'No table view for this result (too large to display or not tabular); see the text result.', 'notice'));
+    } else {
+      app.appendChild(header(data));
+      if (data.rows.length === 0) app.appendChild(el('div', 'No rows.', 'notice'));
+      else app.appendChild(buildTable(data.columns, data.rows, true));
+      ((data.meta && data.meta.aggregations) || []).forEach(function (t) {
+        app.appendChild(el('h3', 'Aggregation: ' + t.name));
+        app.appendChild(buildTable(t.columns, t.rows, false));
+      });
+    }
+  }
+
+  window.addEventListener('message', function (event) {
+    if (event.source !== window.parent) return;
+    var msg = event.data;
+    if (!msg || msg.jsonrpc !== '2.0') return;
+    if (msg.id !== undefined && !msg.method) {
+      var p = pending[msg.id]; delete pending[msg.id];
+      if (p) { if (msg.error) p.reject(msg.error); else p.resolve(msg.result); }
+      return;
+    }
+    switch (msg.method) {
+      case 'ui/notifications/tool-input': break;
+      case 'ui/notifications/tool-result': render(msg.params); break;
+      case 'ui/notifications/host-context-changed': applyHostContext(msg.params); break;
+      case 'ui/notifications/tool-cancelled':
+        app.textContent = ''; app.appendChild(el('div', 'Tool call cancelled.', 'notice')); break;
+      case 'ui/resource-teardown': case 'ping': send({ id: msg.id, result: {} }); break;
+      default: if (msg.id !== undefined) send({ id: msg.id, error: { code: -32601, message: 'Method not found' } });
+    }
+  });
+
+  var lastSize = '';
+  var ready = false;
+  function reportSize() {
+    if (!ready) return;
+    var rect = document.body.getBoundingClientRect();
+    var w = Math.ceil(rect.width), h = Math.ceil(rect.height);
+    if (w + 'x' + h === lastSize) return;
+    lastSize = w + 'x' + h;
+    notify('ui/notifications/size-changed', { width: w, height: h });
+  }
+  new ResizeObserver(reportSize).observe(document.body);
+
+  request('ui/initialize', {
+    appInfo: { name: 'opensearch-results', version: '1' },
+    appCapabilities: { availableDisplayModes: ['inline', 'fullscreen'] },
+    protocolVersion: PROTOCOL_VERSION
+  }).then(function (res) {
+    applyHostContext((res && res.hostContext) || {});
+    notify('ui/notifications/initialized');
+    ready = true;
+    reportSize();
+  }, function (err) {
+    app.textContent = ''; app.appendChild(el('div', 'Host handshake failed: ' + (err && err.message), 'notice error'));
+  });
+})();
+</script>
+</body>
+</html>
