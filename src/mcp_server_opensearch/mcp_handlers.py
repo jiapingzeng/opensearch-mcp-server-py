@@ -24,25 +24,43 @@ from tools.ui_resources import (
     UI_RESOURCES,
     apps_enabled,
     bound_resource_uris,
+    dashboards_base_url,
+    finalize_view_payload,
+    is_view_bound,
     load_ui_html,
+    split_presentation_args,
+    tool_ui_meta,
+    view_input_schema,
 )
+
+
+def _view_bound_tool(enabled_tools: dict, display_name: str) -> dict | None:
+    for key, tool_info in enabled_tools.items():
+        if tool_info.get('display_name', key) == display_name:
+            return tool_info if is_view_bound(tool_info) else None
+    return None
 
 
 def build_handlers(enabled_tools: dict) -> dict:
     """Return the on_* keyword arguments for Server(...) for the enabled tools."""
     apps = apps_enabled()
+    if apps:
+        dashboards_base_url()  # fail at startup on a malformed URL
 
     async def _list_tools(ctx, params) -> ListToolsResult:
         tools = []
         for tool_name, tool_info in enabled_tools.items():
             meta = {'category': tool_info['category']} if tool_info.get('category') else {}
-            if apps and tool_info.get('ui_resource_uri') in UI_RESOURCES:
-                meta['ui'] = {'resourceUri': tool_info['ui_resource_uri']}
+            input_schema = tool_info['input_schema']
+            if apps:
+                meta['ui'] = tool_ui_meta(tool_name, tool_info)
+                if is_view_bound(tool_info):
+                    input_schema = view_input_schema(input_schema)
             tools.append(
                 Tool(
                     name=tool_info.get('display_name', tool_name),
                     description=tool_info['description'],
-                    input_schema=tool_info['input_schema'],
+                    input_schema=input_schema,
                     annotations=tool_info.get('annotations'),
                     meta=meta or None,  # type: ignore[call-arg]
                 )
@@ -53,13 +71,18 @@ def build_handlers(enabled_tools: dict) -> dict:
         from mcp_server_opensearch.client_context import request_context_var
         from mcp_server_opensearch.tool_executor import _build_call_tool_result, execute_tool
 
+        arguments = params.arguments or {}
+        view_tool = _view_bound_tool(enabled_tools, params.name) if apps else None
+        presentation: dict = {}
         token = request_context_var.set(ctx.request)
         try:
-            return await execute_tool(params.name, params.arguments or {}, enabled_tools)
+            if view_tool:
+                arguments, presentation = split_presentation_args(arguments)
+            result = await execute_tool(params.name, arguments, enabled_tools)
         except MCPError:
             raise
         except Exception as e:
-            return _build_call_tool_result(
+            result = _build_call_tool_result(
                 [
                     TextContent(
                         type='text',
@@ -70,6 +93,16 @@ def build_handlers(enabled_tools: dict) -> dict:
             )
         finally:
             request_context_var.reset(token)
+        if view_tool:
+            structured = finalize_view_payload(
+                result.structured_content,
+                view_tool['ui_kind'],
+                params.name,
+                presentation,
+                bool(result.is_error),
+            )
+            result = result.model_copy(update={'structured_content': structured})
+        return result
 
     handlers = {'on_list_tools': _list_tools, 'on_call_tool': _call_tool}
     if not apps:

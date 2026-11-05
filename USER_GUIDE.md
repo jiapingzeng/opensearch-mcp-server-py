@@ -693,7 +693,8 @@ If the port is omitted, this server inserts the usual HTTP(S) default so traffic
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `OPENSEARCH_MCP_APPS_ENABLED` | No | `"false"` | When `"true"`, advertises the MCP Apps extension (`io.modelcontextprotocol/ui`), serves the `ui://opensearch/results` view, links it to `SearchIndexTool` and `PPLQueryTool` through `_meta.ui.resourceUri`, and adds `structuredContent` (omitted above 1 MiB) to their results. Text results are unchanged. Hosts with MCP Apps support render the results as a sortable table; other hosts ignore it. |
+| `OPENSEARCH_MCP_APPS_ENABLED` | No | `"false"` | When `"true"`, advertises the MCP Apps extension (`io.modelcontextprotocol/ui`), serves the `ui://opensearch/results` view, links it to `SearchIndexTool` and `PPLQueryTool` through `_meta.ui.resourceUri`, and adds `structuredContent` to their results (at most 500 rows and 100 columns, flagged with `meta.truncated`; replaced by a small `omitted` marker above 1 MiB, for unsupported formats such as PPL `csv`/`raw`, and on errors). Those two tools also accept optional `narrative` and `suggestions` (up to 3) arguments that the view shows as an analysis panel and follow-up buttons. Every other tool is marked `_meta.ui.visibility: ["model"]` so views cannot call it. Text results are unchanged. Hosts with MCP Apps support render the results as a sortable table with filter chips and, for two-column PPL `stats` results, a bar chart; other hosts ignore it. |
+| `OPENSEARCH_DASHBOARDS_URL` | No | `''` | With MCP Apps enabled in single mode, the results view shows a "View in OpenSearch Dashboards" button that opens the PPL query (or, for `SearchIndexTool`, the index without the DSL query) in Discover. Must be an `http(s)` URL; the server fails to start otherwise. |
 
 ### Logging & Monitoring Variables
 

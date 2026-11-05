@@ -3,18 +3,28 @@
 
 import json
 import pytest
+import re
 from tools.ui_resources import (
     RESULTS_VIEW_URI,
     STRUCTURED_CONTENT_MAX_BYTES,
+    STRUCTURED_CONTENT_MAX_COLUMNS,
+    STRUCTURED_CONTENT_MAX_ROWS,
     UI_RESOURCES,
     apps_enabled,
     bound_resource_uris,
     cap_structured_content,
+    dashboards_base_url,
+    discover_ppl_url,
+    finalize_view_payload,
     load_ui_html,
     ppl_rows_payload,
     search_hits_payload,
+    split_presentation_args,
+    tool_ui_meta,
+    view_input_schema,
 )
 from unittest.mock import AsyncMock, Mock, patch
+from urllib.parse import unquote
 
 
 SEARCH_RESPONSE = {
@@ -121,14 +131,155 @@ class TestPayloads:
 
     def test_cap_keeps_small_payload(self):
         payload = search_hits_payload(SEARCH_RESPONSE, '', 'logs')
-        assert cap_structured_content(payload) is payload
+        assert cap_structured_content(payload) == payload
 
-    def test_cap_drops_payload_over_limit(self):
-        big = {'kind': 'search_hits', 'rows': [['x' * STRUCTURED_CONTENT_MAX_BYTES]]}
-        assert cap_structured_content(big) is None
+    def test_cap_replaces_payload_over_limit_with_marker(self):
+        big = {
+            'kind': 'search_hits',
+            'version': 1,
+            'columns': ['a'],
+            'rows': [['x' * STRUCTURED_CONTENT_MAX_BYTES]],
+            'tool': 'SearchIndexTool',
+        }
+        marker = cap_structured_content(big)
+        assert marker['omitted'] == 'too_large'
+        assert marker['kind'] == 'search_hits' and marker['version'] == 1
+        assert marker['bytes'] > STRUCTURED_CONTENT_MAX_BYTES
+        assert marker['tool'] == 'SearchIndexTool'
+        assert 'rows' not in marker
 
-    def test_cap_none(self):
-        assert cap_structured_content(None) is None
+    def test_cap_truncates_rows_and_columns(self):
+        columns = [f'c{i}' for i in range(120)]
+        rows = [list(range(120)) for _ in range(600)]
+        payload = {
+            'kind': 'ppl_rows',
+            'version': 1,
+            'columns': columns,
+            'rows': rows,
+            'meta': {'column_types': ['int'] * 120},
+        }
+        capped = cap_structured_content(payload)
+        assert len(capped['rows']) == STRUCTURED_CONTENT_MAX_ROWS
+        assert len(capped['columns']) == STRUCTURED_CONTENT_MAX_COLUMNS
+        assert all(len(r) == STRUCTURED_CONTENT_MAX_COLUMNS for r in capped['rows'])
+        assert capped['meta'] == {
+            'column_types': ['int'] * 100,
+            'truncated': True,
+            'row_count': 600,
+            'column_count': 120,
+        }
+        assert len(payload['rows']) == 600  # input not mutated
+
+    def test_cap_truncates_aggregation_tables(self):
+        payload = search_hits_payload(SEARCH_RESPONSE, '', 'logs')
+        payload['meta']['aggregations'] = [
+            {'name': 'big', 'columns': ['key', 'doc_count'], 'rows': [['k', 1]] * 501}
+        ]
+        capped = cap_structured_content(payload)
+        table = capped['meta']['aggregations'][0]
+        assert len(table['rows']) == 500 and table['truncated'] is True
+        assert 'truncated' not in capped['meta']
+
+    def test_cap_under_limits_not_marked(self):
+        payload = ppl_rows_payload(PPL_RESPONSE, '', 'q')
+        assert 'truncated' not in cap_structured_content(payload)['meta']
+
+
+class TestViewPayload:
+    def test_finalize_adds_tool_and_presentation(self):
+        payload = finalize_view_payload(
+            ppl_rows_payload(PPL_RESPONSE, '', 'q'), 'ppl_rows', 'PPL', {'narrative': 'n'}, False
+        )
+        assert payload['tool'] == 'PPL' and payload['narrative'] == 'n'
+        assert payload['rows'] == PPL_RESPONSE['datarows']
+
+    @pytest.mark.parametrize(
+        'structured,is_error,reason',
+        [
+            (None, False, 'unsupported_format'),
+            (None, True, 'error'),
+            ({'rows': []}, True, 'error'),
+        ],
+    )
+    def test_finalize_markers(self, structured, is_error, reason):
+        payload = finalize_view_payload(structured, 'ppl_rows', 'PPLQueryTool', {}, is_error)
+        assert payload == {
+            'kind': 'ppl_rows',
+            'version': 1,
+            'omitted': reason,
+            'tool': 'PPLQueryTool',
+        }
+
+    def test_split_presentation_args(self):
+        args, presentation = split_presentation_args(
+            {'index': 'i', 'narrative': 'n', 'suggestions': ['a', 'b']}
+        )
+        assert args == {'index': 'i'}
+        assert presentation == {'narrative': 'n', 'suggestions': ['a', 'b']}
+        assert split_presentation_args({'index': 'i', 'suggestions': []}) == ({'index': 'i'}, {})
+
+    def test_view_input_schema_does_not_mutate(self):
+        schema = {'type': 'object', 'properties': {'q': {'type': 'string'}}}
+        extended = view_input_schema(schema)
+        assert set(extended['properties']) == {'q', 'narrative', 'suggestions'}
+        assert set(schema['properties']) == {'q'}
+
+
+class TestDashboardsLink:
+    @pytest.fixture(autouse=True)
+    def single(self):
+        with patch('mcp_server_opensearch.global_state.get_mode', return_value='single'):
+            yield
+
+    def test_no_link_without_env(self, monkeypatch):
+        monkeypatch.delenv('OPENSEARCH_DASHBOARDS_URL', raising=False)
+        assert discover_ppl_url('source=logs') is None
+        assert 'dashboards_url' not in ppl_rows_payload(PPL_RESPONSE, '', 'source=logs')['meta']
+
+    def test_ppl_link(self, monkeypatch):
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_URL', 'https://osd.example.com/')
+        url = discover_ppl_url("source=logs | where msg = 'it!s'")
+        assert url.startswith('https://osd.example.com/app/data-explorer/discover#?_q=')
+        state = unquote(url.split('_q=', 1)[1])
+        assert state == (
+            "(filters:!(),query:(dataset:(id:'::logs',title:'logs',type:INDEXES),"
+            "language:PPL,query:'source=logs | where msg = !'it!!s!''))"
+        )
+
+    def test_payloads_carry_link(self, monkeypatch):
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_URL', 'http://127.0.0.1:5601')
+        search = search_hits_payload(SEARCH_RESPONSE, '', 'logs')
+        assert "query:'source = logs'" in unquote(search['meta']['dashboards_url'])
+        ppl = ppl_rows_payload(PPL_RESPONSE, '', 'source=logs | head 1')
+        assert 'dashboards_url' in ppl['meta']
+
+    def test_no_link_without_source(self, monkeypatch):
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_URL', 'http://127.0.0.1:5601')
+        assert discover_ppl_url('describe logs') is None
+
+    def test_no_link_in_multi_mode(self, monkeypatch):
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_URL', 'http://127.0.0.1:5601')
+        with patch('mcp_server_opensearch.global_state.get_mode', return_value='multi'):
+            assert discover_ppl_url('source=logs') is None
+
+    @pytest.mark.parametrize('value', ['osd.example.com', 'javascript:alert(1)', 'file:///x'])
+    def test_malformed_url_rejected(self, monkeypatch, value):
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_URL', value)
+        with pytest.raises(ValueError, match='OPENSEARCH_DASHBOARDS_URL'):
+            dashboards_base_url()
+
+
+class TestToolVisibility:
+    def test_registry_visibility(self):
+        from tools.tools import TOOL_REGISTRY
+
+        default = sorted(
+            k for k, v in TOOL_REGISTRY.items() if 'visibility' not in tool_ui_meta(k, v)
+        )
+        assert default == ['PPLQueryTool', 'SearchIndexTool']
+        assert tool_ui_meta(
+            'GenericOpenSearchApiTool', TOOL_REGISTRY['GenericOpenSearchApiTool']
+        ) == {'visibility': ['model']}
 
 
 class TestRegistry:
@@ -139,10 +290,28 @@ class TestRegistry:
 
     def test_results_view_is_self_contained_and_safe(self):
         html = load_ui_html(RESULTS_VIEW_URI)
-        assert 'innerHTML' not in html
-        assert 'insertAdjacentHTML' not in html
-        assert '<script src' not in html
-        assert 'http://' not in html and 'https://' not in html
+        assert '<script src' not in html and '<link' not in html
+        assert '@import' not in html and 'url(' not in html
+        assert 'fetch(' not in html and 'XMLHttpRequest' not in html
+        urls = re.findall(r'https?://[^\s\'"]*', html)
+        assert urls == ['http://www.w3.org/2000/svg']  # SVG namespace, not a load
+
+    @pytest.mark.parametrize('name', sorted({v['html_file'] for v in UI_RESOURCES.values()}))
+    def test_view_has_no_html_injection_sinks(self, name):
+        from importlib import resources
+
+        html = resources.files('tools.ui').joinpath(name).read_text(encoding='utf-8')
+        sinks = re.findall(
+            r'innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\s*\(|new\s+Function\s*\(',
+            html,
+        )
+        assert sinks == [], f'{name} uses {sinks}; build DOM nodes and set textContent instead'
+
+    def test_every_ui_file_is_registered(self):
+        from importlib import resources
+
+        files = {p.name for p in resources.files('tools.ui').iterdir() if p.name.endswith('.html')}
+        assert files == {v['html_file'] for v in UI_RESOURCES.values()}
 
     def test_every_registered_resource_loads(self):
         for uri in UI_RESOURCES:

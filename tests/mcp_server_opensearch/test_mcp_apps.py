@@ -8,6 +8,7 @@ from mcp.server.apps import APP_MIME_TYPE, EXTENSION_ID
 from mcp.shared.exceptions import MCPError
 from mcp_server_opensearch.mcp_handlers import build_handlers, configure_apps
 from mcp_server_opensearch.tool_executor import _build_call_tool_result
+from tools.tool_annotations import read_only_annotations, write_annotations
 from tools.ui_resources import RESULTS_VIEW_URI, STRUCTURED_CONTENT_MAX_BYTES
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -15,17 +16,21 @@ from unittest.mock import AsyncMock, Mock, patch
 STRUCTURED = {'kind': 'search_hits', 'version': 1, 'cluster': '', 'columns': [], 'rows': []}
 
 
-def _tool(function, ui=True, category='core_tools'):
+def _tool(function, ui=True, category='core_tools', read_only=True):
     info = {
         'display_name': None,
         'description': 'd',
-        'input_schema': {'type': 'object'},
+        'input_schema': {'type': 'object', 'properties': {'index': {'type': 'string'}}},
         'args_model': Mock(),
         'function': function,
         'category': category,
+        'annotations': read_only_annotations('t')
+        if read_only
+        else write_annotations('t', destructive=True, idempotent=False),
     }
     if ui:
         info['ui_resource_uri'] = RESULTS_VIEW_URI
+        info['ui_kind'] = 'search_hits'
     return info
 
 
@@ -76,6 +81,7 @@ class TestFlagOff:
         async with Client(_server(_registry())) as client:
             tools = (await client.list_tools()).tools
         assert [t.meta for t in tools] == [{'category': 'core_tools'}, {'category': 'core_tools'}]
+        assert all('narrative' not in t.input_schema['properties'] for t in tools)
 
     @pytest.mark.asyncio
     async def test_resources_not_served(self, apps_off):
@@ -100,14 +106,38 @@ class TestFlagOn:
         assert caps.resources is not None
 
     @pytest.mark.asyncio
-    async def test_ui_meta_only_on_bound_tools(self, apps_on):
-        async with Client(_server(_registry())) as client:
-            tools = {t.name: t for t in (await client.list_tools()).tools}
-        assert tools['SearchIndexTool'].meta == {
+    async def test_ui_meta_and_visibility(self, apps_on):
+        tools = _registry()
+        tools['DeleteIndexTool'] = _tool(AsyncMock(), ui=False, read_only=False)
+        tools['DeleteIndexTool']['display_name'] = 'DeleteIndexTool'
+        tools['GenericOpenSearchApiTool'] = _tool(AsyncMock())
+        tools['GenericOpenSearchApiTool']['display_name'] = 'GenericOpenSearchApiTool'
+        tools['WriteViewTool'] = _tool(AsyncMock(), read_only=False)
+        tools['WriteViewTool']['display_name'] = 'WriteViewTool'
+        async with Client(_server(tools)) as client:
+            listed = {t.name: t for t in (await client.list_tools()).tools}
+        assert listed['SearchIndexTool'].meta == {
             'category': 'core_tools',
             'ui': {'resourceUri': RESULTS_VIEW_URI},
         }
-        assert tools['ListIndexTool'].meta == {'category': 'core_tools'}
+        model_only = {'visibility': ['model']}
+        assert listed['ListIndexTool'].meta == {'category': 'core_tools', 'ui': model_only}
+        assert listed['DeleteIndexTool'].meta['ui'] == model_only
+        assert listed['GenericOpenSearchApiTool'].meta['ui'] == {
+            'resourceUri': RESULTS_VIEW_URI,
+            **model_only,
+        }
+        assert listed['WriteViewTool'].meta['ui']['visibility'] == ['model']
+
+    @pytest.mark.asyncio
+    async def test_presentation_args_only_on_bound_tools(self, apps_on):
+        async with Client(_server(_registry())) as client:
+            listed = {t.name: t for t in (await client.list_tools()).tools}
+        search = listed['SearchIndexTool'].input_schema['properties']
+        assert search['narrative']['type'] == 'string'
+        assert search['suggestions']['maxItems'] == 3
+        assert 'index' in search
+        assert 'narrative' not in listed['ListIndexTool'].input_schema['properties']
 
     @pytest.mark.asyncio
     async def test_ui_meta_without_category(self, apps_on):
@@ -151,9 +181,85 @@ class TestFlagOn:
         async with Client(_server(_registry())) as client:
             result = await client.call_tool('SearchIndexTool', {})
             plain = await client.call_tool('ListIndexTool', {})
-        assert result.structured_content == STRUCTURED
+        assert result.structured_content == {**STRUCTURED, 'tool': 'SearchIndexTool'}
         assert result.content[0].text == 'hits'
         assert plain.structured_content is None
+
+    @pytest.mark.asyncio
+    async def test_presentation_args_moved_to_payload(self, apps_on):
+        tools = _registry()
+        args = {'index': 'logs', 'narrative': 'Mostly 200s.', 'suggestions': ['Show 500s']}
+        async with Client(_server(tools)) as client:
+            result = await client.call_tool('SearchIndexTool', args)
+        assert tools['SearchIndexTool']['function'].call_args.args[0] == {'index': 'logs'}
+        assert result.structured_content['narrative'] == 'Mostly 200s.'
+        assert result.structured_content['suggestions'] == ['Show 500s']
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        'extra',
+        [
+            {'narrative': 5},
+            {'narrative': 'x' * 2001},
+            {'suggestions': 'one'},
+            {'suggestions': ['a', 'b', 'c', 'd']},
+            {'suggestions': ['']},
+            {'suggestions': ['x' * 121]},
+        ],
+    )
+    async def test_invalid_presentation_args_rejected(self, apps_on, extra):
+        tools = _registry()
+        async with Client(_server(tools)) as client:
+            result = await client.call_tool('SearchIndexTool', {'index': 'logs', **extra})
+        assert result.is_error
+        assert tools['SearchIndexTool']['function'].call_count == 0
+        assert result.structured_content['omitted'] == 'error'
+
+    @pytest.mark.asyncio
+    async def test_error_marker(self, apps_on):
+        tools = _registry()
+        tools['SearchIndexTool']['function'].return_value = [
+            {'type': 'text', 'text': 'boom', 'is_error': True}
+        ]
+        async with Client(_server(tools)) as client:
+            result = await client.call_tool('SearchIndexTool', {})
+        assert result.is_error
+        assert result.structured_content == {
+            'kind': 'search_hits',
+            'version': 1,
+            'omitted': 'error',
+            'tool': 'SearchIndexTool',
+        }
+
+    @pytest.mark.asyncio
+    async def test_unsupported_format_marker(self, apps_on):
+        tools = _registry()
+        tools['SearchIndexTool']['function'].return_value = [
+            {'type': 'text', 'text': 'a|b', 'structured': None}
+        ]
+        async with Client(_server(tools)) as client:
+            result = await client.call_tool('SearchIndexTool', {})
+        assert result.structured_content['omitted'] == 'unsupported_format'
+
+    @pytest.mark.asyncio
+    async def test_too_large_marker(self, apps_on):
+        tools = _registry()
+        big = {**STRUCTURED, 'columns': ['a'], 'rows': [['x' * STRUCTURED_CONTENT_MAX_BYTES]]}
+        tools['SearchIndexTool']['function'].return_value = [
+            {'type': 'text', 'text': 't', 'structured': big}
+        ]
+        async with Client(_server(tools)) as client:
+            result = await client.call_tool('SearchIndexTool', {'narrative': 'n'})
+        sc = result.structured_content
+        assert sc['omitted'] == 'too_large' and sc['bytes'] > STRUCTURED_CONTENT_MAX_BYTES
+        assert sc['narrative'] == 'n' and sc['tool'] == 'SearchIndexTool'
+        assert 'rows' not in sc
+        assert result.content[0].text == 't'
+
+    def test_malformed_dashboards_url_fails_at_startup(self, apps_on, monkeypatch):
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_URL', 'dashboards.local')
+        with pytest.raises(ValueError, match='OPENSEARCH_DASHBOARDS_URL'):
+            build_handlers(_registry())
 
 
 class TestBuildCallToolResult:
@@ -162,12 +268,6 @@ class TestBuildCallToolResult:
             [{'type': 'text', 'text': 't', 'structured': STRUCTURED}], False
         )
         assert result.structured_content == STRUCTURED
-        assert result.content[0].text == 't'
-
-    def test_structured_over_cap_omitted(self):
-        big = {**STRUCTURED, 'rows': [['x' * STRUCTURED_CONTENT_MAX_BYTES]]}
-        result = _build_call_tool_result([{'type': 'text', 'text': 't', 'structured': big}], False)
-        assert result.structured_content is None
         assert result.content[0].text == 't'
 
     def test_error_result_has_no_structured(self):

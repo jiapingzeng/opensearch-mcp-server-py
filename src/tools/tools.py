@@ -1017,6 +1017,7 @@ TOOL_REGISTRY = {
     'SearchIndexTool': {
         'display_name': 'SearchIndexTool',
         'ui_resource_uri': RESULTS_VIEW_URI,
+        'ui_kind': 'search_hits',
         'description': 'Searches an index using a query written in query domain-specific language (DSL) in OpenSearch. PREREQUISITE: You need to know the mappings of the index before constructing queries.',
         'input_schema': SearchIndexArgs.model_json_schema(),
         'function': search_index_tool,
@@ -1377,6 +1378,7 @@ TOOL_REGISTRY = {
     'PPLQueryTool': {
         'display_name': 'PPLQueryTool',
         'ui_resource_uri': RESULTS_VIEW_URI,
+        'ui_kind': 'ppl_rows',
         'description': 'Executes a PPL (Piped Processing Language) query against OpenSearch. '
         'PPL provides a pipe-based syntax for querying data: source=<index> | <command> | <command>. '
         'Supports filtering (where), aggregation (stats), sorting (sort), deduplication (dedup), '
