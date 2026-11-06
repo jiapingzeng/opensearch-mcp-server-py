@@ -745,7 +745,12 @@ def cap_structured_content(payload: dict) -> dict:
             target['rows'] = target['rows'][: len(target['rows']) // 2]
             size = _serialized_size({**payload, 'meta': meta})
         if truncated:
-            meta.update(truncated=True, row_count=original_rows, column_count=original_columns)
+            # Name only the dimensions that were cut, as aggregation tables do.
+            meta['truncated'] = True
+            if len(payload['rows']) < original_rows:
+                meta['row_count'] = original_rows
+            if len(payload['columns']) < original_columns:
+                meta['column_count'] = original_columns
         if meta or 'meta' in payload:
             payload['meta'] = meta
     size = _serialized_size(payload)

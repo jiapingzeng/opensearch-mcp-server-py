@@ -397,8 +397,23 @@ class TestCaps:
         payload = {'kind': 'search_hits', 'version': 1, 'columns': ['a'], 'rows': rows}
         capped = cap_structured_content(payload)
         assert len(capped['rows']) == 5
-        assert capped['meta'] == {'truncated': True, 'row_count': 10, 'column_count': 1}
+        assert capped['meta'] == {'truncated': True, 'row_count': 10}
         assert len(json.dumps(capped)) <= STRUCTURED_CONTENT_MAX_BYTES
+
+    def test_cap_names_only_the_dimension_that_was_cut(self):
+        columns = [f'c{i}' for i in range(STRUCTURED_CONTENT_MAX_COLUMNS + 5)]
+        payload = {
+            'kind': 'ppl_rows',
+            'version': 1,
+            'columns': columns,
+            'rows': [list(range(len(columns)))] * 3,
+        }
+        capped = cap_structured_content(payload)
+        assert capped['meta'] == {
+            'truncated': True,
+            'column_count': STRUCTURED_CONTENT_MAX_COLUMNS + 5,
+        }
+        assert len(capped['rows']) == 3
 
     def test_byte_cap_can_reach_zero_rows(self):
         payload = {
