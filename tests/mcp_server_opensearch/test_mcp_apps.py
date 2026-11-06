@@ -99,9 +99,12 @@ def apps_off(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def single_mode():
+def single_mode(monkeypatch):
+    from mcp_server_opensearch import global_state
+
+    # Set the mode itself: patching get_mode leaks a mock into modules first imported here.
+    monkeypatch.setattr(global_state, '_current_mode', 'single')
     with (
-        patch('mcp_server_opensearch.global_state.get_mode', return_value='single'),
         patch('tools.tool_params.get_mode', return_value='single'),
         patch('opensearch.client.is_serverless_connection', return_value=False),
         patch(
