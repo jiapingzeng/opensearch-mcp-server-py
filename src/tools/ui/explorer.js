@@ -93,11 +93,12 @@ function drawList() {
     b.setAttribute('aria-current', current ? 'true' : 'false');
     b.appendChild(healthDot(r[h]));
     b.appendChild(el('span', cellText(r[i], 60), 'name'));
+    // The dot's meaning for screen readers; the button's name is its visible text plus this.
+    b.appendChild(el('span', ' health ' + (r[h] || 'unknown'), 'sr-only'));
     var meta = [];
     if (d >= 0 && typeof r[d] === 'number') meta.push(plural(r[d], 'doc'));
     if (s >= 0 && typeof r[s] === 'number') meta.push(formatBytes(r[s]));
     b.appendChild(el('span', meta.join(' \u00b7 '), 'muted meta'));
-    b.setAttribute('aria-label', cellText(r[i]) + ', health ' + (r[h] || 'unknown') + (meta.length ? ', ' + meta.join(', ') : ''));
     li.appendChild(b);
     holder.appendChild(li);
   });

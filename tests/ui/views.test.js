@@ -1358,7 +1358,8 @@ describe('index explorer', () => {
     const v = await openView('explorer', OV_CAPS, EX_INPUT, explorerResult());
     const items = [...v.doc.querySelectorAll('.index-list button.index-item')];
     assert.deepEqual(items.map((b) => b.querySelector('.name').textContent), ['logs', 'orders', 'audit']);
-    assert.equal(items[0].getAttribute('aria-label'), 'logs, health yellow, 6 docs, 6.84 KiB');
+    assert.equal(items[0].textContent, 'logs health yellow6 docs \u00b7 6.84 KiB');
+    assert.equal(items[0].getAttribute('aria-label'), null);
     assert.equal(items[0].getAttribute('aria-current'), 'true');
     assert.equal(v.doc.querySelector('.list-count').textContent, '3 indices');
     const panel = v.doc.querySelector('.tab-panel').textContent;
