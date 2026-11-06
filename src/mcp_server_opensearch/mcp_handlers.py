@@ -34,6 +34,7 @@ from tools.ui_resources import (
     payload_kind,
     resource_meta,
     takes_presentation_args,
+    takes_suggestions,
     tool_ui_meta,
     view_input_schema,
 )
@@ -101,11 +102,51 @@ def _view_bound_tool(enabled_tools: dict, display_name: str) -> tuple[str, dict]
     return None
 
 
+def _present_tools(enabled_tools: dict, apps: bool) -> tuple[dict, set, dict]:
+    """Drop present tools that can never be listed; return the tools, view-called keys and plans.
+
+    With the flag off every present tool is dropped, so the server behaves as if they did not
+    exist. With it on, a present tool stays only when all its required dependencies survived
+    filtering; the tools its view calls are returned so they can be marked app-visible.
+    """
+    if not any(info.get('ui_present') for info in enabled_tools.values()):
+        return enabled_tools, set(), {}
+    if not apps:
+        return {k: v for k, v in enabled_tools.items() if not v.get('ui_present')}, set(), {}
+    from tools.present_tools import resolve_present_tools
+
+    plans = resolve_present_tools(enabled_tools)
+    for key, plan in plans.items():
+        if not plan['listed']:
+            logger.info(f'{key} is not listed: it needs {", ".join(plan["missing"])}')
+    kept = {k: v for k, v in enabled_tools.items() if k not in plans or plans[k]['listed']}
+    called = {dep for plan in plans.values() if plan['listed'] for dep in plan['calls']}
+    return kept, called, plans
+
+
+def _not_available(name: str, info: dict, plan: dict) -> CallToolResult:
+    from mcp_server_opensearch.tool_executor import _build_call_tool_result
+
+    others = ', '.join(plan['names'].get(d, d) for d in info['ui_present']['requires'])
+    return _build_call_tool_result(
+        [
+            TextContent(
+                type='text',
+                text=f'{name} shows an interactive view, which this client cannot display '
+                f'(it does not support the MCP Apps extension {EXTENSION_ID}). Use {others} '
+                'for text results instead.',
+            )
+        ],
+        is_error=True,
+    )
+
+
 def build_handlers(enabled_tools: dict) -> dict:
     """Return the on_* keyword arguments for Server(...) for the enabled tools."""
     apps = apps_enabled()
     if apps:
         dashboards_base_url()  # fail at startup on a malformed URL
+    enabled_tools, view_called, plans = _present_tools(enabled_tools, apps)
 
     def active(ctx) -> bool:
         # Hybrid gating: on unless the client is known not to support Apps.
@@ -115,12 +156,14 @@ def build_handlers(enabled_tools: dict) -> dict:
         apps_active = active(ctx)
         tools = []
         for tool_name, tool_info in enabled_tools.items():
+            if tool_info.get('ui_present') and not apps_active:
+                continue
             meta = {'category': tool_info['category']} if tool_info.get('category') else {}
             input_schema = tool_info['input_schema']
             if apps_active:
-                meta['ui'] = tool_ui_meta(tool_name, tool_info)
+                meta['ui'] = tool_ui_meta(tool_name, tool_info, tool_name in view_called)
                 if takes_presentation_args(tool_info):
-                    input_schema = view_input_schema(input_schema)
+                    input_schema = view_input_schema(input_schema, takes_suggestions(tool_info))
             tools.append(
                 Tool(
                     name=tool_info.get('display_name', tool_name),
@@ -137,6 +180,10 @@ def build_handlers(enabled_tools: dict) -> dict:
         from mcp_server_opensearch.tool_executor import _build_call_tool_result, execute_tool
 
         view_tool = _view_bound_tool(enabled_tools, params.name) if active(ctx) else None
+        if not active(ctx):
+            hidden = _view_bound_tool(enabled_tools, params.name)
+            if hidden and hidden[1].get('ui_present'):
+                return _not_available(params.name, hidden[1], plans[hidden[0]])
         token = request_context_var.set(ctx.request)
         try:
             return await execute_tool(

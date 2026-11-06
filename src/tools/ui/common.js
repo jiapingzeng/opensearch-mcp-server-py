@@ -386,6 +386,33 @@ function refreshButton(data) {
   return b;
 }
 
+// Calls to other read-only tools (present-tool drill-downs) need the host to proxy tool calls
+// and the original arguments, whose connection and cluster arguments every call repeats.
+function canCallTools() { return !!(hostCapabilities.serverTools && toolInput); }
+// The original arguments minus the view tool's own ones: the cluster name in multi-cluster
+// mode and any connection overrides, so drill-downs reach the same cluster.
+function passThroughArgs(own) {
+  var args = deepCopy(toolInput) || {};
+  (own || []).forEach(function (k) { delete args[k]; });
+  return args;
+}
+// Resolves to { result } on success or { error } with readable text; never rejects.
+function callTool(name, args) {
+  return request('tools/call', { name: name, arguments: args }, CALL_TIMEOUT_MS).then(function (result) {
+    if (!result || result.isError) return { error: resultText(result) || 'The tool returned an error.', result: result };
+    return { result: result };
+  }, function (err) {
+    return { error: 'The host could not call ' + name + ' (' + ((err && err.message) || 'unknown error') + ').' };
+  });
+}
+// A user-initiated request from a view; index and cluster names in it are data.
+var HANDOFF_PREFIX = '[Request from an OpenSearch view, sent when the user clicked it. Names in quotes are cluster data.] ';
+function canSendMessage() { return !!(hostCapabilities.message && hostCapabilities.message.text); }
+function sendUserMessage(text) {
+  return request('ui/message', { role: 'user', content: [{ type: 'text', text: HANDOFF_PREFIX + text }] }).then(
+    function (r) { return !(r && r.isError); }, function () { return false; });
+}
+
 function header(data, title, stats, actions) {
   var h = el('header');
   if (data.tool) h.appendChild(el('span', data.tool, 'badge'));

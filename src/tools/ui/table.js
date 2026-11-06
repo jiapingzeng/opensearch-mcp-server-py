@@ -197,7 +197,15 @@ function buildTable(columns, rows, types, state, opts) {
       if (isNumericType(types[i])) cls.push('num');
       if (STATUS_COLUMNS.indexOf(columns[i]) >= 0 && typeof v === 'string' && /^[a-z_]+$/i.test(v)) cls.push('status-' + v.toLowerCase());
       var td = el('td', null, cls.join(' '));
-      td.appendChild(el('span', formatCell(v, types[i]), 'cell'));
+      var action = opts.rowAction;
+      if (action && columns[i] === action.column && v !== null && v !== undefined && (!action.when || action.when(row))) {
+        // The cell is a button so the action works from the keyboard; the row stays plain.
+        var act = button(formatCell(v, types[i]), function (ev) { ev.stopPropagation(); action.run(row); }, 'cell link row-action');
+        act.setAttribute('aria-label', action.label(row));
+        td.appendChild(act);
+      } else {
+        td.appendChild(el('span', formatCell(v, types[i]), 'cell'));
+      }
       if (v !== null && v !== undefined) td.title = types[i] === 'bytes' && typeof v === 'number' ? plural(v, 'byte') : rawText(v);
       tr.appendChild(td);
     });

@@ -12,9 +12,11 @@ const UI = path.resolve(__dirname, '../../src/tools/ui');
 const VIEWS = {
   results: { title: 'OpenSearch results', scripts: ['common.js', 'table.js', 'charts.js', 'results.js'] },
   table: { title: 'OpenSearch table', scripts: ['common.js', 'table.js', 'cat_table.js'] },
-  health: { title: 'OpenSearch cluster health', scripts: ['common.js', 'health.js'] },
-  mapping: { title: 'OpenSearch index mapping', scripts: ['common.js', 'tree.js', 'mapping.js'] },
+  health: { title: 'OpenSearch cluster health', scripts: ['common.js', 'health_card.js', 'health.js'] },
+  mapping: { title: 'OpenSearch index mapping', scripts: ['common.js', 'tree.js', 'mapping.js', 'mapping_view.js'] },
   explain: { title: 'OpenSearch score explanation', scripts: ['common.js', 'tree.js', 'explain.js'] },
+  overview: { title: 'OpenSearch cluster overview', scripts: ['common.js', 'table.js', 'health_card.js', 'overview.js'] },
+  explorer: { title: 'OpenSearch index explorer', scripts: ['common.js', 'table.js', 'tree.js', 'mapping.js', 'explorer.js'] },
 };
 const read = (name) => fs.readFileSync(path.join(UI, name), 'utf8');
 const scripts = (view) => VIEWS[view].scripts.map(read).join('\n');
@@ -1140,5 +1142,383 @@ describe('aggregation notes', () => {
     const meta = { ...base.structuredContent.meta, aggregation_notes: ['aggregation m (matrix_stats) is not shown; see the text result'] };
     const v = await openView('results', {}, SEARCH_INPUT, { ...base, structuredContent: { ...base.structuredContent, meta } });
     assert.equal(v.doc.querySelector('.agg-note').textContent, 'Aggregation m (matrix_stats) is not shown; see the text result.');
+  });
+});
+
+// ---- Task-oriented views: cluster overview and index explorer
+const OV_CAPS = { serverTools: {}, message: { text: {} } };
+function table(columns, rows, types, extra = {}) {
+  return { status: 'ok', columns, rows, meta: { source: 'x', column_types: types }, ...extra };
+}
+function overviewResult(over = {}) {
+  const sections = {
+    health: { status: 'ok', data: { cluster_name: 'demo', status: 'yellow', number_of_nodes: 2, unassigned_shards: 1, active_shards_percent_as_number: 75 } },
+    nodes: table(['name', 'ip', 'heap.percent'], [['n1', '10.0.0.1', 40], ['n2', '10.0.0.2', 72]], ['string', 'string', 'number']),
+    indices: table(['health', 'index', 'docs.count', 'store.size'], [['yellow', 'logs', 6, 7000], ['green', 'orders', 20, 5000]], ['string', 'string', 'number', 'bytes'],
+      { summary: { count: 2, by_health: { green: 1, yellow: 1 }, docs: 26, store_bytes: 12000, largest: [['logs', 7000], ['orders', 5000]] } }),
+    shards: table(['index', 'shard', 'prirep', 'state', 'docs', 'store', 'node', 'unassigned.reason', 'unassigned.for'],
+      [['logs', '0', 'r', 'UNASSIGNED', null, null, null, 'INDEX_CREATED', '1m'], ['logs', '0', 'p', 'STARTED', 6, 7000, 'n2', null, null], ['orders', '0', 'p', 'STARTED', 20, 5000, 'n1', null, null]],
+      ['string', 'string', 'string', 'string', 'number', 'bytes', 'string', 'string', 'string'],
+      { summary: { total: 3, by_state: { STARTED: 2, UNASSIGNED: 1 }, unassigned: 1, unassigned_by_reason: { INDEX_CREATED: 1 }, per_node: { n1: { primaries: 1, replicas: 0 }, n2: { primaries: 1, replicas: 0 } } },
+        explanations: [{ index: 'logs', shard: 0, primary: false, can_allocate: 'no', explanation: 'cannot allocate', nodes: [{ node: 'n2', decision: 'no', reasons: ['a copy of this shard is already allocated to this node'] }] }] }),
+    allocation: table(['shards', 'disk.percent', 'node'], [[1, 90, 'n1'], [1, 20, 'n2'], [1, null, 'UNASSIGNED']], ['number', 'number', 'string']),
+    ...(over.sections || {}),
+  };
+  return {
+    content: [{ type: 'text', text: 'summary' }],
+    structuredContent: {
+      kind: 'cluster_overview', version: 1, cluster: over.cluster === undefined ? 'c1' : over.cluster, tool: 'ClusterOverviewTool', refreshable: true,
+      requested: over.requested || ['health', 'nodes', 'indices', 'shards', 'allocation'], sections,
+      tools: over.tools || { explorer: 'IndexExplorerTool' }, intent: 'Why yellow?', ...(over.extra || {}),
+    },
+  };
+}
+const OV_INPUT = { opensearch_cluster_name: 'c1', intent: 'Why yellow?' };
+const sectionText = (v, name) => v.doc.querySelector('.section-' + name).textContent;
+const lastCall = (v) => v.request('tools/call');
+
+describe('cluster overview', () => {
+  test('renders every section with summary counts, explanations and a disk warning', async () => {
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult());
+    assert.deepEqual([...v.doc.querySelectorAll('section.section h2')].map((h) => h.textContent), ['Health', 'Nodes', 'Indices', 'Shards', 'Disk allocation']);
+    assert.match(v.doc.querySelector('header').textContent, /Cluster overview: demo/);
+    assert.match(v.doc.querySelector('header').textContent, /cluster: c1/);
+    assert.equal(v.doc.querySelector('.section-health .status-badge').textContent, 'yellow');
+    assert.match(sectionText(v, 'indices'), /2 indices1 green1 yellow26 documents11\.7 KiB total/);
+    assert.match(sectionText(v, 'shards'), /Unassigned shards \(1\)/);
+    assert.match(sectionText(v, 'shards'), /Reasons: INDEX_CREATED 1/);
+    assert.match(v.doc.querySelector('.explanation').textContent, /logs\[0\] replica: can allocate no.*n2 \(no\): a copy/);
+    assert.match(sectionText(v, 'allocation'), /1 node at or above 85% disk use .*: n1\./);
+    assert.equal(v.doc.querySelector('.intent').textContent, 'Why yellow?');
+  });
+
+  test('a failed section shows its error in place while the others render', async () => {
+    const err = 'Error getting nodes: TransportError(500, \'{"error":{"reason":"node stats failed"},"status":500}\')';
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult({ sections: { nodes: { status: 'error', error: err }, allocation: { status: 'disabled', tool: 'GetAllocationTool' } } }));
+    assert.equal(v.doc.querySelector('.section-nodes .error-summary').textContent, 'OpenSearch returned 500: node stats failed');
+    assert.equal(v.doc.querySelectorAll('.section-nodes table').length, 0);
+    assert.match(sectionText(v, 'allocation'), /needs GetAllocationTool, which is not enabled/);
+    assert.ok(v.doc.querySelector('.section-indices table'));
+    assert.ok(v.doc.querySelector('.section-shards table'));
+  });
+
+  test('a section that throws while rendering is contained', async () => {
+    const bad = { status: 'ok', columns: null, rows: [], meta: {} };
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult({ sections: { nodes: bad } }));
+    assert.match(sectionText(v, 'nodes'), /could not be shown .*the other sections are unaffected/);
+    assert.ok(v.doc.querySelector('.section-indices table'));
+  });
+
+  test('refreshing one section sends only that section and replaces only it', async () => {
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult());
+    const indicesNode = v.doc.querySelector('.section-indices');
+    v.doc.querySelector('.section-nodes button.section-refresh').click();
+    await flush();
+    const call = lastCall(v);
+    assert.deepEqual(call.params, { name: 'ClusterOverviewTool', arguments: { opensearch_cluster_name: 'c1', intent: 'Why yellow?', sections: ['nodes'] } });
+    assert.equal(v.doc.querySelector('.section-nodes .section-status').textContent, 'Refreshing\u2026');
+    const fresh = overviewResult({ requested: ['nodes'], sections: { nodes: table(['name', 'heap.percent'], [['n9', 5]], ['string', 'number']) } });
+    v.deliver({ id: call.id, result: fresh });
+    await flush();
+    assert.match(sectionText(v, 'nodes'), /n9/);
+    assert.match(v.doc.querySelector('.section-nodes .section-status').textContent, /^refreshed \d\d:\d\d:\d\d UTC$/);
+    assert.equal(v.doc.querySelector('.section-indices'), indicesNode);
+  });
+
+  test('a failed section refresh keeps the old data, dimmed, with the error', async () => {
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult());
+    v.doc.querySelector('.section-shards button.section-refresh').click();
+    await flush();
+    v.deliver({ id: lastCall(v).id, result: { isError: true, content: [{ type: 'text', text: 'boom' }] } });
+    await flush();
+    assert.equal(v.doc.querySelector('.section-shards .section-error .error-summary').textContent, 'boom');
+    assert.ok(v.doc.querySelector('.section-shards .section-body.stale table'));
+    assert.match(sectionText(v, 'shards'), /Showing the previous result/);
+  });
+
+  test('Refresh all re-calls the tool with the original arguments', async () => {
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult());
+    v.doc.querySelector('button.refresh-all').click();
+    await flush();
+    assert.deepEqual(lastCall(v).params, { name: 'ClusterOverviewTool', arguments: OV_INPUT });
+    assert.equal(v.doc.querySelectorAll('header button.refresh').length, 1);
+  });
+
+  test('clicking a node filters shards and disk use; clearing restores them', async () => {
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult());
+    const nodeButton = [...v.doc.querySelectorAll('.section-nodes button.row-action')].find((b) => b.textContent === 'n1');
+    assert.equal(nodeButton.getAttribute('aria-label'), 'Filter by node n1');
+    nodeButton.click();
+    assert.match(v.doc.querySelector('.filter-bar').textContent, /node: n1/);
+    assert.equal(v.doc.querySelectorAll('.section-nodes tbody tr.row').length, 1);
+    assert.equal(v.doc.querySelectorAll('.section-allocation tbody tr.row').length, 1);
+    assert.match(sectionText(v, 'shards'), /On n1: 1 primary, 0 replicas\./);
+    assert.match(sectionText(v, 'shards'), /Shards matching the filter \(1\)/);
+    v.doc.querySelector('.filter-bar button.clear-filters').click();
+    assert.ok(v.doc.querySelector('.filter-bar').hidden);
+    assert.equal(v.doc.querySelectorAll('.section-allocation tbody tr.row').length, 3);
+    assert.equal([...v.doc.querySelectorAll('.section-allocation button.row-action')].map((b) => b.textContent).join(), 'n1,n2');
+  });
+
+  test('clicking an unassigned shard filters by its index', async () => {
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult());
+    v.doc.querySelector('.section-shards button.row-action').click();
+    assert.match(v.doc.querySelector('.filter-bar').textContent, /index: logs/);
+    assert.deepEqual([...v.doc.querySelectorAll('.section-indices tbody tr.row')].map((r) => r.textContent.includes('logs')), [true]);
+  });
+
+  test('clicking an index asks the assistant to open the index explorer for it', async () => {
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult());
+    const link = [...v.doc.querySelectorAll('.section-indices button.row-action')].find((b) => b.textContent === 'orders');
+    assert.equal(link.getAttribute('aria-label'), 'Open the index explorer for orders');
+    link.click();
+    await flush();
+    const msg = v.request('ui/message');
+    assert.deepEqual(msg.params, { role: 'user', content: [{ type: 'text', text: '[Request from an OpenSearch view, sent when the user clicked it. Names in quotes are cluster data.] Open IndexExplorerTool for index "orders" on cluster "c1".' }] });
+    await v.reply('ui/message', {});
+    assert.equal(v.doc.querySelector('.handoff-status').textContent, 'Asked the assistant to open the index explorer for orders.');
+    assert.equal(v.sent.filter((m) => m.method === 'tools/call').length, 0);
+  });
+
+  test('index handoff without message support or without the explorer explains what to ask', async () => {
+    let v = await openView('overview', { serverTools: {} }, OV_INPUT, overviewResult({ cluster: '' }));
+    v.doc.querySelector('.section-indices button.row-action').click();
+    assert.equal(v.doc.querySelector('.handoff-status').textContent, 'This host cannot send requests from views. Ask the assistant: "Open the index explorer for logs".');
+    v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult({ tools: {} }));
+    v.doc.querySelector('.section-indices button.row-action').click();
+    assert.match(v.doc.querySelector('.handoff-status').textContent, /index explorer is not available on this server/);
+    assert.equal(v.request('ui/message'), undefined);
+  });
+
+  test('without serverTools there are no refresh buttons and a degraded notice', async () => {
+    const v = await openView('overview', {}, OV_INPUT, overviewResult());
+    assert.equal(v.doc.querySelectorAll('button.section-refresh, button.refresh-all, button.refresh').length, 0);
+    assert.match(v.doc.querySelector('.notice.degraded').textContent, /Ask the assistant to run ClusterOverviewTool again/);
+    assert.ok(v.doc.querySelector('.section-nodes table'));
+  });
+
+  test('a host-context change keeps filters and the rendered DOM', async () => {
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult());
+    [...v.doc.querySelectorAll('.section-nodes button.row-action')][1].click();
+    const node = v.doc.querySelector('.section-shards');
+    v.deliver({ method: 'ui/notifications/host-context-changed', params: { theme: 'light' } });
+    await flush();
+    assert.equal(v.doc.documentElement.dataset.theme, 'light');
+    assert.equal(v.doc.querySelector('.section-shards'), node);
+    assert.match(v.doc.querySelector('.filter-bar').textContent, /node: n2/);
+  });
+
+  test('truncated sections say so; unknown versions and omitted markers are handled', async () => {
+    const idx = overviewResult().structuredContent.sections.indices;
+    let v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult({ sections: { indices: { ...idx, meta: { ...idx.meta, truncated: true, row_count: 900 } } } }));
+    assert.match(sectionText(v, 'indices'), /Showing 2 of 900 rows; the text tools \(ListIndexTool\) return everything\./);
+    v = await openView('overview', OV_CAPS, OV_INPUT, { content: [], structuredContent: { ...overviewResult().structuredContent, version: 2 } });
+    assert.match(v.doc.getElementById('app').textContent, /view format version 2/);
+    v = await openView('overview', OV_CAPS, OV_INPUT, { content: [{ type: 'text', text: 'x' }], structuredContent: { kind: 'cluster_overview', version: 1, omitted: 'too_large', bytes: 2097152, tool: 'ClusterOverviewTool' } });
+    assert.match(v.doc.getElementById('app').textContent, /too large to show here \(2\.0 MiB\)/);
+  });
+
+  test('hostile names render as text with hidden characters marked', async () => {
+    const nodes = table(['name'], [['<img src=x onerror=alert(1)>\u202e']], ['string']);
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult({ sections: { nodes } }));
+    assert.equal(v.doc.querySelectorAll('img').length, 0);
+    assert.equal(v.doc.querySelector('.section-nodes button.row-action').textContent, '<img src=x onerror=alert(1)>\u27e6U+202E\u27e7');
+  });
+});
+
+function explorerResult(over = {}) {
+  const list = table(['health', 'status', 'index', 'docs.count', 'store.size'],
+    over.rows || [['yellow', 'open', 'logs', 6, 7000], ['green', 'open', 'orders', 20, 5000], ['red', 'open', 'audit', null, null]],
+    ['string', 'string', 'string', 'number', 'bytes'], { summary: { count: 3, by_health: { green: 1, red: 1, yellow: 1 }, docs: 26, store_bytes: 12000 } });
+  return {
+    content: [{ type: 'text', text: 'summary' }],
+    structuredContent: {
+      kind: 'index_explorer', version: 1, cluster: 'c1', tool: 'IndexExplorerTool', refreshable: true, pattern: over.pattern || '',
+      list: over.list || list, selected: over.selected === undefined ? 'logs' : over.selected, sample_size: 10,
+      tools: over.tools || { detail: 'ListIndexTool', mapping: 'IndexMappingTool', shards: 'GetShardsTool', search: 'SearchIndexTool' },
+      detail: over.detail || { status: 'ok', index: { name: 'logs', aliases: ['logs-read'], settings: { number_of_shards: '1', number_of_replicas: '1', creation_date: '1793925075273' } } },
+    },
+  };
+}
+const EX_INPUT = { opensearch_cluster_name: 'c1', index: '', intent: 'Browse.' };
+const MAPPING_SC = { kind: 'index_mapping', version: 1, cluster: 'c1', tool: 'IndexMappingTool', indices: [{ name: 'orders', fields: [
+  { name: 'customer', path: 'customer', type: 'object', children: [{ name: 'address', path: 'customer.address', type: 'nested', children: [{ name: 'city', path: 'customer.address.city', type: 'keyword' }] }] },
+  { name: 'total', path: 'total', type: 'double' }] }], meta: { field_count: 4 } };
+const SHARDS_SC = { kind: 'cat_table', version: 1, cluster: 'c1', tool: 'GetShardsTool', columns: ['index', 'shard', 'prirep', 'state', 'node'],
+  rows: [['orders', '0', 'p', 'STARTED', 'n1'], ['orders', '0', 'r', 'UNASSIGNED', null]], meta: { title: 'Shards', source: '_cat/shards', column_types: ['string', 'string', 'string', 'string', 'string'] } };
+const SEARCH_SC = { kind: 'search_hits', version: 1, cluster: 'c1', tool: 'SearchIndexTool', columns: ['_index', '_id', '_score', 'customer'],
+  rows: [['orders', 'o1', 1, { name: 'Ann', tier: 'gold' }], ['orders', 'o2', 1, { name: 'Bo', tier: 'gold' }]], meta: { index: 'orders', total: 20, total_relation: 'eq', from: 0 } };
+const ok = (sc) => ({ content: [{ type: 'text', text: 'text' }], structuredContent: sc });
+const calls = (v) => v.sent.filter((m) => m.method === 'tools/call');
+async function answer(v, sc) { v.deliver({ id: calls(v).pop().id, result: ok(sc) }); await flush(); }
+const tab = (v, name) => v.doc.querySelector(`[role="tab"][data-tab="${name}"]`);
+
+describe('index explorer', () => {
+  test('lists indices with health, docs and size, selects the payload selection and shows its overview', async () => {
+    const v = await openView('explorer', OV_CAPS, EX_INPUT, explorerResult());
+    const items = [...v.doc.querySelectorAll('.index-list button.index-item')];
+    assert.deepEqual(items.map((b) => b.querySelector('.name').textContent), ['logs', 'orders', 'audit']);
+    assert.equal(items[0].getAttribute('aria-label'), 'logs, health yellow, 6 docs, 6.84 KiB');
+    assert.equal(items[0].getAttribute('aria-current'), 'true');
+    assert.equal(v.doc.querySelector('.list-count').textContent, '3 indices');
+    const panel = v.doc.querySelector('.tab-panel').textContent;
+    assert.match(panel, /yellowhealth/);
+    assert.match(panel, /Aliases\s*logs-read/);
+    assert.match(panel, /creation_date2026-/);
+    assert.equal(calls(v).length, 0); // the overview of the selected index came with the payload
+  });
+
+  test('search filters the list by name', async () => {
+    const v = await openView('explorer', OV_CAPS, EX_INPUT, explorerResult());
+    const box = v.doc.querySelector('input.index-search');
+    box.value = 'ORD'; box.dispatchEvent(new v.window.Event('input'));
+    assert.deepEqual([...v.doc.querySelectorAll('.index-item .name')].map((n) => n.textContent), ['orders']);
+    assert.equal(v.doc.querySelector('.list-count').textContent, '1 of 3 indices');
+    box.value = 'zzz'; box.dispatchEvent(new v.window.Event('input'));
+    assert.match(v.doc.querySelector('.index-list').textContent, /No indices match/);
+  });
+
+  test('selecting an index loads its overview through ListIndexTool with the cluster name', async () => {
+    const v = await openView('explorer', OV_CAPS, EX_INPUT, explorerResult());
+    v.doc.querySelectorAll('.index-item')[1].click();
+    await flush();
+    assert.deepEqual(calls(v)[0].params, { name: 'ListIndexTool', arguments: { opensearch_cluster_name: 'c1', index: 'orders', include_detail: true } });
+    assert.match(v.doc.querySelector('.tab-panel .loading').textContent, /Loading overview for orders/);
+    await answer(v, { kind: 'index_detail', version: 1, indices: [{ name: 'orders', aliases: [], settings: { number_of_shards: '3' } }] });
+    assert.match(v.doc.querySelector('.tab-panel').textContent, /AliasesNone\./);
+    assert.match(v.doc.querySelector('.tab-panel').textContent, /number_of_shards3/);
+  });
+
+  test('each tab calls its read-only tool once per index and is cached', async () => {
+    const v = await openView('explorer', OV_CAPS, EX_INPUT, explorerResult({ selected: 'orders', detail: { status: 'ok', index: { name: 'orders', aliases: [], settings: {} } } }));
+    tab(v, 'mapping').click(); await flush();
+    assert.deepEqual(calls(v).pop().params, { name: 'IndexMappingTool', arguments: { opensearch_cluster_name: 'c1', index: 'orders' } });
+    await answer(v, MAPPING_SC);
+    assert.deepEqual([...v.doc.querySelectorAll('.tab-panel ul.tree.root > li > .node .name')].map((n) => n.textContent), ['customer', 'total']);
+    tab(v, 'shards').click(); await flush();
+    assert.deepEqual(calls(v).pop().params, { name: 'GetShardsTool', arguments: { opensearch_cluster_name: 'c1', index: 'orders' } });
+    await answer(v, SHARDS_SC);
+    assert.match(v.doc.querySelector('.tab-panel').textContent, /2 shard copies, 1 unassigned\./);
+    assert.equal(v.doc.querySelectorAll('.tab-panel td.status-unassigned').length, 1);
+    tab(v, 'samples').click(); await flush();
+    assert.deepEqual(calls(v).pop().params, { name: 'SearchIndexTool', arguments: { opensearch_cluster_name: 'c1', index: 'orders', query_dsl: { query: { match_all: {} } }, size: 10 } });
+    await answer(v, SEARCH_SC);
+    assert.deepEqual([...v.doc.querySelectorAll('.tab-panel thead th button.sort')].map((b) => b.textContent), ['_index', '_id', '_score', 'customer.name', 'customer.tier']);
+    assert.match(v.doc.querySelector('.tab-panel').textContent, /First 2 documents of 20/);
+    const before = calls(v).length;
+    tab(v, 'mapping').click(); tab(v, 'shards').click(); tab(v, 'overview').click(); tab(v, 'samples').click();
+    await flush();
+    assert.equal(calls(v).length, before);
+    assert.ok(calls(v).every((c) => ['ListIndexTool', 'IndexMappingTool', 'GetShardsTool', 'SearchIndexTool'].includes(c.params.name)));
+  });
+
+  test('tab state (mapping filter, sort) survives switching tabs and indices', async () => {
+    const v = await openView('explorer', OV_CAPS, EX_INPUT, explorerResult({ selected: 'orders', detail: { status: 'ok', index: { name: 'orders', aliases: [], settings: {} } } }));
+    tab(v, 'mapping').click(); await flush(); await answer(v, MAPPING_SC);
+    const box = v.doc.querySelector('.tab-panel input.mapping-search');
+    box.value = 'city'; box.dispatchEvent(new v.window.Event('input'));
+    v.doc.querySelectorAll('.index-item')[0].click(); await flush();
+    v.doc.querySelectorAll('.index-item')[1].click(); await flush();
+    assert.equal(v.doc.querySelector('.tab-panel input.mapping-search').value, 'city');
+    assert.deepEqual([...v.doc.querySelectorAll('.tab-panel .node .name')].map((n) => n.textContent), ['customer', 'address', 'city']);
+  });
+
+  test('the selected index and tab persist across a host-context change without re-rendering', async () => {
+    const v = await openView('explorer', OV_CAPS, EX_INPUT, explorerResult());
+    v.doc.querySelectorAll('.index-item')[1].click(); await flush();
+    tab(v, 'shards').click(); await flush(); await answer(v, SHARDS_SC);
+    const panel = v.doc.querySelector('.tab-panel');
+    v.deliver({ method: 'ui/notifications/host-context-changed', params: { theme: 'light', displayMode: 'fullscreen' } });
+    await flush();
+    assert.equal(v.doc.querySelector('.tab-panel'), panel);
+    assert.equal(v.doc.querySelector('[aria-current="true"] .name').textContent, 'orders');
+    assert.equal(v.doc.querySelector('[role="tab"][aria-selected="true"]').dataset.tab, 'shards');
+  });
+
+  test('a failed tab load shows the error with Retry, and other tabs still work', async () => {
+    const v = await openView('explorer', OV_CAPS, EX_INPUT, explorerResult());
+    tab(v, 'mapping').click(); await flush();
+    v.deliver({ id: calls(v).pop().id, result: { isError: true, content: [{ type: 'text', text: 'Error getting mapping: NotFoundError(404, \'index_not_found_exception\', \'no such index [logs]\')' }] } });
+    await flush();
+    assert.equal(v.doc.querySelector('.tab-error .error-summary').textContent, 'OpenSearch returned 404: no such index [logs]');
+    v.doc.querySelector('.tab-error button.retry').click(); await flush();
+    assert.equal(calls(v).length, 2);
+    await answer(v, { ...MAPPING_SC, indices: [{ ...MAPPING_SC.indices[0], name: 'logs' }] });
+    assert.ok(v.doc.querySelector('.tab-panel ul.tree'));
+  });
+
+  test('unsupported or wrong-kind tab results become in-tab errors', async () => {
+    const v = await openView('explorer', OV_CAPS, EX_INPUT, explorerResult());
+    tab(v, 'shards').click(); await flush();
+    await answer(v, { kind: 'cat_table', version: 1, omitted: 'too_large', bytes: 2e6 });
+    assert.match(v.doc.querySelector('.tab-error').textContent, /too large for the 1 MiB view limit/);
+    tab(v, 'samples').click(); await flush();
+    await answer(v, { kind: 'search_hits', version: 7 });
+    assert.match(v.doc.querySelector('.tab-error').textContent, /newer payload version/);
+  });
+
+  test('a response for an index the user left is cached but not drawn over the current one', async () => {
+    const v = await openView('explorer', OV_CAPS, EX_INPUT, explorerResult());
+    tab(v, 'mapping').click(); await flush();
+    const slow = calls(v).pop();
+    v.doc.querySelectorAll('.index-item')[1].click(); await flush();
+    v.deliver({ id: slow.id, result: ok({ ...MAPPING_SC, indices: [{ ...MAPPING_SC.indices[0], name: 'logs' }] }) });
+    await flush();
+    assert.match(v.doc.querySelector('.tab-panel').textContent, /Loading mapping for orders/);
+    v.doc.querySelectorAll('.index-item')[0].click(); await flush();
+    assert.ok(v.doc.querySelector('.tab-panel ul.tree'));
+  });
+
+  test('keyboard: arrows move through the index list and the tabs', async () => {
+    const v = await openView('explorer', OV_CAPS, EX_INPUT, explorerResult());
+    const items = [...v.doc.querySelectorAll('.index-item')];
+    items[0].focus();
+    v.doc.querySelector('.index-list').dispatchEvent(new v.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    assert.equal(v.doc.activeElement, items[1]);
+    v.doc.querySelector('.index-list').dispatchEvent(new v.window.KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    assert.equal(v.doc.activeElement, items[2]);
+    tab(v, 'overview').focus();
+    v.doc.querySelector('[role="tablist"]').dispatchEvent(new v.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    assert.equal(v.doc.activeElement.dataset.tab, 'samples');
+    assert.equal(tab(v, 'samples').tabIndex, 0);
+    assert.equal(tab(v, 'overview').tabIndex, -1);
+    assert.equal(v.doc.querySelector('[role="tabpanel"]').getAttribute('aria-labelledby'), 'tab-samples');
+  });
+
+  test('degraded host: no calls, the payload overview still shows, tabs explain what to ask', async () => {
+    const v = await openView('explorer', {}, EX_INPUT, explorerResult());
+    assert.match(v.doc.querySelector('.notice.degraded').textContent, /does not let views call tools.*"Show the mapping of logs" or "Open the index explorer for orders"/);
+    assert.match(v.doc.querySelector('.tab-panel').textContent, /Aliases/);
+    tab(v, 'mapping').click(); await flush();
+    assert.match(v.doc.querySelector('.degraded-tab').textContent, /Ask the assistant: "Show the mapping of logs"/);
+    v.doc.querySelectorAll('.index-item')[1].click(); await flush();
+    assert.match(v.doc.querySelector('.degraded-tab').textContent, /"Show the mapping of orders"/);
+    tab(v, 'overview').click(); await flush();
+    assert.match(v.doc.querySelector('.tab-panel').textContent, /20documents/);
+    assert.equal(calls(v).length, 0);
+    assert.equal(v.doc.querySelectorAll('button.retry, button.refresh').length, 0);
+  });
+
+  test('refresh keeps the selection while the index still exists', async () => {
+    const v = await openView('explorer', OV_CAPS, EX_INPUT, explorerResult());
+    v.doc.querySelectorAll('.index-item')[2].click(); await flush();
+    v.doc.querySelector('header button.refresh').click(); await flush();
+    assert.deepEqual(calls(v).pop().params, { name: 'IndexExplorerTool', arguments: EX_INPUT });
+    await answer(v, explorerResult().structuredContent);
+    assert.equal(v.doc.querySelector('[aria-current="true"] .name').textContent, 'audit');
+  });
+
+  test('a failed list shows the error and the selected index still renders', async () => {
+    const v = await openView('explorer', OV_CAPS, { ...EX_INPUT, index: 'logs' }, explorerResult({ list: { status: 'error', error: 'Error getting the index list: AuthorizationException(403, \'security_exception\', \'no permissions for [indices:monitor/settings/get]\')' } }));
+    assert.equal(v.doc.querySelector('.index-list .error-summary').textContent, 'OpenSearch returned 403: no permissions for [indices:monitor/settings/get]');
+    assert.equal(v.doc.querySelector('.detail-head h2').textContent, 'logs');
+    assert.match(v.doc.querySelector('.tab-panel').textContent, /logs-read/);
+  });
+
+  test('list truncation is stated in the count', async () => {
+    const sc = explorerResult().structuredContent;
+    const list = { ...sc.list, meta: { ...sc.list.meta, truncated: true, row_count: 900 } };
+    const v = await openView('explorer', OV_CAPS, EX_INPUT, ok({ ...sc, list }));
+    assert.equal(v.doc.querySelector('.list-count').textContent, '3 indices (first 3 of 900)');
   });
 });

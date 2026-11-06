@@ -6,8 +6,11 @@ import pytest
 import re
 from importlib import resources
 from tools.ui_resources import (
+    CLUSTER_OVERVIEW_VIEW_URI,
     EXPLAIN_VIEW_URI,
     HEALTH_VIEW_URI,
+    INDEX_EXPLORER_VIEW_URI,
+    INDEX_SETTINGS_MAX,
     MAPPING_VIEW_URI,
     RESULTS_VIEW_URI,
     STRUCTURED_CONTENT_MAX_BYTES,
@@ -27,6 +30,7 @@ from tools.ui_resources import (
     discover_ppl_url,
     explain_payload,
     finalize_view_payload,
+    index_detail_payload,
     index_mapping_payload,
     list_indices_payload,
     load_ui_html,
@@ -584,7 +588,49 @@ class TestCatTablePayloads:
         )
         assert 'store.size' in full['columns']
         one = SimpleNamespace(include_detail=True, index='logs')
-        assert list_indices_payload({'logs': {}}, '', one) is None
+        detail = list_indices_payload({'logs': {}}, '', one)
+        assert detail['kind'] == 'index_detail' and detail['indices'][0]['name'] == 'logs'
+        assert list_indices_payload(['not', 'a', 'dict'], '', one) is None
+
+    def test_index_detail_settings_and_aliases(self):
+        response = {
+            'logs': {
+                'aliases': {'b': {}, 'a': {'is_write_index': True}},
+                'mappings': {'properties': {'x': {'type': 'keyword'}}},
+                'settings': {
+                    'index': {
+                        'number_of_shards': '1',
+                        'routing': {'allocation': {'include': {'_tier_preference': 'data'}}},
+                        'sort': {'field': ['a', 'b']},
+                    }
+                },
+            },
+            'ds-backing': {'data_stream': 'logs-ds', 'settings': {}},
+        }
+        payload = index_detail_payload(response, 'c1')
+        logs, backing = payload['indices']
+        assert payload['cluster'] == 'c1' and payload['meta'] == {'index_count': 2}
+        assert logs['aliases'] == ['a', 'b']
+        assert logs['settings'] == {
+            'number_of_shards': '1',
+            'routing.allocation.include._tier_preference': 'data',
+            'sort.field': 'a,b',
+        }
+        assert 'mappings' not in logs and backing['data_stream'] == 'logs-ds'
+        for bad in (None, {}, {'x': 'y'}):
+            assert index_detail_payload(bad, '') is None
+
+    def test_index_detail_caps_settings_and_indices(self):
+        many = {'index': {f's{i:04d}': 'v' for i in range(INDEX_SETTINGS_MAX + 50)}}
+        one = index_detail_payload({'x': {'settings': many}}, '')
+        assert len(one['indices'][0]['settings']) == INDEX_SETTINGS_MAX
+        lots = {f'i{i}': {} for i in range(STRUCTURED_CONTENT_MAX_ROWS + 1)}
+        capped = index_detail_payload(lots, '')
+        assert len(capped['indices']) == STRUCTURED_CONTENT_MAX_ROWS
+        assert capped['meta'] == {
+            'index_count': STRUCTURED_CONTENT_MAX_ROWS + 1,
+            'truncated': True,
+        }
 
 
 class TestTreePayloads:
@@ -889,7 +935,7 @@ class TestViewPayload:
     def test_cat_markers_use_payload_kind(self):
         info = self._info(kind='cat_indices', ui_resource_uri=TABLE_VIEW_URI)
         args = SimpleNamespace(include_detail=True, index='logs')
-        items = [{'type': 'text', 'text': 't', 'view_data': {'logs': {}}}]
+        items = [{'type': 'text', 'text': 't', 'view_data': ['not', 'an', 'index', 'body']}]
         sc = view_structured_content('ListIndexTool', info, 'L', items, args, {}, False)
         assert sc['kind'] == 'cat_table' and sc['omitted'] == 'unsupported_format'
         assert view_structured_content('L', info, 'L', [], args, {}, True)['kind'] == 'cat_table'
@@ -1129,7 +1175,7 @@ class TestToolVisibility:
         from tools.tools import TOOL_REGISTRY
 
         registry = dict(TOOL_REGISTRY)
-        from tools.tool_annotations import read_only_annotations
+        from tools.tool_annotations import read_only_annotations, write_annotations
 
         registry['ClusterHealthTool'] = {
             **OPERATION_VIEWS['cluster.health'],
@@ -1145,8 +1191,10 @@ class TestToolVisibility:
         assert app == [
             'CatNodesTool',
             'ClusterHealthTool',
+            'ClusterOverviewTool',
             'GetAllocationTool',
             'GetShardsTool',
+            'IndexExplorerTool',
             'ListIndexTool',
             'PPLQueryTool',
             'SearchIndexTool',
@@ -1155,6 +1203,15 @@ class TestToolVisibility:
             'resourceUri': MAPPING_VIEW_URI,
             'visibility': ['model'],
         }
+        # A tool a present tool's view calls is app-visible; GenericOpenSearchApiTool never is.
+        assert tool_ui_meta('IndexMappingTool', registry['IndexMappingTool'], True) == {
+            'resourceUri': MAPPING_VIEW_URI,
+            'visibility': ['model', 'app'],
+        }
+        generic = registry['GenericOpenSearchApiTool']
+        assert tool_ui_meta('GenericOpenSearchApiTool', generic, True)['visibility'] == ['model']
+        write = {'annotations': write_annotations('w', destructive=False, idempotent=False)}
+        assert tool_ui_meta('W', write, True)['visibility'] == ['model']
         assert tool_ui_meta('ExplainTool', registry['ExplainTool'])['visibility'] == ['model']
         assert tool_ui_meta('GenericOpenSearchApiTool', registry['GenericOpenSearchApiTool']) == {
             'visibility': ['model']
@@ -1188,6 +1245,8 @@ class TestToolVisibility:
             'CatNodesTool': (TABLE_VIEW_URI, 'cat_nodes'),
             'GetAllocationTool': (TABLE_VIEW_URI, 'cat_allocation'),
             'PPLQueryTool': (RESULTS_VIEW_URI, 'ppl_rows'),
+            'ClusterOverviewTool': (CLUSTER_OVERVIEW_VIEW_URI, 'cluster_overview'),
+            'IndexExplorerTool': (INDEX_EXPLORER_VIEW_URI, 'index_explorer'),
         }
 
     def test_generated_tools_bind_views(self):

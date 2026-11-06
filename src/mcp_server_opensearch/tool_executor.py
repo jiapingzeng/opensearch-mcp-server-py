@@ -89,13 +89,14 @@ async def execute_tool(
             is_view_bound,
             split_presentation_args,
             takes_presentation_args,
+            takes_suggestions,
             view_structured_content,
         )
 
         view = view and is_view_bound(tool)
         presentation: dict = {}
         if view and takes_presentation_args(tool):
-            arguments, presentation = split_presentation_args(arguments)
+            arguments, presentation = split_presentation_args(arguments, takes_suggestions(tool))
 
         parsed = validate_args_for_mode(arguments, tool['args_model'])
 

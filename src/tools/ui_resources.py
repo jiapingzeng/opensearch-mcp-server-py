@@ -24,6 +24,8 @@ TABLE_VIEW_URI = 'ui://opensearch/table'
 HEALTH_VIEW_URI = 'ui://opensearch/cluster-health'
 MAPPING_VIEW_URI = 'ui://opensearch/mapping'
 EXPLAIN_VIEW_URI = 'ui://opensearch/explain'
+CLUSTER_OVERVIEW_VIEW_URI = 'ui://opensearch/cluster-overview'
+INDEX_EXPLORER_VIEW_URI = 'ui://opensearch/index-explorer'
 STRUCTURED_CONTENT_VERSION = 1
 STRUCTURED_CONTENT_MAX_BYTES = 1024 * 1024
 STRUCTURED_CONTENT_MAX_ROWS = 500
@@ -40,6 +42,8 @@ ALWAYS_MODEL_ONLY_TOOLS = frozenset({'GenericOpenSearchApiTool'})
 
 # Kinds whose tools take the intent/suggestions presentation arguments.
 PRESENTATION_KINDS = frozenset({'search_hits', 'ppl_rows'})
+# Task-oriented present tools take intent only.
+INTENT_ONLY_KINDS = frozenset({'cluster_overview', 'index_explorer'})
 INTENT_MAX_CHARS = 2000
 SUGGESTIONS_MAX_ITEMS = 3
 SUGGESTION_MAX_CHARS = 120
@@ -82,19 +86,35 @@ UI_RESOURCES: dict[str, dict[str, Any]] = {
         'name': 'opensearch-cluster-health',
         'title': 'OpenSearch cluster health',
         'description': 'Cluster health card with status, node and shard counts.',
-        'scripts': _SHARED_SCRIPTS + ['health.js'],
+        'scripts': _SHARED_SCRIPTS + ['health_card.js', 'health.js'],
     },
     MAPPING_VIEW_URI: {
         'name': 'opensearch-mapping',
         'title': 'OpenSearch index mapping',
         'description': 'Collapsible, searchable tree of index mapping fields.',
-        'scripts': _SHARED_SCRIPTS + ['tree.js', 'mapping.js'],
+        'scripts': _SHARED_SCRIPTS + ['tree.js', 'mapping.js', 'mapping_view.js'],
     },
     EXPLAIN_VIEW_URI: {
         'name': 'opensearch-explain',
         'title': 'OpenSearch score explanation',
         'description': 'Collapsible score breakdown for an explain response.',
         'scripts': _SHARED_SCRIPTS + ['tree.js', 'explain.js'],
+    },
+    CLUSTER_OVERVIEW_VIEW_URI: {
+        'name': 'opensearch-cluster-overview',
+        'title': 'OpenSearch cluster overview',
+        'description': 'Cluster dashboard: health, nodes, indices, shards with unassigned '
+        'reasons, and disk allocation, each refreshable on its own.',
+        'scripts': _SHARED_SCRIPTS + _TABLE_SCRIPTS + ['health_card.js', 'overview.js'],
+        'clipboard': True,
+    },
+    INDEX_EXPLORER_VIEW_URI: {
+        'name': 'opensearch-index-explorer',
+        'title': 'OpenSearch index explorer',
+        'description': 'Searchable index list with overview, mapping, shards and sample '
+        'documents for the selected index, loaded on demand.',
+        'scripts': _SHARED_SCRIPTS + _TABLE_SCRIPTS + ['tree.js', 'mapping.js', 'explorer.js'],
+        'clipboard': True,
     },
 }
 
@@ -198,24 +218,42 @@ def is_app_callable(tool_key: str, tool_info: dict) -> bool:
     )
 
 
-def tool_ui_meta(tool_key: str, tool_info: dict) -> dict:
-    """Return the _meta.ui entry for a tool in tools/list when Apps are active."""
+def tool_ui_meta(tool_key: str, tool_info: dict, called_by_view: bool = False) -> dict:
+    """Return the _meta.ui entry for a tool in tools/list when Apps are active.
+
+    `called_by_view` marks a read-only tool another view calls (a present tool's drill-down).
+    """
     ui: dict[str, Any] = {}
     if is_view_bound(tool_info):
         ui['resourceUri'] = tool_info['ui_resource_uri']
-    ui['visibility'] = ['model', 'app'] if is_app_callable(tool_key, tool_info) else ['model']
+    app = is_app_callable(tool_key, tool_info) or (
+        called_by_view
+        and getattr(tool_info.get('annotations'), 'read_only_hint', None) is True
+        and tool_key not in ALWAYS_MODEL_ONLY_TOOLS
+    )
+    ui['visibility'] = ['model', 'app'] if app else ['model']
     return ui
 
 
 def takes_presentation_args(tool_info: dict) -> bool:
-    """Return True when the tool's view shows intent and suggestions."""
-    return is_view_bound(tool_info) and tool_info.get('ui_kind') in PRESENTATION_KINDS
+    """Return True when the tool's view shows intent (and, for query views, suggestions)."""
+    return is_view_bound(tool_info) and tool_info.get('ui_kind') in (
+        PRESENTATION_KINDS | INTENT_ONLY_KINDS
+    )
 
 
-def view_input_schema(input_schema: dict) -> dict:
+def takes_suggestions(tool_info: dict) -> bool:
+    """Return True when the tool's view also shows suggestions."""
+    return tool_info.get('ui_kind') in PRESENTATION_KINDS
+
+
+def view_input_schema(input_schema: dict, suggestions: bool = True) -> dict:
     """Return the input schema with the optional view presentation arguments added."""
     schema = copy.deepcopy(input_schema)
-    schema.setdefault('properties', {}).update(copy.deepcopy(PRESENTATION_PROPERTIES))
+    props = copy.deepcopy(PRESENTATION_PROPERTIES)
+    if not suggestions:
+        props.pop('suggestions')
+    schema.setdefault('properties', {}).update(props)
     return schema
 
 
@@ -343,12 +381,18 @@ def _has_control_chars(text: str, allowed: str = '') -> bool:
     return False
 
 
-def split_presentation_args(arguments: dict) -> tuple[dict, dict]:
-    """Remove and validate intent/suggestions; return (tool arguments, presentation)."""
+def split_presentation_args(
+    arguments: dict, suggestions_allowed: bool = True
+) -> tuple[dict, dict]:
+    """Remove and validate intent/suggestions; return (tool arguments, presentation).
+
+    Without `suggestions_allowed`, only intent is taken; a suggestions argument is left for the
+    tool's own argument model, which ignores it.
+    """
     args = dict(arguments)
     presentation: dict[str, Any] = {}
     intent = args.pop('intent', None)
-    suggestions = args.pop('suggestions', None)
+    suggestions = args.pop('suggestions', None) if suggestions_allowed else None
     if intent is not None:
         if (
             not isinstance(intent, str)
@@ -864,12 +908,57 @@ def list_indices_payload(response: Any, cluster: str, args: Any) -> dict | None:
     """Build the cat_table payload that matches what ListIndexTool printed."""
     if getattr(args, 'include_detail', False):
         if getattr(args, 'index', None):
-            return None  # index details are a nested document, not a table
+            return index_detail_payload(response, cluster)
         return cat_table_payload(response, cluster, 'Indices', '_cat/indices')
     if not isinstance(response, list):
         return None
     names = [{'index': e['index']} for e in response if isinstance(e, dict) and 'index' in e]
     return cat_table_payload(names, cluster, 'Indices', '_cat/indices')
+
+
+INDEX_SETTINGS_MAX = 200
+
+
+def _flat_settings(settings: Any, prefix: str = '', out: dict | None = None) -> dict:
+    out = {} if out is None else out
+    if not isinstance(settings, dict):
+        return out
+    for key, value in settings.items():
+        path = f'{prefix}{key}'
+        if isinstance(value, dict):
+            _flat_settings(value, f'{path}.', out)
+        elif len(out) < INDEX_SETTINGS_MAX:
+            out[path] = ','.join(map(str, value)) if isinstance(value, list) else value
+    return out
+
+
+def index_detail_payload(response: Any, cluster: str) -> dict | None:
+    """Normalize a GET <index> response into settings and aliases per index (no mappings)."""
+    if not isinstance(response, dict) or not response:
+        return None
+    indices = []
+    for name, body in list(response.items())[:STRUCTURED_CONTENT_MAX_ROWS]:
+        if not isinstance(body, dict):
+            return None
+        settings = (body.get('settings') or {}).get('index') or {}
+        entry: dict[str, Any] = {
+            'name': name,
+            'aliases': sorted((body.get('aliases') or {}).keys()),
+            'settings': _exact_integers(dict(sorted(_flat_settings(settings).items())), '', []),
+        }
+        if body.get('data_stream'):
+            entry['data_stream'] = body['data_stream']
+        indices.append(entry)
+    meta: dict[str, Any] = {'index_count': len(response)}
+    if len(response) > len(indices):
+        meta['truncated'] = True
+    return {
+        'kind': 'index_detail',
+        'version': STRUCTURED_CONTENT_VERSION,
+        'cluster': cluster or '',
+        'indices': indices,
+        'meta': meta,
+    }
 
 
 HEALTH_FIELDS = (
@@ -1077,6 +1166,9 @@ VIEW_BUILDERS: dict[str, Any] = {
     'cluster_health': lambda raw, args: cluster_health_payload(_parsed_json(raw), _cluster(args)),
     'index_mapping': lambda raw, args: index_mapping_payload(raw, _cluster(args)),
     'explain': lambda raw, args: explain_payload(_parsed_json(raw), _cluster(args)),
+    # Present tools build their whole payload, already capped, and hand it over as view_data.
+    'cluster_overview': lambda raw, args: raw if isinstance(raw, dict) else None,
+    'index_explorer': lambda raw, args: raw if isinstance(raw, dict) else None,
 }
 
 
@@ -1103,6 +1195,37 @@ def _cap_table(columns: list, rows: list) -> tuple[list, list, bool]:
         rows = [row[:STRUCTURED_CONTENT_MAX_COLUMNS] for row in rows]
         truncated = True
     return columns, rows, truncated
+
+
+def cap_section_tables(payload: dict, tables: list[dict]) -> dict:
+    """Cap the tables of a multi-section payload in place: rows, columns, then bytes.
+
+    Each table is a dict with columns, rows and meta. A cut table gets meta.truncated and the
+    original row_count or column_count; the largest table is halved until the payload fits.
+    """
+    for table in tables:
+        meta = table.setdefault('meta', {})
+        rows, cols = len(table['rows']), len(table['columns'])
+        table['columns'], table['rows'], cut = _cap_table(table['columns'], table['rows'])
+        if isinstance(meta.get('column_types'), list):
+            meta['column_types'] = meta['column_types'][:STRUCTURED_CONTENT_MAX_COLUMNS]
+        if cut:
+            meta['truncated'] = True
+            if len(table['rows']) < rows:
+                meta['row_count'] = rows
+            if len(table['columns']) < cols:
+                meta['column_count'] = cols
+    size = _serialized_size(payload)
+    while size > STRUCTURED_CONTENT_MAX_BYTES:
+        candidates = [t for t in tables if t['rows']]
+        if not candidates:
+            break
+        target = max(candidates, key=lambda t: _serialized_size(t['rows']))
+        target['meta'].setdefault('row_count', len(target['rows']))
+        target['meta']['truncated'] = True
+        target['rows'] = target['rows'][: len(target['rows']) // 2]
+        size = _serialized_size(payload)
+    return payload
 
 
 def _too_large(payload: dict, size: int) -> dict:

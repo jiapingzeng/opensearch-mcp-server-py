@@ -126,3 +126,46 @@ table.contributors td.description { white-space: normal; overflow-wrap: anywhere
 mark { background: var(--color-background-warning, light-dark(#fff8c5, #3b2e00)); color: inherit; }
 .meter { display: inline-block; height: 8px; border-radius: 2px; vertical-align: middle;
   background: var(--color-text-info, light-dark(#0969da, #4493f8)); }
+button.link { border: none; background: none; padding: 0; text-align: left; text-decoration: underline;
+  color: var(--color-text-info, light-dark(#0969da, #4493f8)); font-family: inherit; }
+button.link:focus-visible, .index-item:focus-visible, .tab:focus-visible, .tab-panel:focus-visible {
+  outline: 2px solid var(--color-border-info, light-dark(#0969da, #4493f8)); outline-offset: 1px; }
+.status-text-green, .status-text-started { color: var(--color-text-success, light-dark(#1a7f37, #3fb950)); }
+.status-text-yellow, .status-text-initializing, .status-text-relocating { color: var(--color-text-warning, light-dark(#9a6700, #d29922)); }
+.status-text-red, .status-text-unassigned { color: var(--color-text-danger, light-dark(#d1242f, #f85149)); font-weight: var(--font-weight-semibold, 600); }
+.sections { display: grid; gap: 8px; align-items: start; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); }
+.section { margin: 0; min-width: 0; }
+.section-health { grid-column: 1 / -1; }
+.section-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 6px; }
+.section-head .spacer { flex: 1; }
+h2 { font-size: var(--font-heading-sm-size, 14px); margin: 0; }
+.section-body.stale { opacity: .45; }
+.explanation ul.reasons { margin: 4px 0 0; padding-left: 18px; }
+.explorer { display: grid; gap: 8px; grid-template-columns: minmax(180px, 260px) minmax(0, 1fr); align-items: start; }
+@media (max-width: 600px) { .explorer { grid-template-columns: minmax(0, 1fr); } }
+.list-pane input[type="search"] { width: 100%; box-sizing: border-box; }
+.index-list { list-style: none; margin: 4px 0 0; padding: 0; max-height: 480px; overflow: auto;
+  border: var(--border-width-regular, 1px) solid var(--color-border-primary, light-dark(#d1d9e0, #3d444d));
+  border-radius: var(--border-radius-md, 6px); }
+:root[data-display-mode="fullscreen"] .index-list { max-height: none; }
+.index-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 6px; align-items: center; width: 100%;
+  border: none; border-radius: 0; background: none; padding: 4px 8px; text-align: left; }
+.index-item .name { font-family: var(--font-mono, ui-monospace, monospace); overflow-wrap: anywhere; min-width: 0; }
+.index-item .meta { font-size: 11px; grid-column: 2; }
+.index-item[aria-current="true"] { background: var(--color-background-tertiary, light-dark(#eef1f4, #1c2128));
+  box-shadow: inset 3px 0 0 var(--color-border-info, light-dark(#0969da, #4493f8)); font-weight: var(--font-weight-semibold, 600); }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.status-bg-green { background: #1a7f37; } .status-bg-yellow { background: #9a6700; }
+.status-bg-red { background: #cf222e; } .status-bg-unknown { background: #6e7781; }
+.detail-pane { min-width: 0; }
+.detail-head h2 { overflow-wrap: anywhere; font-family: var(--font-mono, ui-monospace, monospace); }
+.tabs { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 6px;
+  border-bottom: var(--border-width-regular, 1px) solid var(--color-border-primary, light-dark(#d1d9e0, #3d444d)); }
+.tab { border: none; border-radius: var(--border-radius-sm, 4px) var(--border-radius-sm, 4px) 0 0; background: none; padding: 4px 10px; }
+.tab[aria-selected="true"] { box-shadow: inset 0 -2px 0 var(--color-border-info, light-dark(#0969da, #4493f8));
+  font-weight: var(--font-weight-semibold, 600); }
+table.settings { width: auto; }
+table.settings th { position: static; cursor: default; font-weight: normal;
+  color: var(--color-text-secondary, light-dark(#59636e, #9198a1)); background: none; }
+table.settings td { white-space: normal; overflow-wrap: anywhere; }
+.aliases { font-family: var(--font-mono, ui-monospace, monospace); overflow-wrap: anywhere; }

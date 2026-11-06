@@ -225,6 +225,9 @@ BUILTIN_CATEGORY_TOOLS: dict[str, list[str]] = {
         'ExplainTool',
         'MsearchTool',
         'GenericOpenSearchApiTool',
+        # MCP Apps present tools: listed only when Apps apply and their dependencies are on.
+        'ClusterOverviewTool',
+        'IndexExplorerTool',
     ],
     'memory': [
         'SaveMemoryTool',

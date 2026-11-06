@@ -16,8 +16,10 @@ import subprocess
 import sys
 from pathlib import Path
 from tools.ui_resources import (
+    CLUSTER_OVERVIEW_VIEW_URI,
     EXPLAIN_VIEW_URI,
     HEALTH_VIEW_URI,
+    INDEX_EXPLORER_VIEW_URI,
     MAPPING_VIEW_URI,
     RESULTS_VIEW_URI,
     TABLE_VIEW_URI,
@@ -45,7 +47,10 @@ def test_suite_assembles_views_like_the_server():
         'health': HEALTH_VIEW_URI,
         'mapping': MAPPING_VIEW_URI,
         'explain': EXPLAIN_VIEW_URI,
+        'overview': CLUSTER_OVERVIEW_VIEW_URI,
+        'explorer': INDEX_EXPLORER_VIEW_URI,
     }
+    assert set(views.values()) == set(UI_RESOURCES)
     for name, uri in views.items():
         match = re.search(rf"{name}: \{{ title: '([^']+)', scripts: \[([^\]]+)\]", text)
         assert match, f'views.test.js does not define the {name} view'

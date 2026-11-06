@@ -23,6 +23,12 @@ function catSummary(data, types) {
 }
 
 function renderCatTable(data) {
+  if (data.kind === 'index_detail') {
+    // Settings and aliases of named indices: shown by the index explorer, not as a table.
+    app.appendChild(header(data, 'Indices', []));
+    app.appendChild(el('div', currentView.unsupportedText, 'notice'));
+    return;
+  }
   var m = data.meta || {};
   var types = columnTypes(data.columns, data.rows, m.column_types, m.integer_strings);
   var rowsStat = rowCountStat(data.rows.length);
@@ -44,6 +50,6 @@ function renderCatTable(data) {
 startView({
   name: 'opensearch-table',
   unsupportedText: 'This result is not a table (for example, details for one index); the text result is unchanged.',
-  accepts: function (data) { return data.kind === 'cat_table' && Array.isArray(data.columns) && Array.isArray(data.rows); },
+  accepts: function (data) { return (data.kind === 'cat_table' && Array.isArray(data.columns) && Array.isArray(data.rows)) || data.kind === 'index_detail'; },
   render: renderCatTable
 });

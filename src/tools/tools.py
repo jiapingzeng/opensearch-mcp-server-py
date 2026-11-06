@@ -5,6 +5,12 @@ import json
 from .agentic_memory.actions import AGENTIC_MEMORY_TOOLS_REGISTRY
 from .generic_api_tool import GenericOpenSearchApiArgs, generic_opensearch_api_tool
 from .memory_tools import MEMORY_TOOLS_REGISTRY
+from .present_tools import (
+    ClusterOverviewArgs,
+    IndexExplorerArgs,
+    cluster_overview_tool,
+    index_explorer_tool,
+)
 from .skills_tools import SKILLS_TOOLS_REGISTRY
 from .tool_annotations import read_only_annotations, write_annotations
 from .tool_logging import log_tool_error
@@ -47,6 +53,8 @@ from .tool_params import (
     baseToolArgs,
 )
 from .ui_resources import (
+    CLUSTER_OVERVIEW_VIEW_URI,
+    INDEX_EXPLORER_VIEW_URI,
     MAPPING_VIEW_URI,
     RESULTS_VIEW_URI,
     TABLE_VIEW_URI,
@@ -154,6 +162,7 @@ async def list_indices_tool(args: ListIndicesArgs) -> list[dict]:
                     {
                         'type': 'text',
                         'text': f'Index information for {args.index}:\n{formatted_info}',
+                        'view_data': index_info,
                     }
                 ]
             else:
@@ -1424,5 +1433,56 @@ TOOL_REGISTRY = {
         'http_methods': 'GET',
         'annotations': read_only_annotations('List Clusters'),
         'multi_only': True,
+    },
+    # Task-oriented MCP Apps tools. The handlers list them only when Apps apply and every
+    # required dependency (registry key) is enabled; 'calls' are the tools their views call.
+    'ClusterOverviewTool': {
+        'display_name': 'ClusterOverviewTool',
+        'ui_resource_uri': CLUSTER_OVERVIEW_VIEW_URI,
+        'ui_kind': 'cluster_overview',
+        'ui_app_callable': True,
+        'ui_present': {
+            'requires': ['ClusterHealthTool', 'ListIndexTool', 'GetShardsTool'],
+            'optional': {'nodes': 'CatNodesTool', 'allocation': 'GetAllocationTool'},
+            'links': {'explorer': 'IndexExplorerTool'},
+            'calls': [],
+        },
+        'description': 'Shows the user an interactive cluster overview: health, nodes, indices '
+        '(by health, largest first), shards with unassigned reasons and allocation explanations, '
+        'and disk use per node, each refreshable in the view. Returns a short text summary. Use '
+        'it when the user wants to see the state of the cluster; use the individual tools for '
+        'raw data.',
+        'input_schema': ClusterOverviewArgs.model_json_schema(),
+        'function': cluster_overview_tool,
+        'args_model': ClusterOverviewArgs,
+        'min_version': '1.0.0',
+        'http_methods': 'GET',
+        'annotations': read_only_annotations('Cluster Overview'),
+    },
+    'IndexExplorerTool': {
+        'display_name': 'IndexExplorerTool',
+        'ui_resource_uri': INDEX_EXPLORER_VIEW_URI,
+        'ui_kind': 'index_explorer',
+        'ui_app_callable': True,
+        'ui_present': {
+            'requires': ['ListIndexTool', 'IndexMappingTool', 'GetShardsTool', 'SearchIndexTool'],
+            'roles': {
+                'detail': 'ListIndexTool',
+                'mapping': 'IndexMappingTool',
+                'shards': 'GetShardsTool',
+                'search': 'SearchIndexTool',
+            },
+            'calls': ['ListIndexTool', 'IndexMappingTool', 'GetShardsTool', 'SearchIndexTool'],
+        },
+        'description': 'Shows the user an interactive index explorer: a searchable list of '
+        'indices (optionally matching an index name or pattern) and, for the selected index, its '
+        'settings and aliases, mapping, shards and sample documents, loaded on demand in the '
+        'view. Returns a short text summary. Use it when the user wants to browse indices.',
+        'input_schema': IndexExplorerArgs.model_json_schema(),
+        'function': index_explorer_tool,
+        'args_model': IndexExplorerArgs,
+        'min_version': '1.0.0',
+        'http_methods': 'GET',
+        'annotations': read_only_annotations('Index Explorer'),
     },
 }

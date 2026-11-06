@@ -65,6 +65,9 @@ _KNOWN_SERVERLESS_INCOMPATIBLE = frozenset(
         'GetLongRunningTasksTool',
         'GetIndexStatsTool',
         'GetQueryInsightsTool',
+        # MCP Apps present tools: their views need cluster or shard APIs
+        'ClusterOverviewTool',
+        'IndexExplorerTool',
         # Search Relevance Workbench (_plugins/_search_relevance)
         'CreateSearchConfigurationTool',
         'GetSearchConfigurationTool',
