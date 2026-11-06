@@ -28,7 +28,6 @@ def _build_call_tool_result(result: list, is_error: bool) -> CallToolResult:
     # Convert a tool's raw content list into a CallToolResult.
 
     content: list[ContentBlock] = []
-    structured = None
     for item in result or []:
         if isinstance(item, dict):
             content.append(
@@ -37,13 +36,9 @@ def _build_call_tool_result(result: list, is_error: bool) -> CallToolResult:
                     text=item.get('text', ''),
                 )
             )
-            if structured is None and not is_error:
-                structured = item.get('structured')
         else:
             content.append(item)
 
-    if structured is not None:
-        return CallToolResult(content=content, is_error=is_error, structured_content=structured)
     return CallToolResult(content=content, is_error=is_error)
 
 
@@ -51,6 +46,7 @@ async def execute_tool(
     name: str,
     arguments: dict,
     enabled_tools: dict,
+    view: bool = False,
 ) -> CallToolResult:
     """Execute an MCP tool with structured logging for metrics.
 
@@ -61,6 +57,7 @@ async def execute_tool(
         name: The display name of the tool as seen by the MCP client.
         arguments: The raw argument dict from the MCP protocol.
         enabled_tools: The enabled tools registry dict.
+        view: Build MCP Apps structuredContent when the tool is bound to a view.
 
     Returns:
         list[TextContent]: The tool's result (success or error text).
@@ -88,8 +85,28 @@ async def execute_tool(
 
         tool = enabled_tools[found_tool_key]
         from tools.tool_params import validate_args_for_mode
+        from tools.ui_resources import (
+            is_view_bound,
+            split_presentation_args,
+            takes_presentation_args,
+            view_structured_content,
+        )
+
+        view = view and is_view_bound(tool)
+        presentation: dict = {}
+        if view and takes_presentation_args(tool):
+            arguments, presentation = split_presentation_args(arguments)
 
         parsed = validate_args_for_mode(arguments, tool['args_model'])
+
+        def finish(items: list, error: bool) -> CallToolResult:
+            result = _build_call_tool_result(items, error)
+            if not view:
+                return result
+            structured = view_structured_content(
+                found_tool_key, tool, name, items, parsed, presentation, error
+            )
+            return result.model_copy(update={'structured_content': structured})
 
         # Reject tools OpenSearch Serverless cannot serve when this call resolves to
         # a serverless connection. Returns immediately with a clear error instead of
@@ -101,7 +118,7 @@ async def execute_tool(
             status = 'error'
             error_type = 'ServerlessUnsupportedToolError'
             is_error = True
-            return _build_call_tool_result(
+            return finish(
                 [
                     TextContent(
                         type='text',
@@ -111,7 +128,7 @@ async def execute_tool(
                         ),
                     )
                 ],
-                is_error=True,
+                True,
             )
 
         result = await tool['function'](parsed)
@@ -124,7 +141,7 @@ async def execute_tool(
                 status = 'error'
                 is_error = True
 
-        return _build_call_tool_result(result, is_error)
+        return finish(result, is_error)
 
     except ValueError:
         # For unknown tool, status/error_type were already set above.

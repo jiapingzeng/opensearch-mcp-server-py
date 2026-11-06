@@ -52,7 +52,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-"tools.ui" = ["*.html"]
+"tools.ui" = ["*.html", "*.js", "*.css"]
 
 [tool.ruff]
 line-length = 99

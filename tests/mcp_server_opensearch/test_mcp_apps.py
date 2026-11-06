@@ -1,22 +1,42 @@
 # Copyright OpenSearch Contributors
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 import pytest
 from mcp.client.client import Client
+from mcp.client.extension import advertise
 from mcp.server import Server
 from mcp.server.apps import APP_MIME_TYPE, EXTENSION_ID
 from mcp.shared.exceptions import MCPError
-from mcp_server_opensearch.mcp_handlers import build_handlers, configure_apps
-from mcp_server_opensearch.tool_executor import _build_call_tool_result
+from mcp.types import METHOD_NOT_FOUND, ClientCapabilities
+from mcp_server_opensearch.mcp_handlers import (
+    _gate_handshake,
+    build_handlers,
+    client_apps_support,
+    configure_apps,
+)
 from tools.tool_annotations import read_only_annotations, write_annotations
-from tools.ui_resources import RESULTS_VIEW_URI, STRUCTURED_CONTENT_MAX_BYTES
+from tools.ui_resources import (
+    MAPPING_VIEW_URI,
+    RESULTS_VIEW_URI,
+    STRUCTURED_CONTENT_MAX_BYTES,
+)
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 
-STRUCTURED = {'kind': 'search_hits', 'version': 1, 'cluster': '', 'columns': [], 'rows': []}
+SEARCH_RESPONSE = {
+    'took': 1,
+    'hits': {
+        'total': {'value': 1, 'relation': 'eq'},
+        'hits': [{'_index': 'logs', '_id': '1', '_score': 1.0, '_source': {'a': 1}}],
+    },
+}
+UI_CLIENT = [advertise(EXTENSION_ID, {'mimeTypes': [APP_MIME_TYPE]})]
+UNKNOWN = SimpleNamespace(session=SimpleNamespace(client_capabilities=None), request=None)
 
 
-def _tool(function, ui=True, category='core_tools', read_only=True):
+def _tool(function, uri=RESULTS_VIEW_URI, kind='search_hits', category='core_tools', **extra):
     info = {
         'display_name': None,
         'description': 'd',
@@ -24,20 +44,23 @@ def _tool(function, ui=True, category='core_tools', read_only=True):
         'args_model': Mock(),
         'function': function,
         'category': category,
-        'annotations': read_only_annotations('t')
-        if read_only
-        else write_annotations('t', destructive=True, idempotent=False),
+        'annotations': read_only_annotations('t'),
+        **extra,
     }
-    if ui:
-        info['ui_resource_uri'] = RESULTS_VIEW_URI
-        info['ui_kind'] = 'search_hits'
+    if uri:
+        info.update(ui_resource_uri=uri, ui_kind=kind)
     return info
 
 
 def _registry():
-    search = AsyncMock(return_value=[{'type': 'text', 'text': 'hits', 'structured': STRUCTURED}])
+    search = AsyncMock(
+        return_value=[{'type': 'text', 'text': 'hits', 'view_data': SEARCH_RESPONSE}]
+    )
     plain = AsyncMock(return_value=[{'type': 'text', 'text': 'indices'}])
-    tools = {'SearchIndexTool': _tool(search), 'ListIndexTool': _tool(plain, ui=False)}
+    tools = {
+        'SearchIndexTool': _tool(search, ui_app_callable=True),
+        'ListIndexTool': _tool(plain, uri=None),
+    }
     for name, info in tools.items():
         info['display_name'] = name
     return tools
@@ -47,6 +70,11 @@ def _server(tools):
     server = Server('opensearch-mcp-server', **build_handlers(tools))
     configure_apps(server)
     return server
+
+
+def _wire(result):
+    dumped = result.model_dump(by_alias=True, exclude_none=True, mode='json')
+    return {k: v for k, v in dumped.items() if k in ('content', 'isError', 'structuredContent')}
 
 
 @pytest.fixture
@@ -65,9 +93,67 @@ def single_mode():
         patch('mcp_server_opensearch.global_state.get_mode', return_value='single'),
         patch('tools.tool_params.get_mode', return_value='single'),
         patch('opensearch.client.is_serverless_connection', return_value=False),
-        patch('tools.tool_params.validate_args_for_mode', side_effect=lambda a, m: a),
+        patch(
+            'tools.tool_params.validate_args_for_mode',
+            side_effect=lambda a, m: SimpleNamespace(**a),
+        ),
     ):
         yield
+
+
+class TestClientSupport:
+    def _ctx(self, caps):
+        return SimpleNamespace(session=SimpleNamespace(client_capabilities=caps))
+
+    def test_unknown_when_capabilities_missing(self):
+        assert client_apps_support(self._ctx(None)) is None
+
+    def test_false_when_known_without_ui(self):
+        assert client_apps_support(self._ctx(ClientCapabilities())) is False
+        no_mime = ClientCapabilities(extensions={EXTENSION_ID: {}})
+        assert client_apps_support(self._ctx(no_mime)) is False
+
+    def test_true_when_ui_advertised(self):
+        caps = ClientCapabilities(extensions={EXTENSION_ID: {'mimeTypes': [APP_MIME_TYPE]}})
+        assert client_apps_support(self._ctx(caps)) is True
+
+
+class TestHandshakeGate:
+    RESULT = {
+        'protocolVersion': '2025-11-25',
+        'capabilities': {
+            'tools': {'listChanged': False},
+            'resources': {'subscribe': False, 'listChanged': False},
+            'extensions': {EXTENSION_ID: {}, 'other.example/ext': {}},
+        },
+    }
+
+    async def _run(self, method, params, caps=None):
+        ctx = SimpleNamespace(
+            method=method, params=params, session=SimpleNamespace(client_capabilities=caps)
+        )
+        return await _gate_handshake(ctx, AsyncMock(return_value=self.RESULT))
+
+    @pytest.mark.asyncio
+    async def test_legacy_initialize_without_ui_gets_flag_off_capabilities(self):
+        result = await self._run('initialize', {'capabilities': {}})
+        assert result['capabilities'] == {
+            'tools': {'listChanged': False},
+            'extensions': {'other.example/ext': {}},
+        }
+
+    @pytest.mark.asyncio
+    async def test_legacy_initialize_with_ui_unchanged(self):
+        ui = {'extensions': {EXTENSION_ID: {'mimeTypes': [APP_MIME_TYPE]}}}
+        assert await self._run('initialize', {'capabilities': ui}) == self.RESULT
+
+    @pytest.mark.asyncio
+    async def test_discover_with_unknown_capabilities_unchanged(self):
+        assert await self._run('server/discover', {}) == self.RESULT
+
+    @pytest.mark.asyncio
+    async def test_other_methods_untouched(self):
+        assert await self._run('tools/list', {}, ClientCapabilities()) == self.RESULT
 
 
 class TestFlagOff:
@@ -78,181 +164,310 @@ class TestFlagOff:
 
     @pytest.mark.asyncio
     async def test_tools_list_unchanged(self, apps_off):
-        async with Client(_server(_registry())) as client:
+        async with Client(_server(_registry()), extensions=UI_CLIENT) as client:
             tools = (await client.list_tools()).tools
         assert [t.meta for t in tools] == [{'category': 'core_tools'}, {'category': 'core_tools'}]
-        assert all('narrative' not in t.input_schema['properties'] for t in tools)
+        assert all('intent' not in t.input_schema['properties'] for t in tools)
 
     @pytest.mark.asyncio
     async def test_resources_not_served(self, apps_off):
-        async with Client(_server(_registry())) as client:
+        async with Client(_server(_registry()), extensions=UI_CLIENT) as client:
             with pytest.raises(MCPError):
                 await client.list_resources()
 
     @pytest.mark.asyncio
     async def test_call_tool_has_no_structured_content(self, apps_off):
-        tools = _registry()
-        tools['SearchIndexTool']['function'].return_value = [{'type': 'text', 'text': 'hits'}]
-        async with Client(_server(tools)) as client:
+        async with Client(_server(_registry()), extensions=UI_CLIENT) as client:
             result = await client.call_tool('SearchIndexTool', {})
         assert result.structured_content is None
-        assert result.content[0].text == 'hits'
+        assert _wire(result) == {
+            'content': [{'type': 'text', 'text': 'hits'}],
+            'isError': False,
+        }
 
 
-class TestFlagOn:
+class TestSharedHandlerParity:
+    """The shared handler, flag off and flag on with a non-Apps client, matches upstream."""
+
+    @pytest.fixture(params=['off', 'gated'])
+    def mode(self, request, monkeypatch):
+        if request.param == 'off':
+            monkeypatch.delenv('OPENSEARCH_MCP_APPS_ENABLED', raising=False)
+        else:
+            monkeypatch.setenv('OPENSEARCH_MCP_APPS_ENABLED', 'true')
+        return request.param
+
+    @pytest.mark.asyncio
+    async def test_tool_exception_becomes_error_text(self, mode):
+        tools = _registry()
+        tools['SearchIndexTool']['function'].side_effect = RuntimeError('boom')
+        async with Client(_server(tools)) as client:
+            result = await client.call_tool('SearchIndexTool', {})
+        assert _wire(result) == {'content': [{'type': 'text', 'text': 'boom'}], 'isError': True}
+
+    @pytest.mark.asyncio
+    async def test_mcp_error_propagates(self, mode):
+        tools = _registry()
+        tools['SearchIndexTool']['function'].side_effect = MCPError(code=-32001, message='nope')
+        async with Client(_server(tools)) as client:
+            with pytest.raises(MCPError, match='nope'):
+                await client.call_tool('SearchIndexTool', {})
+
+    @pytest.mark.asyncio
+    async def test_custom_display_name(self, mode):
+        tools = _registry()
+        tools['SearchIndexTool']['display_name'] = 'FindDocs'
+        async with Client(_server(tools)) as client:
+            names = [t.name for t in (await client.list_tools()).tools]
+            result = await client.call_tool('FindDocs', {'index': 'logs'})
+        assert names == ['FindDocs', 'ListIndexTool']
+        assert _wire(result) == {'content': [{'type': 'text', 'text': 'hits'}], 'isError': False}
+
+    @pytest.mark.asyncio
+    async def test_unknown_tool(self, mode):
+        async with Client(_server(_registry())) as client:
+            result = await client.call_tool('NoSuchTool', {})
+        assert _wire(result) == {
+            'content': [{'type': 'text', 'text': 'Unknown or disabled tool: NoSuchTool'}],
+            'isError': True,
+        }
+
+    @pytest.mark.asyncio
+    async def test_tools_list_and_handshake_match_flag_off(self, mode, monkeypatch):
+        async with Client(_server(_registry())) as client:
+            tools = [t.model_dump() for t in (await client.list_tools()).tools]
+            caps = client.server_capabilities.model_dump(exclude_none=True)
+        monkeypatch.delenv('OPENSEARCH_MCP_APPS_ENABLED', raising=False)
+        async with Client(_server(_registry())) as client:
+            assert tools == [t.model_dump() for t in (await client.list_tools()).tools]
+            assert caps == client.server_capabilities.model_dump(exclude_none=True)
+
+    @pytest.mark.asyncio
+    async def test_resources_method_not_found(self, mode):
+        async with Client(_server(_registry())) as client:
+            with pytest.raises(MCPError) as err:
+                await client.list_resources()
+            assert err.value.error.code == METHOD_NOT_FOUND
+            with pytest.raises(MCPError) as err:
+                await client.read_resource(RESULTS_VIEW_URI)
+            assert err.value.error.code == METHOD_NOT_FOUND
+
+
+class TestFlagOnUiClient:
     def test_extension_advertised(self, apps_on):
         caps = _server(_registry()).get_capabilities()
         assert caps.extensions == {EXTENSION_ID: {}}
         assert caps.resources is not None
 
     @pytest.mark.asyncio
+    async def test_handshake_advertises_extension(self, apps_on):
+        async with Client(_server(_registry()), extensions=UI_CLIENT) as client:
+            caps = client.server_capabilities
+        assert caps.extensions == {EXTENSION_ID: {}}
+        assert caps.resources is not None
+
+    @pytest.mark.asyncio
     async def test_ui_meta_and_visibility(self, apps_on):
         tools = _registry()
-        tools['DeleteIndexTool'] = _tool(AsyncMock(), ui=False, read_only=False)
-        tools['DeleteIndexTool']['display_name'] = 'DeleteIndexTool'
-        tools['GenericOpenSearchApiTool'] = _tool(AsyncMock())
-        tools['GenericOpenSearchApiTool']['display_name'] = 'GenericOpenSearchApiTool'
-        tools['WriteViewTool'] = _tool(AsyncMock(), read_only=False)
-        tools['WriteViewTool']['display_name'] = 'WriteViewTool'
-        async with Client(_server(tools)) as client:
+        extra = {
+            'DeleteIndexTool': _tool(
+                AsyncMock(),
+                uri=None,
+                annotations=write_annotations('t', destructive=True, idempotent=False),
+            ),
+            'GenericOpenSearchApiTool': _tool(AsyncMock(), ui_app_callable=True),
+            'WriteViewTool': _tool(
+                AsyncMock(),
+                ui_app_callable=True,
+                annotations=write_annotations('t', destructive=False, idempotent=False),
+            ),
+            'StaticViewTool': _tool(AsyncMock(), uri=MAPPING_VIEW_URI, kind='index_mapping'),
+        }
+        for name, info in extra.items():
+            info['display_name'] = name
+        tools.update(extra)
+        async with Client(_server(tools), extensions=UI_CLIENT) as client:
             listed = {t.name: t for t in (await client.list_tools()).tools}
         assert listed['SearchIndexTool'].meta == {
             'category': 'core_tools',
-            'ui': {'resourceUri': RESULTS_VIEW_URI},
+            'ui': {'resourceUri': RESULTS_VIEW_URI, 'visibility': ['model', 'app']},
         }
-        model_only = {'visibility': ['model']}
-        assert listed['ListIndexTool'].meta == {'category': 'core_tools', 'ui': model_only}
-        assert listed['DeleteIndexTool'].meta['ui'] == model_only
-        assert listed['GenericOpenSearchApiTool'].meta['ui'] == {
-            'resourceUri': RESULTS_VIEW_URI,
-            **model_only,
+        model_only = ['model']
+        assert listed['ListIndexTool'].meta['ui'] == {'visibility': model_only}
+        assert listed['DeleteIndexTool'].meta['ui'] == {'visibility': model_only}
+        assert listed['GenericOpenSearchApiTool'].meta['ui']['visibility'] == model_only
+        assert listed['WriteViewTool'].meta['ui']['visibility'] == model_only
+        assert listed['StaticViewTool'].meta['ui'] == {
+            'resourceUri': MAPPING_VIEW_URI,
+            'visibility': model_only,
         }
-        assert listed['WriteViewTool'].meta['ui']['visibility'] == ['model']
 
     @pytest.mark.asyncio
-    async def test_presentation_args_only_on_bound_tools(self, apps_on):
-        async with Client(_server(_registry())) as client:
+    async def test_presentation_args_only_on_query_views(self, apps_on):
+        tools = _registry()
+        tools['IndexMappingTool'] = _tool(AsyncMock(), uri=MAPPING_VIEW_URI, kind='index_mapping')
+        tools['IndexMappingTool']['display_name'] = 'IndexMappingTool'
+        async with Client(_server(tools), extensions=UI_CLIENT) as client:
             listed = {t.name: t for t in (await client.list_tools()).tools}
         search = listed['SearchIndexTool'].input_schema['properties']
-        assert search['narrative']['type'] == 'string'
+        assert search['intent']['type'] == 'string'
+        assert 'narrative' not in search
         assert search['suggestions']['maxItems'] == 3
-        assert 'index' in search
-        assert 'narrative' not in listed['ListIndexTool'].input_schema['properties']
+        assert 'intent' not in listed['ListIndexTool'].input_schema['properties']
+        assert 'intent' not in listed['IndexMappingTool'].input_schema['properties']
 
     @pytest.mark.asyncio
-    async def test_ui_meta_without_category(self, apps_on):
+    async def test_presentation_args_on_renamed_view_tool(self, apps_on):
         tools = _registry()
-        del tools['SearchIndexTool']['category']
-        async with Client(_server(tools)) as client:
+        tools['SearchIndexTool']['display_name'] = 'FindDocs'
+        args = {'index': 'logs', 'intent': 'Find the 500s.', 'suggestions': ['Group by host']}
+        async with Client(_server(tools), extensions=UI_CLIENT) as client:
             listed = {t.name: t for t in (await client.list_tools()).tools}
-        assert listed['SearchIndexTool'].meta == {'ui': {'resourceUri': RESULTS_VIEW_URI}}
+            result = await client.call_tool('FindDocs', args)
+        assert 'intent' in listed['FindDocs'].input_schema['properties']
+        assert vars(tools['SearchIndexTool']['function'].call_args.args[0]) == {'index': 'logs'}
+        sc = result.structured_content
+        assert sc['tool'] == 'FindDocs'
+        assert sc['intent'] == 'Find the 500s.' and sc['suggestions'] == ['Group by host']
+        assert result.content[0].text == 'hits'
 
     @pytest.mark.asyncio
     async def test_list_and_read_resource(self, apps_on):
-        async with Client(_server(_registry())) as client:
+        async with Client(_server(_registry()), extensions=UI_CLIENT) as client:
             resources = (await client.list_resources()).resources
             read = await client.read_resource(RESULTS_VIEW_URI)
-        assert len(resources) == 1
-        assert str(resources[0].uri) == RESULTS_VIEW_URI
+        assert [str(r.uri) for r in resources] == [RESULTS_VIEW_URI]
+        meta = {'ui': {'prefersBorder': True, 'permissions': {'clipboardWrite': {}}}}
         assert resources[0].mime_type == APP_MIME_TYPE
-        assert resources[0].meta == {'ui': {'prefersBorder': True}}
+        assert resources[0].meta == meta
         content = read.contents[0]
-        assert content.mime_type == APP_MIME_TYPE
-        assert content.meta == {'ui': {'prefersBorder': True}}
+        assert content.mime_type == APP_MIME_TYPE and content.meta == meta
         assert content.text.startswith('<!DOCTYPE html>')
 
     @pytest.mark.asyncio
     async def test_filtered_out_tool_hides_resource(self, apps_on):
         tools = _registry()
         del tools['SearchIndexTool']
-        async with Client(_server(tools)) as client:
+        async with Client(_server(tools), extensions=UI_CLIENT) as client:
             assert (await client.list_resources()).resources == []
             with pytest.raises(MCPError, match='Resource not found'):
                 await client.read_resource(RESULTS_VIEW_URI)
 
     @pytest.mark.asyncio
     async def test_unknown_uri_errors(self, apps_on):
-        async with Client(_server(_registry())) as client:
+        async with Client(_server(_registry()), extensions=UI_CLIENT) as client:
             with pytest.raises(MCPError, match='Resource not found'):
                 await client.read_resource('ui://opensearch/unknown')
 
     @pytest.mark.asyncio
-    async def test_call_tool_returns_structured_content(self, apps_on):
-        async with Client(_server(_registry())) as client:
-            result = await client.call_tool('SearchIndexTool', {})
+    async def test_call_tool_builds_payload_in_handler(self, apps_on):
+        async with Client(_server(_registry()), extensions=UI_CLIENT) as client:
+            result = await client.call_tool('SearchIndexTool', {'index': 'logs'})
             plain = await client.call_tool('ListIndexTool', {})
-        assert result.structured_content == {**STRUCTURED, 'tool': 'SearchIndexTool'}
+        sc = result.structured_content
+        assert sc['kind'] == 'search_hits' and sc['tool'] == 'SearchIndexTool'
+        assert sc['refreshable'] is True
+        assert sc['rows'] == [['logs', '1', 1.0, 1]]
         assert result.content[0].text == 'hits'
+        assert 'view_data' not in str(_wire(result)['content'])
         assert plain.structured_content is None
-
-    @pytest.mark.asyncio
-    async def test_presentation_args_moved_to_payload(self, apps_on):
-        tools = _registry()
-        args = {'index': 'logs', 'narrative': 'Mostly 200s.', 'suggestions': ['Show 500s']}
-        async with Client(_server(tools)) as client:
-            result = await client.call_tool('SearchIndexTool', args)
-        assert tools['SearchIndexTool']['function'].call_args.args[0] == {'index': 'logs'}
-        assert result.structured_content['narrative'] == 'Mostly 200s.'
-        assert result.structured_content['suggestions'] == ['Show 500s']
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         'extra',
         [
-            {'narrative': 5},
-            {'narrative': 'x' * 2001},
+            {'intent': 5},
+            {'intent': 'x' * 2001},
+            {'intent': 'hidden\u202etext'},
+            {'intent': 'bell\x07'},
             {'suggestions': 'one'},
             {'suggestions': ['a', 'b', 'c', 'd']},
             {'suggestions': ['']},
             {'suggestions': ['x' * 121]},
+            {'suggestions': ['line\nbreak']},
+            {'suggestions': ['zero\u200bwidth']},
         ],
     )
-    async def test_invalid_presentation_args_rejected(self, apps_on, extra):
+    async def test_invalid_presentation_args_rejected(self, apps_on, extra, caplog):
         tools = _registry()
-        async with Client(_server(tools)) as client:
+        caplog.set_level(logging.INFO, logger='mcp_server_opensearch.tool_executor')
+        async with Client(_server(tools), extensions=UI_CLIENT) as client:
             result = await client.call_tool('SearchIndexTool', {'index': 'logs', **extra})
         assert result.is_error
         assert tools['SearchIndexTool']['function'].call_count == 0
-        assert result.structured_content['omitted'] == 'error'
-
-    @pytest.mark.asyncio
-    async def test_error_marker(self, apps_on):
-        tools = _registry()
-        tools['SearchIndexTool']['function'].return_value = [
-            {'type': 'text', 'text': 'boom', 'is_error': True}
-        ]
-        async with Client(_server(tools)) as client:
-            result = await client.call_tool('SearchIndexTool', {})
-        assert result.is_error
         assert result.structured_content == {
             'kind': 'search_hits',
             'version': 1,
             'omitted': 'error',
             'tool': 'SearchIndexTool',
+            'refreshable': True,
         }
+        events = [r for r in caplog.records if getattr(r, 'event_type', '') == 'tool_execution']
+        assert [(e.status, e.error_type) for e in events] == [('error', 'ValidationError')]
+
+    @pytest.mark.asyncio
+    async def test_intent_allows_newlines_and_tabs(self, apps_on):
+        async with Client(_server(_registry()), extensions=UI_CLIENT) as client:
+            result = await client.call_tool('SearchIndexTool', {'intent': 'a\n\tb'})
+        assert result.structured_content['intent'] == 'a\n\tb'
+
+    @pytest.mark.asyncio
+    async def test_soft_error_marker(self, apps_on):
+        tools = _registry()
+        tools['SearchIndexTool']['function'].return_value = [
+            {'type': 'text', 'text': 'boom', 'is_error': True}
+        ]
+        async with Client(_server(tools), extensions=UI_CLIENT) as client:
+            result = await client.call_tool('SearchIndexTool', {})
+        assert result.is_error
+        assert result.structured_content['omitted'] == 'error'
 
     @pytest.mark.asyncio
     async def test_unsupported_format_marker(self, apps_on):
         tools = _registry()
-        tools['SearchIndexTool']['function'].return_value = [
-            {'type': 'text', 'text': 'a|b', 'structured': None}
-        ]
-        async with Client(_server(tools)) as client:
+        tools['SearchIndexTool']['function'].return_value = [{'type': 'text', 'text': 'a|b'}]
+        async with Client(_server(tools), extensions=UI_CLIENT) as client:
             result = await client.call_tool('SearchIndexTool', {})
         assert result.structured_content['omitted'] == 'unsupported_format'
 
     @pytest.mark.asyncio
+    async def test_builder_failure_keeps_query_result(self, apps_on):
+        with patch.dict(
+            'tools.ui_resources.VIEW_BUILDERS', {'search_hits': Mock(side_effect=KeyError('x'))}
+        ):
+            async with Client(_server(_registry()), extensions=UI_CLIENT) as client:
+                result = await client.call_tool('SearchIndexTool', {'intent': 'why'})
+        assert not result.is_error
+        assert result.content[0].text == 'hits'
+        assert result.structured_content['omitted'] == 'unsupported_format'
+        assert result.structured_content['intent'] == 'why'
+
+    @pytest.mark.asyncio
+    async def test_oversized_rows_are_halved_until_they_fit(self, apps_on):
+        tools = _registry()
+        hits = [{'_source': {'a': 'x' * 300_000}} for _ in range(8)]
+        tools['SearchIndexTool']['function'].return_value = [
+            {'type': 'text', 'text': 't', 'view_data': {'hits': {'hits': hits}}}
+        ]
+        async with Client(_server(tools), extensions=UI_CLIENT) as client:
+            result = await client.call_tool('SearchIndexTool', {})
+        sc = result.structured_content
+        assert len(sc['rows']) == 2
+        assert sc['meta']['truncated'] is True and sc['meta']['row_count'] == 8
+
+    @pytest.mark.asyncio
     async def test_too_large_marker(self, apps_on):
         tools = _registry()
-        big = {**STRUCTURED, 'columns': ['a'], 'rows': [['x' * STRUCTURED_CONTENT_MAX_BYTES]]}
+        aggs = {'big': {'buckets': [{'key': 'k' * STRUCTURED_CONTENT_MAX_BYTES, 'doc_count': 1}]}}
+        big = {'hits': {'hits': [{'_source': {'a': 1}}]}, 'aggregations': aggs}
         tools['SearchIndexTool']['function'].return_value = [
-            {'type': 'text', 'text': 't', 'structured': big}
+            {'type': 'text', 'text': 't', 'view_data': big}
         ]
-        async with Client(_server(tools)) as client:
-            result = await client.call_tool('SearchIndexTool', {'narrative': 'n'})
+        async with Client(_server(tools), extensions=UI_CLIENT) as client:
+            result = await client.call_tool('SearchIndexTool', {'intent': 'n'})
         sc = result.structured_content
         assert sc['omitted'] == 'too_large' and sc['bytes'] > STRUCTURED_CONTENT_MAX_BYTES
-        assert sc['narrative'] == 'n' and sc['tool'] == 'SearchIndexTool'
+        assert sc['intent'] == 'n' and sc['tool'] == 'SearchIndexTool'
         assert 'rows' not in sc
         assert result.content[0].text == 't'
 
@@ -262,23 +477,39 @@ class TestFlagOn:
             build_handlers(_registry())
 
 
-class TestBuildCallToolResult:
-    def test_structured_passed_through(self):
-        result = _build_call_tool_result(
-            [{'type': 'text', 'text': 't', 'structured': STRUCTURED}], False
-        )
-        assert result.structured_content == STRUCTURED
-        assert result.content[0].text == 't'
+class TestFlagOnUnknownCapabilities:
+    """Stateless streamable HTTP: capabilities unknown, so Apps behave as on."""
 
-    def test_error_result_has_no_structured(self):
-        result = _build_call_tool_result(
-            [{'type': 'text', 'text': 'e', 'structured': STRUCTURED}], True
-        )
-        assert result.structured_content is None
+    @pytest.mark.asyncio
+    async def test_tools_list_has_ui(self, apps_on):
+        handlers = build_handlers(_registry())
+        listed = {t.name: t for t in (await handlers['on_list_tools'](UNKNOWN, None)).tools}
+        assert listed['SearchIndexTool'].meta['ui']['resourceUri'] == RESULTS_VIEW_URI
+        assert 'intent' in listed['SearchIndexTool'].input_schema['properties']
 
-    def test_wire_format_without_structured_unchanged(self):
-        result = _build_call_tool_result([{'type': 'text', 'text': 't'}], False)
-        assert 'structuredContent' not in result.model_dump(by_alias=True, exclude_none=True)
+    @pytest.mark.asyncio
+    async def test_call_has_structured_content(self, apps_on):
+        handlers = build_handlers(_registry())
+        params = SimpleNamespace(name='SearchIndexTool', arguments={'intent': 'why'})
+        result = await handlers['on_call_tool'](UNKNOWN, params)
+        assert result.structured_content['kind'] == 'search_hits'
+        assert result.structured_content['intent'] == 'why'
+
+    @pytest.mark.asyncio
+    async def test_error_marker_from_handler_exception(self, apps_on):
+        tools = _registry()
+        tools['SearchIndexTool']['function'].side_effect = RuntimeError('boom')
+        handlers = build_handlers(tools)
+        params = SimpleNamespace(name='SearchIndexTool', arguments={})
+        result = await handlers['on_call_tool'](UNKNOWN, params)
+        assert result.is_error and result.content[0].text == 'boom'
+        assert result.structured_content['omitted'] == 'error'
+
+    @pytest.mark.asyncio
+    async def test_resources_listed(self, apps_on):
+        handlers = build_handlers(_registry())
+        listed = await handlers['on_list_resources'](UNKNOWN, None)
+        assert [str(r.uri) for r in listed.resources] == [RESULTS_VIEW_URI]
 
 
 class TestTransports:
@@ -291,7 +522,7 @@ class TestTransports:
         mock_get_tools.return_value = _registry()
         server = await create_mcp_server()
         assert server.get_capabilities().extensions == {EXTENSION_ID: {}}
-        async with Client(server) as client:
+        async with Client(server, extensions=UI_CLIENT) as client:
             assert len((await client.list_resources()).resources) == 1
 
     @pytest.mark.asyncio

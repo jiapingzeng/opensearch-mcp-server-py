@@ -10,6 +10,7 @@ from .tool_annotations import read_only_annotations
 from .tool_logging import log_tool_error
 from .tool_params import baseToolArgs
 from .tools import TOOL_REGISTRY, check_tool_compatibility
+from .ui_resources import EXPLAIN_VIEW_URI, HEALTH_VIEW_URI
 from mcp.types import TextContent
 from pydantic import BaseModel, create_model
 from typing import Any, Dict, List
@@ -31,6 +32,16 @@ OPERATION_ANNOTATIONS = {
 BODY_DESCRIPTIONS = {
     'msearch': 'Request body as NDJSON format: alternating lines of header and query objects ending with \\n. Alternatively, pass a JSON array [header, query, header, query, ...] and the tool will convert it to NDJSON for you.',
     'explain': 'Request body containing the query to explain.',
+}
+
+# MCP Apps view bindings: operation -> registry keys merged into the generated tool.
+OPERATION_VIEWS = {
+    'cluster.health': {
+        'ui_resource_uri': HEALTH_VIEW_URI,
+        'ui_kind': 'cluster_health',
+        'ui_app_callable': True,
+    },
+    'explain': {'ui_resource_uri': EXPLAIN_VIEW_URI, 'ui_kind': 'explain'},
 }
 
 
@@ -215,6 +226,7 @@ def generate_tool_from_group(base_name: str, endpoints: List[Dict]) -> Dict[str,
     # Use the description from the first endpoint in the group
     details = endpoints[0]['details']
     description = details.get('description', '')
+    op_group = details.get('x-operation-group')
 
     # Extract version information
     min_version = details.get('x-version-added', '0.0.0')
@@ -278,12 +290,11 @@ def generate_tool_from_group(base_name: str, endpoints: List[Dict]) -> Dict[str,
                     method=method, url=api_path, params=params_dict, body=body
                 )
 
-                return [
-                    TextContent(
-                        type='text',
-                        text=json.dumps(response) if not isinstance(response, str) else response,
-                    )
-                ]
+                text = json.dumps(response) if not isinstance(response, str) else response
+                if op_group not in OPERATION_VIEWS:
+                    return [TextContent(type='text', text=text)]
+                # view_data is never sent as content; the MCP Apps handler may build a view from it.
+                return [{'type': 'text', 'text': text, 'view_data': response}]
 
         except Exception as e:
             return log_tool_error(tool_name, e, f'executing {tool_name}')
@@ -306,6 +317,7 @@ def generate_tool_from_group(base_name: str, endpoints: List[Dict]) -> Dict[str,
         'max_version': max_version,
         'http_methods': http_methods,
         'annotations': OPERATION_ANNOTATIONS[details['x-operation-group']],
+        **OPERATION_VIEWS.get(op_group, {}),
     }
 
 

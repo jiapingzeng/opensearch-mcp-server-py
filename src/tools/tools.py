@@ -47,10 +47,9 @@ from .tool_params import (
     baseToolArgs,
 )
 from .ui_resources import (
+    MAPPING_VIEW_URI,
     RESULTS_VIEW_URI,
-    apps_enabled,
-    ppl_rows_payload,
-    search_hits_payload,
+    TABLE_VIEW_URI,
 )
 from .utils import format_json, is_tool_compatible
 from mcp_server_opensearch.clusters_information import cluster_registry
@@ -164,7 +163,7 @@ async def list_indices_tool(args: ListIndicesArgs) -> list[dict]:
                 text = f'All indices information:\n{formatted_indices}'
                 if is_fallback:
                     text += fallback_note
-                return [{'type': 'text', 'text': text}]
+                return [{'type': 'text', 'text': text, 'view_data': indices}]
         else:
             # Return minimal information (names only)
             indices, _ = await list_indices(args)
@@ -172,7 +171,7 @@ async def list_indices_tool(args: ListIndicesArgs) -> list[dict]:
                 item.get('index') for item in indices if isinstance(item, dict) and 'index' in item
             ]
             formatted_names = format_json(index_names)
-            return [{'type': 'text', 'text': f'Indices:\n{formatted_names}'}]
+            return [{'type': 'text', 'text': f'Indices:\n{formatted_names}', 'view_data': indices}]
     except Exception as e:
         return log_tool_error(
             'ListIndexTool', e, 'listing indices', index=getattr(args, 'index', None)
@@ -186,7 +185,13 @@ async def get_index_mapping_tool(args: GetIndexMappingArgs) -> list[dict]:
         mapping = await get_index_mapping(args)
         formatted_mapping = format_json(mapping)
 
-        return [{'type': 'text', 'text': f'Mapping for {args.index}:\n{formatted_mapping}'}]
+        return [
+            {
+                'type': 'text',
+                'text': f'Mapping for {args.index}:\n{formatted_mapping}',
+                'view_data': mapping,
+            }
+        ]
     except Exception as e:
         return log_tool_error('IndexMappingTool', e, 'getting mapping', index=args.index)
 
@@ -199,21 +204,12 @@ async def search_index_tool(args: SearchIndexArgs) -> list[dict]:
 
         if args.format.lower() == 'csv':
             csv_result = convert_search_results_to_csv(result)
-            item = {
-                'type': 'text',
-                'text': f'Search results from {args.index} (CSV format):\n{csv_result}',
-            }
+            text = f'Search results from {args.index} (CSV format):\n{csv_result}'
         else:
             formatted_result = format_json(result)
-            item = {
-                'type': 'text',
-                'text': f'Search results from {args.index} (JSON format):\n{formatted_result}',
-            }
-        if apps_enabled():
-            item['structured'] = search_hits_payload(
-                result, args.opensearch_cluster_name, args.index
-            )
-        return [item]
+            text = f'Search results from {args.index} (JSON format):\n{formatted_result}'
+        # view_data is never sent as content; the MCP Apps handler may build a view payload from it.
+        return [{'type': 'text', 'text': text, 'view_data': result}]
     except Exception as e:
         return log_tool_error('SearchIndexTool', e, 'searching index', index=args.index)
 
@@ -244,7 +240,7 @@ async def get_shards_tool(args: GetShardsArgs) -> list[dict]:
             formatted_text += f'{shard["ip"]} | '
             formatted_text += f'{shard["node"]}\n'
 
-        return [{'type': 'text', 'text': formatted_text}]
+        return [{'type': 'text', 'text': formatted_text, 'view_data': result}]
     except Exception as e:
         return log_tool_error(
             'GetShardsTool', e, 'getting shards information', index=getattr(args, 'index', None)
@@ -353,7 +349,7 @@ async def cat_nodes_tool(args: CatNodesArgs) -> list[dict]:
 
         # If no nodes found
         if not result:
-            return [{'type': 'text', 'text': 'No nodes found in the cluster.'}]
+            return [{'type': 'text', 'text': 'No nodes found in the cluster.', 'view_data': []}]
 
         # Get all available columns from the first node
         columns = list(result[0].keys())
@@ -373,7 +369,7 @@ async def cat_nodes_tool(args: CatNodesArgs) -> list[dict]:
         if args.metrics:
             message += f' (metrics: {args.metrics})'
 
-        return [{'type': 'text', 'text': f'{message}:\n{formatted_text}'}]
+        return [{'type': 'text', 'text': f'{message}:\n{formatted_text}', 'view_data': result}]
     except Exception as e:
         return log_tool_error('CatNodesTool', e, 'getting node information')
 
@@ -494,7 +490,13 @@ async def get_allocation_tool(args: GetAllocationArgs) -> list[dict]:
 
         # If no allocation information found
         if not result:
-            return [{'type': 'text', 'text': 'No allocation information found in the cluster.'}]
+            return [
+                {
+                    'type': 'text',
+                    'text': 'No allocation information found in the cluster.',
+                    'view_data': [],
+                }
+            ]
 
         # Get all available columns from the first allocation entry
         columns = list(result[0].keys())
@@ -512,7 +514,7 @@ async def get_allocation_tool(args: GetAllocationArgs) -> list[dict]:
         # Create simple response message
         message = 'Allocation information from /_cat/allocation endpoint'
 
-        return [{'type': 'text', 'text': f'{message}:\n{formatted_text}'}]
+        return [{'type': 'text', 'text': f'{message}:\n{formatted_text}', 'view_data': result}]
     except Exception as e:
         return log_tool_error('GetAllocationTool', e, 'getting allocation information')
 
@@ -982,10 +984,13 @@ async def ppl_query_tool(args: PplQueryArgs) -> list[dict]:
             formatted_result = result
         else:
             formatted_result = format_json(result)
-        item = {'type': 'text', 'text': f'PPL query results:\n{formatted_result}'}
-        if apps_enabled():
-            item['structured'] = ppl_rows_payload(result, args.opensearch_cluster_name, args.query)
-        return [item]
+        return [
+            {
+                'type': 'text',
+                'text': f'PPL query results:\n{formatted_result}',
+                'view_data': result,
+            }
+        ]
     except Exception as e:
         return log_tool_error('PPLQueryTool', e, 'executing PPL query')
 
@@ -997,6 +1002,9 @@ TOOL_REGISTRY = {
     **MEMORY_TOOLS_REGISTRY,
     'ListIndexTool': {
         'display_name': 'ListIndexTool',
+        'ui_resource_uri': TABLE_VIEW_URI,
+        'ui_kind': 'cat_indices',
+        'ui_app_callable': True,
         'description': 'Lists indices in the OpenSearch cluster. If an index name or pattern is specified, return only information about the provided index or index pattern. The include_detail flag controls output: if False, returns only index name(s); if True (default), returns full metadata.',
         'input_schema': ListIndicesArgs.model_json_schema(),
         'function': list_indices_tool,
@@ -1007,6 +1015,8 @@ TOOL_REGISTRY = {
     },
     'IndexMappingTool': {
         'display_name': 'IndexMappingTool',
+        'ui_resource_uri': MAPPING_VIEW_URI,
+        'ui_kind': 'index_mapping',
         'description': 'Retrieves index mapping and setting information for an index in OpenSearch',
         'input_schema': GetIndexMappingArgs.model_json_schema(),
         'function': get_index_mapping_tool,
@@ -1018,6 +1028,7 @@ TOOL_REGISTRY = {
         'display_name': 'SearchIndexTool',
         'ui_resource_uri': RESULTS_VIEW_URI,
         'ui_kind': 'search_hits',
+        'ui_app_callable': True,
         'description': 'Searches an index using a query written in query domain-specific language (DSL) in OpenSearch. PREREQUISITE: You need to know the mappings of the index before constructing queries.',
         'input_schema': SearchIndexArgs.model_json_schema(),
         'function': search_index_tool,
@@ -1027,6 +1038,9 @@ TOOL_REGISTRY = {
     },
     'GetShardsTool': {
         'display_name': 'GetShardsTool',
+        'ui_resource_uri': TABLE_VIEW_URI,
+        'ui_kind': 'cat_shards',
+        'ui_app_callable': True,
         'description': 'Gets information about shards in OpenSearch',
         'input_schema': GetShardsArgs.model_json_schema(),
         'function': get_shards_tool,
@@ -1056,6 +1070,9 @@ TOOL_REGISTRY = {
     },
     'CatNodesTool': {
         'display_name': 'CatNodesTool',
+        'ui_resource_uri': TABLE_VIEW_URI,
+        'ui_kind': 'cat_nodes',
+        'ui_app_callable': True,
         'description': 'Lists node-level information, including node roles and load metrics. Gets information about nodes metrics in the OpenSearch cluster, including system metrics pid, name, cluster_manager, ip, port, version, build, jdk, along with disk, heap, ram, and file_desc. Can be filtered to specific metrics.',
         'input_schema': CatNodesArgs.model_json_schema(),
         'function': cat_nodes_tool,
@@ -1106,6 +1123,9 @@ TOOL_REGISTRY = {
     },
     'GetAllocationTool': {
         'display_name': 'GetAllocationTool',
+        'ui_resource_uri': TABLE_VIEW_URI,
+        'ui_kind': 'cat_allocation',
+        'ui_app_callable': True,
         'description': 'Gets information about shard allocation across nodes in the cluster from the /_cat/allocation endpoint.',
         'input_schema': GetAllocationArgs.model_json_schema(),
         'function': get_allocation_tool,
@@ -1379,6 +1399,7 @@ TOOL_REGISTRY = {
         'display_name': 'PPLQueryTool',
         'ui_resource_uri': RESULTS_VIEW_URI,
         'ui_kind': 'ppl_rows',
+        'ui_app_callable': True,
         'description': 'Executes a PPL (Piped Processing Language) query against OpenSearch. '
         'PPL provides a pipe-based syntax for querying data: source=<index> | <command> | <command>. '
         'Supports filtering (where), aggregation (stats), sorting (sort), deduplication (dedup), '

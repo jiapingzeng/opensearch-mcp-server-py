@@ -1,0 +1,48 @@
+// Table view for _cat-style tools (ListIndexTool, GetShardsTool, CatNodesTool, GetAllocationTool):
+// numbers and byte sizes sort numerically and show units; health and state are coloured.
+var catState = newTableState();
+
+function catSummary(data, types) {
+  var parts = [];
+  ['health', 'state'].forEach(function (name) {
+    var i = data.columns.indexOf(name);
+    if (i < 0) return;
+    var counts = {};
+    data.rows.forEach(function (r) { var k = r[i] === null || r[i] === undefined ? '(none)' : String(r[i]); counts[k] = (counts[k] || 0) + 1; });
+    parts.push(name + ': ' + Object.keys(counts).sort().map(function (k) { return k + ' ' + counts[k]; }).join(', '));
+  });
+  var total = 0, sized = false;
+  data.columns.forEach(function (c, i) {
+    if (types[i] === 'bytes' && (c === 'store.size' || c === 'store')) {
+      sized = true;
+      data.rows.forEach(function (r) { if (typeof r[i] === 'number') total += r[i]; });
+    }
+  });
+  if (sized) parts.push('total store: ' + formatBytes(total));
+  return parts;
+}
+
+function renderCatTable(data) {
+  var m = data.meta || {};
+  var types = columnTypes(data.columns, data.rows, m.column_types);
+  var stats = ['rows: ' + data.rows.length];
+  if (m.source) stats.push(m.source);
+  app.appendChild(header(data, m.title || 'Table', stats.concat(catSummary(data, types))));
+  var trunc = truncationNotice(data);
+  if (trunc) app.appendChild(trunc);
+  var unassigned = data.columns.indexOf('state') >= 0 ? data.rows.filter(function (r) { return r[data.columns.indexOf('state')] === 'UNASSIGNED'; }).length : 0;
+  if (unassigned) app.appendChild(el('div', unassigned + ' unassigned shard' + (unassigned === 1 ? '' : 's') + '.', 'notice warning unassigned'));
+  if (data.rows.length === 0) { if (!trunc) app.appendChild(el('div', 'No rows.', 'notice')); return; }
+  var section = buildDataSection(data, data.columns, data.rows, types, catState, { chipSkipNumeric: true });
+  if (section.chips) app.appendChild(section.chips);
+  app.appendChild(section.toolbar);
+  app.appendChild(section.stats);
+  app.appendChild(section.table.node);
+}
+
+startView({
+  name: 'opensearch-table',
+  unsupportedText: 'This result is not a table (for example, details for one index); the text result is unchanged.',
+  accepts: function (data) { return data.kind === 'cat_table' && Array.isArray(data.columns) && Array.isArray(data.rows); },
+  render: renderCatTable
+});
