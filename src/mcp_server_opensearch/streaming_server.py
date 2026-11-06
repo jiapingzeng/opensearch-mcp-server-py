@@ -57,7 +57,6 @@ async def create_mcp_server(
     enabled_tools = await get_tools(
         tool_registry=customized_registry, config_file_path=config_file_path
     )
-    logging.info(f'Enabled tools: {list(enabled_tools.keys())}')
 
     # Server instructions guide the LLM on dynamic connection params (single mode only)
     server = Server(

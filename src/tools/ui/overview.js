@@ -64,22 +64,34 @@ function drawFilterBar() {
   bar.appendChild(button('Clear filters', function () { overviewState.filter = { node: null, index: null }; drawFilterBar(); overview.requested.forEach(drawSection); }, 'clear-filters'));
 }
 
+// Names that would read differently in the message than on screen: hidden, control, format
+// (bidi, zero-width) and separator characters.
+var HIDDEN_CHAR_RE = new RegExp(HIDDEN_CHARS_RE.source, 'u');
+var UNSENDABLE_RE = /[\p{Cc}\p{Cf}\p{Z}]/u;
+function sendableName(v) { var s = rawText(v); return !HIDDEN_CHAR_RE.test(s) && !UNSENDABLE_RE.test(s); }
+
 // Index names open the index explorer through the assistant: views cannot open other views.
 function openExplorer(index) {
   var status = app.querySelector('.handoff-status');
   var tool = overview.tools && overview.tools.explorer;
-  var where = overview.cluster ? ' on cluster "' + overview.cluster + '"' : '';
+  var name = cellText(index);
+  var ask = 'Ask the assistant: "Open the index explorer for ' + name + '"' + (overview.cluster ? ' on cluster "' + cellText(overview.cluster) + '"' : '') + '.';
   if (!tool) {
-    status.textContent = 'The index explorer is not available on this server. Ask the assistant about "' + index + '" instead.';
+    status.textContent = 'The index explorer is not available on this server. Ask the assistant about "' + name + '" instead.';
     return;
   }
   if (!canSendMessage()) {
-    status.textContent = 'This host cannot send requests from views. Ask the assistant: "Open the index explorer for ' + index + '"' + where + '.';
+    status.textContent = 'This host cannot send requests from views. ' + ask;
     return;
   }
-  status.textContent = 'Asking the assistant to open the index explorer for ' + index + '\u2026';
+  if (!sendableName(index) || (overview.cluster && !sendableName(overview.cluster))) {
+    status.textContent = 'The index or cluster name has hidden or control characters, so the view does not send it. ' + ask;
+    return;
+  }
+  var where = overview.cluster ? ' on cluster "' + overview.cluster + '"' : '';
+  status.textContent = 'Asking the assistant to open the index explorer for ' + name + '\u2026';
   sendUserMessage('Open ' + tool + ' for index "' + index + '"' + where + '.').then(function (ok) {
-    status.textContent = ok ? 'Asked the assistant to open the index explorer for ' + index + '.' : 'The host did not send the request. Ask the assistant: "Open the index explorer for ' + index + '".';
+    status.textContent = ok ? 'Asked the assistant to open the index explorer for ' + name + '.' : 'The host did not send the request. Ask the assistant: "Open the index explorer for ' + name + '".';
   });
 }
 
@@ -88,7 +100,9 @@ function refreshSection(name) {
   overviewState.busy[name] = true;
   delete overviewState.errors[name];
   drawSection(name);
+  var current = sameRender();
   callTool(overview.tool, callArguments({ sections: [name] })).then(function (r) {
+    if (!current()) return;
     overviewState.busy[name] = false;
     var sc = r.result && r.result.structuredContent;
     if (r.error) overviewState.errors[name] = r.error;

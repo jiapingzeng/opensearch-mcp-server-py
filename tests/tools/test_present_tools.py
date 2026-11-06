@@ -544,6 +544,20 @@ class TestListing:
         assert r.is_error and r.content[0].text == 'Unknown or disabled tool: ClusterOverviewTool'
         assert r.structured_content is None
 
+    def test_enabled_tools_log_lists_only_served_tools(self, monkeypatch, caplog):
+        caplog.set_level('INFO', logger='mcp_server_opensearch.mcp_handlers')
+        monkeypatch.delenv('OPENSEARCH_MCP_APPS_ENABLED', raising=False)
+        build_handlers(_enabled())
+        monkeypatch.setenv('OPENSEARCH_MCP_APPS_ENABLED', 'true')
+        build_handlers(_enabled())
+        logged = [
+            r.getMessage() for r in caplog.records if r.getMessage().startswith('Enabled tools:')
+        ]
+        assert len(logged) == 2
+        assert 'ClusterOverviewTool' not in logged[0] and 'IndexExplorerTool' not in logged[0]
+        assert "'ListIndexTool'" in logged[0]
+        assert 'ClusterOverviewTool' in logged[1] and 'IndexExplorerTool' in logged[1]
+
     @pytest.mark.asyncio
     async def test_ui_client_lists_read_only_present_tools(self, monkeypatch, client):
         monkeypatch.setenv('OPENSEARCH_MCP_APPS_ENABLED', 'true')

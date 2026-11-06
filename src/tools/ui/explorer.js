@@ -42,7 +42,9 @@ function load(index, tab) {
   var call = tabCall(tab, index);
   if (!call) { explorerState.cache[key] = { status: 'error', error: 'The tool for this tab is not enabled on this server.' }; return; }
   explorerState.cache[key] = { status: 'loading' };
+  var current = sameRender();
   callTool(call.name, call.arguments).then(function (r) {
+    if (!current()) return;
     var sc = r.result && r.result.structuredContent;
     var entry;
     if (r.error) entry = { status: 'error', error: r.error };
@@ -194,7 +196,7 @@ function drawPanel() {
   var entry = explorerState.cache[key];
   if (!entry) {
     if (tab === 'overview') renderOverviewTab(panel, index, null);
-    var ask = el('div', 'This host does not let views call tools, so this cannot load here. Ask the assistant: "' + ASK[tab] + index + '".', 'notice degraded-tab');
+    var ask = el('div', 'This host does not let views call tools, so this cannot load here. Ask the assistant: "' + ASK[tab] + cellText(index) + '".', 'notice degraded-tab');
     panel.appendChild(ask);
     return;
   }
@@ -322,7 +324,7 @@ function renderExplorer(data) {
   if (!canDrill()) {
     var hint = names.filter(function (n) { return n !== explorerState.selected; })[0];
     app.appendChild(el('div', 'This host does not let views call tools, so other indices and tabs cannot load here. Ask the assistant instead, for example "Show the mapping of ' +
-      (explorerState.selected || 'an index') + '"' + (hint ? ' or "Open the index explorer for ' + hint + '"' : '') + '.', 'notice degraded'));
+      (explorerState.selected ? cellText(explorerState.selected) : 'an index') + '"' + (hint ? ' or "Open the index explorer for ' + cellText(hint) + '"' : '') + '.', 'notice degraded'));
   }
   var layout = el('div', null, 'explorer');
   var left = el('div', null, 'list-pane');

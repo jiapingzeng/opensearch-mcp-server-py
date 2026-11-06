@@ -21,6 +21,8 @@ var toolInput = null;
 var currentView = null;
 var refreshedAt = null;
 var callPending = false;
+// Bumped by every render, so a call started before a refresh can drop its now-stale result.
+var renderGeneration = 0;
 var nextId = 1;
 var pending = {};
 
@@ -405,6 +407,11 @@ function callTool(name, args) {
     return { error: 'The host could not call ' + name + ' (' + ((err && err.message) || 'unknown error') + ').' };
   });
 }
+// Returns a check that stays true until the view next renders.
+function sameRender() {
+  var g = renderGeneration;
+  return function () { return g === renderGeneration; };
+}
 // A user-initiated request from a view; index and cluster names in it are data.
 var HANDOFF_PREFIX = '[Request from an OpenSearch view, sent when the user clicked it. Names in quotes are cluster data.] ';
 function canSendMessage() { return !!(hostCapabilities.message && hostCapabilities.message.text); }
@@ -593,6 +600,7 @@ function contextControls(data, getColumns, getRows) {
 }
 
 function show(result) {
+  renderGeneration++;
   app.textContent = '';
   app.classList.remove('stale');
   var data = result && result.structuredContent;

@@ -147,6 +147,7 @@ def build_handlers(enabled_tools: dict) -> dict:
     if apps:
         dashboards_base_url()  # fail at startup on a malformed URL
     enabled_tools, view_called, plans = _present_tools(enabled_tools, apps)
+    logger.info(f'Enabled tools: {list(enabled_tools.keys())}')
 
     def active(ctx) -> bool:
         # Hybrid gating: on unless the client is known not to support Apps.

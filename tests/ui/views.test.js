@@ -1290,6 +1290,50 @@ describe('cluster overview', () => {
     assert.equal(v.request('ui/message'), undefined);
   });
 
+  const indicesNamed = (...names) => table(['health', 'index', 'docs.count', 'store.size'], names.map((n) => ['green', n, 1, 1]), ['string', 'string', 'number', 'bytes'],
+    { summary: { count: names.length, by_health: { green: names.length }, docs: names.length, store_bytes: names.length } });
+  const indexLink = (v, i) => v.doc.querySelectorAll('.section-indices button.row-action')[i];
+
+  test('index or cluster names with control, format or separator characters are not handed off', async () => {
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult({ sections: { indices: indicesNamed('a\nb', 'x\u202ey', 'z\u200bw', 'n\u00a0m') } }));
+    indexLink(v, 1).click(); await flush();
+    assert.equal(v.doc.querySelector('.handoff-status').textContent,
+      'The index or cluster name has hidden or control characters, so the view does not send it. Ask the assistant: "Open the index explorer for x\u27e6U+202E\u27e7y" on cluster "c1".');
+    indexLink(v, 2).click(); await flush();
+    assert.match(v.doc.querySelector('.handoff-status').textContent, /for z\u27e6U\+200B\u27e7w" on cluster "c1"\.$/);
+    for (const i of [0, 3]) {
+      indexLink(v, i).click(); await flush();
+      assert.match(v.doc.querySelector('.handoff-status').textContent, /^The index or cluster name has hidden or control characters/);
+    }
+    assert.equal(v.request('ui/message'), undefined);
+    const c = await openView('overview', OV_CAPS, OV_INPUT, overviewResult({ cluster: 'c\u202e1' }));
+    indexLink(c, 0).click(); await flush();
+    assert.match(c.doc.querySelector('.handoff-status').textContent, /for logs" on cluster "c\u27e6U\+202E\u27e71"\.$/);
+    assert.equal(c.request('ui/message'), undefined);
+  });
+
+  test('ordinary non-ASCII index names still hand off', async () => {
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult({ sections: { indices: indicesNamed('caf\u00e9-\u043b\u043e\u0433\u0438.2026') } }));
+    indexLink(v, 0).click(); await flush();
+    assert.match(v.request('ui/message').params.content[0].text, /Open IndexExplorerTool for index "caf\u00e9-\u043b\u043e\u0433\u0438\.2026" on cluster "c1"\.$/);
+  });
+
+  test('a section refresh that resolves after Refresh all does not overwrite the newer data', async () => {
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult());
+    v.doc.querySelector('.section-nodes button.section-refresh').click(); await flush();
+    const slow = lastCall(v);
+    v.doc.querySelector('button.refresh-all').click(); await flush();
+    const all = lastCall(v);
+    assert.notEqual(all.id, slow.id);
+    v.deliver({ id: all.id, result: overviewResult({ sections: { nodes: table(['name'], [['n7']], ['string']) } }) });
+    await flush();
+    v.deliver({ id: slow.id, result: overviewResult({ requested: ['nodes'], sections: { nodes: table(['name'], [['n9']], ['string']) } }) });
+    await flush();
+    assert.match(sectionText(v, 'nodes'), /n7/);
+    assert.doesNotMatch(sectionText(v, 'nodes'), /n9/);
+    assert.ok(!v.doc.querySelector('.section-nodes button.section-refresh').disabled);
+  });
+
   test('without serverTools there are no refresh buttons and a degraded notice', async () => {
     const v = await openView('overview', {}, OV_INPUT, overviewResult());
     assert.equal(v.doc.querySelectorAll('button.section-refresh, button.refresh-all, button.refresh').length, 0);
@@ -1507,6 +1551,31 @@ describe('index explorer', () => {
     assert.deepEqual(calls(v).pop().params, { name: 'IndexExplorerTool', arguments: EX_INPUT });
     await answer(v, explorerResult().structuredContent);
     assert.equal(v.doc.querySelector('[aria-current="true"] .name').textContent, 'audit');
+  });
+
+  test('a tab response from before a refresh is dropped, not cached into the refreshed view', async () => {
+    const v = await openView('explorer', OV_CAPS, EX_INPUT, explorerResult());
+    tab(v, 'mapping').click(); await flush();
+    const slow = calls(v).pop();
+    v.doc.querySelector('header button.refresh').click(); await flush();
+    await answer(v, explorerResult().structuredContent);
+    const fresh = calls(v).pop();
+    assert.equal(fresh.params.name, 'IndexMappingTool');
+    assert.notEqual(fresh.id, slow.id);
+    v.deliver({ id: slow.id, result: ok({ ...MAPPING_SC, indices: [{ ...MAPPING_SC.indices[0], name: 'logs' }] }) });
+    await flush();
+    assert.match(v.doc.querySelector('.tab-panel').textContent, /Loading mapping for logs/);
+    v.deliver({ id: fresh.id, result: ok({ ...MAPPING_SC, indices: [{ name: 'logs', fields: [{ name: 'now', path: 'now', type: 'date' }] }] }) });
+    await flush();
+    assert.deepEqual([...v.doc.querySelectorAll('.tab-panel .node .name')].map((n) => n.textContent), ['now']);
+  });
+
+  test('degraded-host hints mark hidden characters in index names', async () => {
+    const rows = [['green', 'open', 'a\u202eb', 1, 1], ['green', 'open', 'c\u200bd', 1, 1]];
+    const v = await openView('explorer', {}, EX_INPUT, explorerResult({ rows, selected: 'a\u202eb', detail: { status: 'ok', index: { name: 'a\u202eb', aliases: [], settings: {} } } }));
+    assert.match(v.doc.querySelector('.notice.degraded').textContent, /"Show the mapping of a\u27e6U\+202E\u27e7b" or "Open the index explorer for c\u27e6U\+200B\u27e7d"/);
+    tab(v, 'mapping').click(); await flush();
+    assert.match(v.doc.querySelector('.degraded-tab').textContent, /Ask the assistant: "Show the mapping of a\u27e6U\+202E\u27e7b"\.$/);
   });
 
   test('a failed list shows the error and the selected index still renders', async () => {
