@@ -263,7 +263,11 @@ function toJsonRows(names, indexes, rows) {
   }), null, 2);
 }
 
-function exportControls(table) {
+function csvFileName(data) {
+  return 'opensearch-' + String(data.tool || 'results').replace(/[^A-Za-z0-9_-]/g, '_') + '.csv';
+}
+
+function exportControls(table, data) {
   var wrap = el('span');
   var status = el('span', null, 'muted export-status');
   function rowsOrSelected() { var s = table.selectedRows(); return s.length ? s : table.shownRows(); }
@@ -277,6 +281,17 @@ function exportControls(table) {
     copyText(toJsonRows(cols.names, cols.indexes, rows), 'JSON of ' + rows.length + ' rows', status);
   }, 'copy-json'));
   wrap.appendChild(document.createTextNode(' '));
+  if (hostCapabilities.downloadFile) {
+    // Sandboxed views cannot download directly; the host saves the file, usually after a prompt.
+    wrap.appendChild(button('Download CSV', function () {
+      var cols = table.shownColumns(); var rows = rowsOrSelected();
+      var resource = { uri: 'file:///' + csvFileName(data), mimeType: 'text/csv', text: toCsv(cols.names, cols.indexes, rows) };
+      request('ui/download-file', { contents: [{ type: 'resource', resource: resource }] }).then(function (r) {
+        status.textContent = r && r.isError ? 'Host did not download the file.' : 'Sent CSV of ' + rows.length + ' rows to the host to download.';
+      }, function () { status.textContent = 'Host could not download the file.'; });
+    }, 'download-csv'));
+    wrap.appendChild(document.createTextNode(' '));
+  }
   wrap.appendChild(status);
   return wrap;
 }
@@ -310,7 +325,7 @@ function buildDataSection(data, columns, rows, types, state, opts) {
   }
   section.chips = groups.length ? buildChips(groups, state.filters, function () { if (section.ready) apply(); }) : null;
   var bar = el('div', null, 'toolbar data-tools');
-  bar.appendChild(exportControls(table));
+  bar.appendChild(exportControls(table, data));
   bar.appendChild(stats.control);
   var ctx = contextControls(data, function () { return table.shownColumns(); }, function () { return table.selectedRows(); });
   if (ctx) bar.appendChild(ctx);

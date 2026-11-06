@@ -50,14 +50,18 @@ function pplEditor(data) {
   area.rows = 3; area.value = toolInput.query; area.spellcheck = false;
   box.appendChild(area);
   var bar = el('div', null, 'toolbar');
-  bar.appendChild(button('Run', function () { if (area.value.trim()) callBack(data, { query: area.value }, 'Running\u2026'); }, 'callback ppl-run'));
-  bar.appendChild(el('span', 'Runs ' + data.tool + ' from this view with the other arguments unchanged; the assistant sees only its own calls.', 'muted'));
+  // The assistant's intent and suggestions described its own query, not the edited one.
+  bar.appendChild(button('Run', function () {
+    if (area.value.trim()) callBack(data, { query: area.value, intent: undefined, suggestions: undefined }, 'Running\u2026');
+  }, 'callback ppl-run'));
+  bar.appendChild(el('span', 'Runs any PPL you enter through ' + data.tool + ' with the same connection and other arguments; the assistant sees only its own calls.', 'muted'));
   box.appendChild(bar);
   return box;
 }
 
 function deepLink(data) {
   var m = data.meta || {};
+  if (!hostCapabilities.openLinks) return null;
   if (typeof m.dashboards_url !== 'string' || !/^https?:\/\//i.test(m.dashboards_url)) return null;
   var link = button('View in OpenSearch Dashboards', null, 'deep-link');
   link.title = data.kind === 'search_hits' ? 'Opens the index in Discover; the query DSL is not carried over.' : 'Opens this PPL query in Discover.';
@@ -87,7 +91,7 @@ function renderResults(data) {
   if (editor) app.appendChild(editor);
   var trunc = truncationNotice(data);
   if (trunc) app.appendChild(trunc);
-  if (data.rows.length === 0) { if (!trunc) app.appendChild(el('div', 'No rows.', 'notice')); return; }
+  if (data.rows.length === 0) { if (!trunc) app.appendChild(el('div', 'No rows.', 'notice')); appendAggregations(m); return; }
   var types = columnTypes(data.columns, data.rows, m.column_types);
   var ts = timeSeriesSpec(data, types);
   var bars = ts ? null : barSpec(data, types);
@@ -118,8 +122,13 @@ function renderResults(data) {
     mode(resultsState.chart);
   }
   app.appendChild(section.table.node);
+  appendAggregations(m);
+}
+
+function appendAggregations(m) {
   (m.aggregations || []).forEach(function (t) {
-    app.appendChild(el('h3', 'Aggregation: ' + t.name + (t.truncated ? ' (truncated)' : '')));
+    var note = !t.truncated ? '' : typeof t.row_count === 'number' ? ' (showing ' + t.rows.length + ' of ' + t.row_count + ' rows)' : ' (truncated)';
+    app.appendChild(el('h3', 'Aggregation: ' + t.name + note));
     app.appendChild(buildTable(t.columns, t.rows, columnTypes(t.columns, t.rows), newTableState(), {}).node);
   });
 }

@@ -10,8 +10,10 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - Add optional MCP Apps support behind `OPENSEARCH_MCP_APPS_ENABLED` (off by default): a `ui://opensearch/results` table view for `SearchIndexTool` and `PPLQueryTool`, with `structuredContent` on their results. Text output is unchanged.
 - MCP Apps view: row/column caps with `omitted` markers, model-only visibility for tools views don't call, optional `intent`/`suggestions` arguments, a Dashboards deep link (`OPENSEARCH_DASHBOARDS_URL`), PPL `stats` bar chart and filter chips.
 - MCP Apps views for `ListIndexTool`, `GetShardsTool`, `CatNodesTool`, `GetAllocationTool` (typed table), `ClusterHealthTool` (health card), `IndexMappingTool` (mapping tree) and `ExplainTool` (score tree); in-view refresh, search paging and PPL re-run; PPL time-series chart; CSV/JSON copy, column stats and opt-in model context. Apps output is sent only to clients that advertise the UI extension or whose capabilities are unknown.
+- MCP Apps views: Download CSV through the host; pills, deep link, model context and download appear only when the host advertises the capability they use; model context capped at 1 KB per cell and 32 KB per update; identifier columns stay strings; oversized aggregation tables are halved like hits.
 
 ### Changed
+- Bound `mcp` to `>=2.0.0,<2.3`, since MCP Apps handshake gating uses its provisional server middleware API.
 - Apply tool filters (enabled/disabled categories, tools and regexes, and `allow_write`) in multi mode the same way as in single mode. **Breaking (multi mode):** with no filter configured, multi mode now enables only `core_tools` (plus `ListClustersTool`) instead of every tool; enable other categories with `OPENSEARCH_ENABLED_CATEGORIES` or `tool_filters.enabled_categories` ([#330](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/330))
 
 ### Fixed
