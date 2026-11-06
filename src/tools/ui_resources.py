@@ -12,7 +12,7 @@ import unicodedata
 from functools import lru_cache
 from importlib import resources
 from typing import Any
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlsplit, urlunsplit
 
 
 logger = logging.getLogger(__name__)
@@ -112,25 +112,47 @@ def apps_enabled() -> bool:
     return os.getenv(APPS_ENABLED_ENV, '').strip().lower() == 'true'
 
 
+# A DNS name or IPv4 address (underscores allowed for container names), or a bracketed IPv6.
+_HOST_RE = re.compile(
+    r'^(?:[A-Za-z0-9_](?:[A-Za-z0-9_-]*[A-Za-z0-9_])?(?:\.|$))+$|^\[[0-9A-Fa-f:.]+\]$'
+)
+# RFC 3986 path characters, without the quote that would end an attribute or rison string.
+_PATH_RE = re.compile(r'^[A-Za-z0-9\-._~!$&()*+,=:@/%]*$')
+
+
+def _url_error(raw: str) -> ValueError:
+    return ValueError(
+        f'{DASHBOARDS_URL_ENV} must be an http(s) URL with a valid host and port and no '
+        f'credentials, query, fragment or spaces, such as https://dashboards.example.com; '
+        f'got {raw!r}.'
+    )
+
+
 def dashboards_base_url() -> str | None:
     """Return OPENSEARCH_DASHBOARDS_URL without a trailing slash, or None when unset."""
     raw = os.getenv(DASHBOARDS_URL_ENV, '').strip()
     if not raw:
         return None
-    parsed = urlparse(raw)
+    parsed = urlsplit(raw)
+    host = parsed.netloc.rsplit(':', 1)[0] if not parsed.netloc.endswith(']') else parsed.netloc
+    try:
+        port = parsed.port
+    except ValueError:
+        raise _url_error(raw) from None
     if (
         parsed.scheme not in ('http', 'https')
         or not parsed.hostname
         or '@' in parsed.netloc
-        or parsed.query
-        or parsed.fragment
-        or parsed.params
+        or '?' in raw
+        or '#' in raw
+        or any(ch.isspace() or ord(ch) < 0x20 for ch in raw)
+        or not _HOST_RE.match(host)
+        or (':' in parsed.netloc.rsplit(']', 1)[-1] and port is None)
+        or port == 0
+        or not _PATH_RE.match(parsed.path)
     ):
-        raise ValueError(
-            f'{DASHBOARDS_URL_ENV} must be an http(s) URL with no credentials, query or '
-            f'fragment, such as https://dashboards.example.com; got {raw!r}.'
-        )
-    return raw.rstrip('/')
+        raise _url_error(raw)
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip('/'), '', ''))
 
 
 @lru_cache(maxsize=None)
@@ -197,8 +219,21 @@ def view_input_schema(input_schema: dict) -> dict:
     return schema
 
 
+# Emoji tag sequences (subdivision flags): black flag, tag letters/digits, cancel tag.
+_EMOJI_TAG_SEQUENCE = re.compile(
+    '\U0001f3f4[\U000e0030-\U000e0039\U000e0061-\U000e007a]+\U000e007f'
+)
+_ZWJ = '\u200d'
+
+
 def _has_control_chars(text: str, allowed: str = '') -> bool:
-    return any(unicodedata.category(ch) in ('Cc', 'Cf') and ch not in allowed for ch in text)
+    # Format characters (Cf) are rejected, including bidi controls and zero-width spaces,
+    # except the joiner in emoji sequences and tag characters inside an emoji flag.
+    text = _EMOJI_TAG_SEQUENCE.sub('', text)
+    return any(
+        unicodedata.category(ch) in ('Cc', 'Cf') and ch not in allowed and ch != _ZWJ
+        for ch in text
+    )
 
 
 def split_presentation_args(arguments: dict) -> tuple[dict, dict]:
@@ -215,7 +250,8 @@ def split_presentation_args(arguments: dict) -> tuple[dict, dict]:
         ):
             raise ValueError(
                 f"'intent' must be a string of at most {INTENT_MAX_CHARS} characters with no "
-                'control or formatting characters other than newlines and tabs.'
+                'control characters, bidi controls or zero-width spaces; newlines, tabs and '
+                'emoji are fine.'
             )
         if intent.strip():
             presentation['intent'] = intent
@@ -235,7 +271,7 @@ def split_presentation_args(arguments: dict) -> tuple[dict, dict]:
             raise ValueError(
                 f"'suggestions' must be a list of at most {SUGGESTIONS_MAX_ITEMS} non-empty "
                 f'strings of at most {SUGGESTION_MAX_CHARS} characters each, with no control '
-                'or formatting characters.'
+                'characters, bidi controls or zero-width spaces.'
             )
         if suggestions:
             presentation['suggestions'] = suggestions
@@ -267,7 +303,9 @@ def discover_ppl_url(ppl_query: str) -> str | None:
         f'(filters:!(),query:(dataset:{dataset},language:PPL,query:{_rison_string(ppl_query)}))'
     )
     encoded = quote(state, safe="!'(),:*-._~")
-    return f'{base}/app/data-explorer/discover#?_q={encoded}'
+    parts = urlsplit(base)
+    path = parts.path + '/app/data-explorer/discover'
+    return urlunsplit((parts.scheme, parts.netloc, path, '', f'?_q={encoded}'))
 
 
 def _structured(kind: str, cluster: str, columns: list, rows: list, meta: dict) -> dict:
@@ -293,36 +331,266 @@ def omitted_marker(kind: str, reason: str, size: int | None = None) -> dict:
     return marker
 
 
-def _agg_tables(aggregations: dict) -> list[dict]:
-    # One table per top-level aggregation: bucket aggs become key/doc_count rows,
-    # metric aggs become a single row of their scalar values.
-    tables = []
-    for name, agg in (aggregations or {}).items():
-        if not isinstance(agg, dict):
+# Largest integer a JSON number keeps exactly in a JavaScript view (Number.MAX_SAFE_INTEGER).
+MAX_SAFE_INTEGER = 2**53 - 1
+
+
+def _exact_integers(value: Any, path: str, paths: list[str]) -> Any:
+    """Return value with unsafe integers as decimal strings, adding each one's dotted path."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        if abs(value) > MAX_SAFE_INTEGER:
+            if path not in paths:
+                paths.append(path)
+            return str(value)
+        return value
+    if isinstance(value, dict):
+        return {k: _exact_integers(v, f'{path}.{k}', paths) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_exact_integers(v, path, paths) for v in value]
+    return value
+
+
+def _exact_rows(columns: list, rows: list) -> tuple[list, list[str]]:
+    """Encode unsafe integers in rows; return the rows and the column paths that hold them."""
+    paths: list[str] = []
+    out = []
+    for row in rows:
+        if isinstance(row, list):
+            tail = row[len(columns) :]
+            row = [_exact_integers(v, str(c), paths) for c, v in zip(columns, row)] + tail
+        out.append(row)
+    return out, paths
+
+
+def _with_exact_integers(table: dict) -> dict:
+    rows, paths = _exact_rows(table['columns'], table['rows'])
+    table['rows'] = rows
+    if paths:
+        table['integer_strings'] = paths
+    return table
+
+
+# Bucket fields that are not columns of their own (key is placed first).
+_BUCKET_SKIP = frozenset({'key', 'key_as_string', 'meta'})
+_AGG_NESTING = ('aggs', 'aggregations')
+
+
+def _agg_types(query_dsl: Any) -> dict[tuple, str]:
+    """Map each aggregation path in the request body to its type, such as ('a', 'b') -> 'terms'."""
+    if isinstance(query_dsl, str):
+        try:
+            query_dsl = json.loads(query_dsl)
+        except ValueError:
+            return {}
+    types: dict[tuple, str] = {}
+
+    def walk(aggs: Any, prefix: tuple) -> None:
+        if not isinstance(aggs, dict):
+            return
+        for name, spec in aggs.items():
+            if not isinstance(spec, dict):
+                continue
+            kinds = [k for k in spec if k not in _AGG_NESTING and k != 'meta']
+            types[prefix + (name,)] = kinds[0] if kinds else 'unknown'
+            for key in _AGG_NESTING:
+                walk(spec.get(key), prefix + (name,))
+
+    if isinstance(query_dsl, dict):
+        for key in _AGG_NESTING:
+            walk(query_dsl.get(key), ())
+    return types
+
+
+def _hit_rows(hits: list) -> tuple[list, list]:
+    columns = ['_index', '_id', '_score']
+    for hit in hits:
+        for key in (hit.get('_source') or {}) if isinstance(hit, dict) else ():
+            if key not in columns:
+                columns.append(key)
+    rows = []
+    for hit in hits:
+        if not isinstance(hit, dict):
             continue
+        source = hit.get('_source') or {}
+        rows.append(
+            [hit.get(c) if c in ('_index', '_id', '_score') else source.get(c) for c in columns]
+        )
+    return columns, rows
+
+
+def _metric_cells(agg: dict, depth: int = 0) -> tuple[dict, bool]:
+    """Flatten a metric result to {suffix: scalar}; suffix '' is the single value.
+
+    Returns the cells and whether anything (a list field) was left out.
+    """
+    if 'value' in agg and not isinstance(agg['value'], (dict, list)):
+        return {'': agg.get('value_as_string', agg['value'])}, False
+    cells: dict[str, Any] = {}
+    partial = False
+    for k, v in agg.items():
+        if k == 'meta' or k.endswith('_as_string'):
+            continue
+        if k == 'values' and isinstance(v, dict):  # percentiles, percentile_ranks
+            cells.update({f'[{p}]': x for p, x in v.items() if not p.endswith('_as_string')})
+        elif k == 'values' and isinstance(v, list):  # keyed: false
+            for item in v:
+                if isinstance(item, dict) and 'key' in item:
+                    cells[f'[{item["key"]}]'] = item.get('value')
+                else:
+                    partial = True
+        elif isinstance(v, dict) and depth < 3:  # geo_bounds, extended_stats bounds
+            sub, sub_partial = _metric_cells(v, depth + 1)
+            cells.update({f'.{k}{s}': x for s, x in sub.items()})
+            partial = partial or sub_partial
+        elif isinstance(v, (dict, list)):
+            partial = True
+        else:
+            cells[f'.{k}'] = v
+    return cells, partial
+
+
+class _AggTables:
+    """Turns an aggregations response into view tables and notes for what it cannot show."""
+
+    def __init__(self, types: dict[tuple, str]):
+        self.types = types
+        self.tables: list[dict] = []
+        self.notes: list[str] = []
+        self.order: dict[tuple, int] = {}
+
+    def note(self, path: tuple, partly: bool = False) -> None:
+        label = ' > '.join(path)
+        kind = self.types.get(path, 'unknown')
+        shown = 'only partly' if partly else 'not'
+        text = f'aggregation {label} ({kind}) is {shown} shown; see the text result'
+        if text not in self.notes:
+            self.notes.append(text)
+
+    def table(self, path: tuple, columns: list, rows: list[dict]) -> None:
+        # Child tables from many parent buckets share one table per aggregation path.
+        if path not in self.order:
+            self.order[path] = len(self.tables)
+            self.tables.append({'name': ' > '.join(path), 'columns': [], 'rows': []})
+        t = self.tables[self.order[path]]
+        for c in columns:
+            if c not in t['columns']:
+                t['columns'].append(c)
+        t['rows'].extend(rows)
+
+    def cells(self, path: tuple, obj: dict, prefix: str, out: dict, children: list) -> None:
+        """Columns of one bucket (or single-bucket aggregation) and its sub-aggregations."""
+        for k, v in obj.items():
+            if k in _BUCKET_SKIP or k.endswith('_as_string'):
+                continue
+            sub_path = path + (k,)
+            if not isinstance(v, (dict, list)):
+                out[prefix + k] = v
+            elif isinstance(v, list):
+                self.note(path, partly=True)
+            elif 'buckets' in v:
+                children.append((sub_path, v))
+            elif isinstance(v.get('hits'), dict) and isinstance(v['hits'].get('hits'), list):
+                out[prefix + k] = [
+                    h.get('_source') for h in v['hits']['hits'] if isinstance(h, dict)
+                ]
+            elif 'doc_count' in v:
+                self.cells(sub_path, v, f'{prefix}{k}.', out, children)
+            else:
+                metric, partial = _metric_cells(v)
+                if not metric:
+                    self.note(sub_path)
+                elif partial:
+                    self.note(sub_path, partly=True)
+                out.update({f'{prefix}{k}{s}': x for s, x in metric.items()})
+
+    def buckets(self, path: tuple, buckets: list, parent: dict) -> None:
+        rows: list[dict] = []
+        columns = list(parent)
+        children: list = []
+        for bucket in buckets:
+            if not isinstance(bucket, dict):
+                continue
+            row = dict(parent)
+            key = bucket.get('key_as_string', bucket.get('key'))
+            if isinstance(key, dict):  # composite: one column per source
+                for part, value in key.items():
+                    row[part if part not in row else f'key.{part}'] = value
+            else:
+                row['key'] = key
+            own: list = []
+            self.cells(path, bucket, '', row, own)
+            for sub_path, sub in own:
+                sub_parent = dict(parent)
+                if isinstance(key, dict):
+                    sub_parent.update({f'{path[-1]}.{p}': v for p, v in key.items()})
+                else:
+                    name = path[-1] if path[-1] not in sub_parent else ' > '.join(path)
+                    sub_parent[name] = key
+                children.append((sub_path, sub, sub_parent))
+            for c in row:
+                if c not in columns:
+                    columns.append(c)
+            rows.append(row)
+        self.table(path, columns, rows)
+        for sub_path, sub, sub_parent in children:
+            self.agg(sub_path, sub, sub_parent)
+
+    def agg(self, path: tuple, agg: Any, parent: dict) -> None:
+        if not isinstance(agg, dict):
+            self.note(path)
+            return
         buckets = agg.get('buckets')
-        if isinstance(buckets, dict):
+        if isinstance(buckets, dict):  # keyed filters and ranges
             buckets = [{'key': k, **v} for k, v in buckets.items() if isinstance(v, dict)]
         if isinstance(buckets, list):
-            columns = ['key', 'doc_count']
-            rows = []
-            for bucket in buckets:
-                row = {'key': bucket.get('key_as_string', bucket.get('key'))}
-                row['doc_count'] = bucket.get('doc_count')
-                for sub_name, sub in bucket.items():
-                    if isinstance(sub, dict) and 'value' in sub:
-                        row[sub_name] = sub.get('value_as_string', sub['value'])
-                        if sub_name not in columns:
-                            columns.append(sub_name)
-                rows.append([row.get(c) for c in columns])
-            tables.append({'name': name, 'columns': columns, 'rows': rows})
-        else:
-            scalars = {k: v for k, v in agg.items() if not isinstance(v, (dict, list))}
-            if scalars:
-                tables.append(
-                    {'name': name, 'columns': list(scalars), 'rows': [list(scalars.values())]}
-                )
-    return tables
+            self.buckets(path, buckets, parent)
+            return
+        hits = agg.get('hits')
+        if isinstance(hits, dict) and isinstance(hits.get('hits'), list):  # top_hits
+            columns, rows = _hit_rows(hits['hits'])
+            self.table(
+                path, list(parent) + columns, [{**parent, **dict(zip(columns, r))} for r in rows]
+            )
+            return
+        if 'doc_count' in agg:  # single bucket: filter, nested, global, missing, ...
+            row = dict(parent)
+            children: list = []
+            self.cells(path, agg, '', row, children)
+            self.table(path, list(row), [row])
+            for sub_path, sub in children:
+                self.agg(sub_path, sub, dict(parent))
+            return
+        metric, partial = _metric_cells(agg)
+        if not metric:
+            self.note(path)
+            return
+        if partial:
+            self.note(path, partly=True)
+        if not parent and all(s.startswith('[') for s in metric):  # percentiles: a row each
+            rows = [{'key': s[1:-1], 'value': v} for s, v in metric.items()]
+            self.table(path, ['key', 'value'], rows)
+            return
+        row = dict(parent)
+        row.update({(s.lstrip('.') or 'value'): v for s, v in metric.items()})
+        self.table(path, list(row), [row])
+
+    def result(self) -> tuple[list[dict], list[str]]:
+        tables = []
+        for t in self.tables:
+            rows = [[r.get(c) for c in t['columns']] for r in t['rows']]
+            tables.append(_with_exact_integers({**t, 'rows': rows}))
+        return tables, self.notes
+
+
+def _agg_tables(aggregations: dict, query_dsl: Any = None) -> tuple[list[dict], list[str]]:
+    """Return one table per aggregation path and notes for aggregations left out.
+
+    Sub-bucket tables carry their parent bucket keys as leading columns.
+    """
+    builder = _AggTables(_agg_types(query_dsl))
+    for name, agg in (aggregations or {}).items():
+        builder.agg((name,), agg, {})
+    return builder.result()
 
 
 def _query_from(query_dsl: Any) -> int:
@@ -342,17 +610,8 @@ def search_hits_payload(
     if not isinstance(response, dict) or not isinstance(response.get('hits'), dict):
         return None
     hits = response['hits'].get('hits') or []
-    columns = ['_index', '_id', '_score']
-    for hit in hits:
-        for key in (hit.get('_source') or {}).keys():
-            if key not in columns:
-                columns.append(key)
-    rows = []
-    for hit in hits:
-        source = hit.get('_source') or {}
-        rows.append(
-            [hit.get(c) if c in ('_index', '_id', '_score') else source.get(c) for c in columns]
-        )
+    columns, rows = _hit_rows(hits)
+    rows, exact = _exact_rows(columns, rows)
     total = response['hits'].get('total')
     meta = {
         'index': index,
@@ -363,8 +622,14 @@ def search_hits_payload(
         '_shards': response.get('_shards'),
         'from': _query_from(query_dsl),
     }
+    if exact:
+        meta['integer_strings'] = exact
     if response.get('aggregations'):
-        meta['aggregations'] = _agg_tables(response['aggregations'])
+        tables, notes = _agg_tables(response['aggregations'], query_dsl)
+        if tables:
+            meta['aggregations'] = tables
+        if notes:
+            meta['aggregation_notes'] = notes
     # Discover cannot take query DSL, so the link opens the index without the query.
     link = discover_ppl_url(f'source = {index}')
     if link:
@@ -378,16 +643,19 @@ def ppl_rows_payload(response: Any, cluster: str, query: str) -> dict | None:
         return None
     schema = response.get('schema') or []
     columns = [c.get('name') for c in schema]
+    rows, exact = _exact_rows(columns, response.get('datarows') or [])
     meta = {
         'query': query,
         'total': response.get('total'),
         'size': response.get('size'),
         'column_types': [c.get('type') for c in schema],
     }
+    if exact:
+        meta['integer_strings'] = exact
     link = discover_ppl_url(query)
     if link:
         meta['dashboards_url'] = link
-    return _structured('ppl_rows', cluster, columns, response.get('datarows') or [], meta)
+    return _structured('ppl_rows', cluster, columns, rows, meta)
 
 
 # _cat sizes use 1024-based units; see the OpenSearch ByteSizeUnit.
@@ -435,8 +703,7 @@ def _convert(value: Any, column_type: str) -> Any:
     if value is None or value == '':
         return None
     if column_type == 'number':
-        number = float(value)
-        return int(number) if number.is_integer() and '.' not in value else number
+        return float(value) if '.' in value else int(value)
     if column_type == 'bytes':
         amount, unit = _BYTE_RE.match(value.lower()).groups()
         return round(float(amount) * _BYTE_UNITS[unit])
@@ -454,7 +721,10 @@ def cat_table_payload(entries: Any, cluster: str, title: str, source: str) -> di
                 columns.append(key)
     types = [_column_type(c, [e.get(c) for e in entries]) for c in columns]
     rows = [[_convert(e.get(c), t) for c, t in zip(columns, types)] for e in entries]
+    rows, exact = _exact_rows(columns, rows)
     meta = {'title': title, 'source': source, 'column_types': types}
+    if exact:
+        meta['integer_strings'] = exact
     return _structured('cat_table', cluster, columns, rows, meta)
 
 
@@ -683,8 +953,13 @@ def payload_kind(builder: str) -> str:
     return 'cat_table' if builder.startswith('cat_') else builder
 
 
-def _serialized_size(payload: dict) -> int:
-    return len(json.dumps(payload, default=str, separators=(',', ':')).encode('utf-8'))
+def _serialized_size(payload: Any) -> int:
+    # UTF-8 bytes of compact JSON with raw non-ASCII: what stdio, SSE and pre-2026 HTTP send.
+    return len(
+        json.dumps(payload, default=str, ensure_ascii=False, separators=(',', ':')).encode(
+            'utf-8', 'surrogatepass'
+        )
+    )
 
 
 def _cap_table(columns: list, rows: list) -> tuple[list, list, bool]:

@@ -209,6 +209,60 @@ class TestSearchAndPplPayloads:
     def test_search_hits_non_search_response(self, response):
         assert search_hits_payload(response, '', 'i') is None
 
+    def test_unsafe_integers_become_strings_with_their_paths(self):
+        big, small = 2**53 + 1, 2**53 - 1
+        response = {
+            'hits': {
+                'hits': [
+                    {
+                        '_index': 'i',
+                        '_id': '1',
+                        '_score': 1.0,
+                        '_source': {
+                            'big': big,
+                            'neg': -(2**63),
+                            'ok': small,
+                            'flag': True,
+                            'user': {'id': 2**63 - 1, 'n': 1},
+                            'tags': [big, 2],
+                        },
+                    },
+                    {'_index': 'i', '_id': '2', '_score': 1.0, '_source': {'big': 5}},
+                ]
+            }
+        }
+        payload = search_hits_payload(response, '', 'i')
+        cols = payload['columns']
+        row = dict(zip(cols, payload['rows'][0]))
+        assert row['big'] == '9007199254740993' and row['neg'] == '-9223372036854775808'
+        assert row['ok'] == small and row['flag'] is True
+        assert row['user'] == {'id': '9223372036854775807', 'n': 1}
+        assert row['tags'] == ['9007199254740993', 2]
+        assert dict(zip(cols, payload['rows'][1]))['big'] == 5
+        assert payload['meta']['integer_strings'] == ['big', 'neg', 'user.id', 'tags']
+        assert 'integer_strings' not in search_hits_payload(SEARCH_RESPONSE, '', 'logs')['meta']
+
+    def test_ppl_and_cat_unsafe_integers(self):
+        ppl = ppl_rows_payload(
+            {'schema': [{'name': 'id', 'type': 'bigint'}], 'datarows': [[2**60], [1], None]},
+            '',
+            'q',
+        )
+        assert ppl['rows'] == [[str(2**60)], [1], None]
+        assert ppl['meta']['integer_strings'] == ['id']
+        cat = cat_table_payload([{'docs': '9007199254740993'}, {'docs': '3'}], '', 'T', 's')
+        assert cat['rows'] == [['9007199254740993'], [3]]
+        assert cat['meta']['integer_strings'] == ['docs']
+
+    def test_agg_tables_keep_unsafe_integer_keys(self):
+        response = {
+            **SEARCH_RESPONSE,
+            'aggregations': {'ids': {'buckets': [{'key': 2**62, 'doc_count': 1}]}},
+        }
+        table = search_hits_payload(response, '', 'logs')['meta']['aggregations'][0]
+        assert table['rows'] == [[str(2**62), 1]]
+        assert table['integer_strings'] == ['key']
+
     def test_ppl_rows_shape(self):
         payload = ppl_rows_payload(PPL_RESPONSE, 'c1', 'source=x | stats count() by host')
         assert payload['kind'] == 'ppl_rows'
@@ -219,6 +273,164 @@ class TestSearchAndPplPayloads:
     @pytest.mark.parametrize('response', ['a|b\n1|2', None, {'schema': []}])
     def test_ppl_rows_non_jdbc_response(self, response):
         assert ppl_rows_payload(response, '', 'q') is None
+
+
+class TestAggregations:
+    @staticmethod
+    def tables(aggregations, query_dsl=None):
+        response = {**SEARCH_RESPONSE, 'aggregations': aggregations}
+        meta = search_hits_payload(response, '', 'logs', query_dsl)['meta']
+        named = {t['name']: t for t in meta.get('aggregations', [])}
+        return named, meta.get('aggregation_notes', [])
+
+    def test_percentiles_top_level_and_as_sub_columns(self):
+        pct = {'values': {'50.0': 12.0, '99.0': 80.5, '99.0_as_string': '80.5ms'}}
+        named, notes = self.tables(
+            {
+                'p': pct,
+                'p_list': {'values': [{'key': 50.0, 'value': 1.0}, {'key': 99.0, 'value': 2.0}]},
+                'by_svc': {'buckets': [{'key': 'api', 'doc_count': 3, 'lat': pct}]},
+            }
+        )
+        assert named['p']['columns'] == ['key', 'value']
+        assert named['p']['rows'] == [['50.0', 12.0], ['99.0', 80.5]]
+        assert named['p_list']['rows'] == [['50.0', 1.0], ['99.0', 2.0]]
+        assert named['by_svc']['columns'] == ['key', 'doc_count', 'lat[50.0]', 'lat[99.0]']
+        assert named['by_svc']['rows'] == [['api', 3, 12.0, 80.5]]
+        assert notes == []
+
+    def test_top_hits_as_rows_and_as_sub_summary(self):
+        hits = {
+            'hits': {
+                'total': {'value': 2},
+                'hits': [
+                    {'_index': 'logs', '_id': 'a', '_score': 1.0, '_source': {'msg': 'x'}},
+                    {'_index': 'logs', '_id': 'b', '_score': 0.5, '_source': {'msg': 'y'}},
+                ],
+            }
+        }
+        named, _ = self.tables(
+            {'latest': hits, 'by_svc': {'buckets': [{'key': 'api', 'doc_count': 2, 'top': hits}]}}
+        )
+        assert named['latest']['columns'] == ['_index', '_id', '_score', 'msg']
+        assert named['latest']['rows'] == [['logs', 'a', 1.0, 'x'], ['logs', 'b', 0.5, 'y']]
+        assert named['by_svc']['rows'] == [['api', 2, [{'msg': 'x'}, {'msg': 'y'}]]]
+
+    def test_single_bucket_aggregations_recurse(self):
+        named, notes = self.tables(
+            {
+                'errors': {
+                    'doc_count': 4,
+                    'avg_lat': {'value': 9.5},
+                    'by_code': {'buckets': [{'key': 500, 'doc_count': 3}]},
+                },
+                'by_svc': {
+                    'buckets': [
+                        {
+                            'key': 'api',
+                            'doc_count': 5,
+                            'items': {'doc_count': 7, 'max_price': {'value': 3.0}},
+                        }
+                    ]
+                },
+            }
+        )
+        assert named['errors']['columns'] == ['doc_count', 'avg_lat']
+        assert named['errors']['rows'] == [[4, 9.5]]
+        assert named['errors > by_code']['rows'] == [[500, 3]]
+        assert named['by_svc']['columns'] == [
+            'key',
+            'doc_count',
+            'items.doc_count',
+            'items.max_price',
+        ]
+        assert named['by_svc']['rows'] == [['api', 5, 7, 3.0]]
+        assert notes == []
+
+    def test_composite_keys_and_sub_buckets_carry_parent_keys(self):
+        named, _ = self.tables(
+            {
+                'combo': {
+                    'after_key': {'svc': 'web', 'day': 2},
+                    'buckets': [
+                        {'key': {'svc': 'api', 'day': 1}, 'doc_count': 2},
+                        {'key': {'svc': 'web', 'day': 2}, 'doc_count': 1},
+                    ],
+                },
+                'by_svc': {
+                    'buckets': [
+                        {
+                            'key': 'api',
+                            'doc_count': 3,
+                            'by_day': {
+                                'buckets': [
+                                    {'key_as_string': '2026-11-01', 'key': 1, 'doc_count': 2},
+                                    {'key_as_string': '2026-11-02', 'key': 2, 'doc_count': 1},
+                                ]
+                            },
+                        },
+                        {'key': 'web', 'doc_count': 1, 'by_day': {'buckets': []}},
+                    ]
+                },
+            }
+        )
+        assert named['combo']['columns'] == ['svc', 'day', 'doc_count']
+        assert named['combo']['rows'] == [['api', 1, 2], ['web', 2, 1]]
+        assert named['by_svc']['rows'] == [['api', 3], ['web', 1]]
+        assert named['by_svc > by_day']['columns'] == ['by_svc', 'key', 'doc_count']
+        assert named['by_svc > by_day']['rows'] == [
+            ['api', '2026-11-01', 2],
+            ['api', '2026-11-02', 1],
+        ]
+
+    def test_metric_shapes(self):
+        named, notes = self.tables(
+            {
+                'st': {'count': 2, 'min': 1.0, 'max': 3.0, 'avg': 2.0, 'sum': 4.0},
+                'ext': {'count': 2, 'std_deviation_bounds': {'upper': 5.0, 'lower': -1.0}},
+                'box': {
+                    'bounds': {'top_left': {'lat': 1.0, 'lon': 2.0}, 'bottom_right': {'lat': 0.5}}
+                },
+                'empty_avg': {'value': None},
+            }
+        )
+        assert named['st']['columns'] == ['count', 'min', 'max', 'avg', 'sum']
+        assert named['ext']['columns'] == [
+            'count',
+            'std_deviation_bounds.upper',
+            'std_deviation_bounds.lower',
+        ]
+        assert named['box']['rows'] == [[1.0, 2.0, 0.5]]
+        assert named['empty_avg']['rows'] == [[None]]
+        assert notes == []
+
+    def test_unsupported_aggregations_get_a_note_with_their_type(self):
+        dsl = {
+            'size': 0,
+            'aggs': {
+                'm': {'matrix_stats': {'fields': ['a']}},
+                'weird': {'scripted_metric': {}},
+                'by_svc': {'terms': {'field': 's'}, 'aggs': {'sm': {'scripted_metric': {}}}},
+            },
+        }
+        named, notes = self.tables(
+            {
+                'm': {'doc_count': 3, 'fields': [{'name': 'a', 'count': 3}]},
+                'weird': {'value': [1, 2]},
+                'by_svc': {'buckets': [{'key': 'api', 'doc_count': 1, 'sm': {'value': [1]}}]},
+                'nonsense': 'text',
+            },
+            json.dumps(dsl),
+        )
+        assert notes == [
+            'aggregation m (matrix_stats) is only partly shown; see the text result',
+            'aggregation weird (scripted_metric) is not shown; see the text result',
+            'aggregation by_svc > sm (scripted_metric) is not shown; see the text result',
+            'aggregation nonsense (unknown) is not shown; see the text result',
+        ]
+        assert named['m']['rows'] == [[3]]
+        assert 'weird' not in named
+        assert named['by_svc']['rows'] == [['api', 1]]
 
 
 class TestCatTablePayloads:
@@ -391,6 +603,22 @@ class TestCaps:
             'column_count': 120,
         }
         assert len(payload['rows']) == 600  # input not mutated
+
+    def test_byte_cap_counts_utf8_bytes_of_raw_json(self):
+        # 5 x 60,000 CJK characters: 900 KB as UTF-8, 1.8 MB if counted with \u escapes.
+        rows = [['\u4e2d' * 60_000] for _ in range(5)]
+        payload = {'kind': 'search_hits', 'version': 1, 'columns': ['a'], 'rows': rows}
+        capped = cap_structured_content(payload)
+        assert len(capped['rows']) == 5 and 'truncated' not in capped.get('meta', {})
+        wire = json.dumps(capped, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+        assert 900_000 < len(wire) <= STRUCTURED_CONTENT_MAX_BYTES
+        over = [['\u4e2d' * 120_000] for _ in range(5)]  # 1.8 MB as UTF-8
+        capped = cap_structured_content({**payload, 'rows': over})
+        assert len(capped['rows']) == 2 and capped['meta']['row_count'] == 5
+
+    def test_byte_cap_survives_lone_surrogates(self):
+        payload = {'kind': 'search_hits', 'version': 1, 'columns': ['a'], 'rows': [['\ud800x']]}
+        assert cap_structured_content(payload)['rows'] == [['\ud800x']]
 
     def test_byte_cap_halves_rows_until_it_fits(self):
         rows = [['x' * 200_000] for _ in range(10)]
@@ -620,11 +848,39 @@ class TestPresentationArgs:
             {'suggestions': ['soft\u00adhyphen']},
             {'suggestions': ['tab\there']},
             {'suggestions': ['bom\ufeff']},
+            {'intent': 'lrm\u200e'},
+            {'intent': 'rlm\u200f'},
+            {'intent': 'isolate\u2066x\u2069'},
+            {'intent': 'embed\u202ax\u202c'},
+            {'intent': 'zero\u200bwidth'},
+            {'intent': 'word\u2060joiner'},
+            {'intent': 'arabic letter mark\u061c'},
+            {'intent': 'smuggled tags \U000e0041\U000e0042'},
+            {'intent': 'tags without a flag \U000e0067\U000e0062\U000e007f'},
+            {'suggestions': ['zero\u200bwidth']},
         ],
     )
     def test_control_and_format_chars_rejected(self, args):
         with pytest.raises(ValueError):
             split_presentation_args(args)
+
+    @pytest.mark.parametrize(
+        'text',
+        [
+            'team \U0001f468\u200d\U0001f469\u200d\U0001f467',
+            'heart \u2764\ufe0f and text style \u2764\ufe0e',
+            'flag \U0001f3f4\U000e0067\U000e0062\U000e0073\U000e0063\U000e0074\U000e007f',
+            'skin tone \U0001f44d\U0001f3fd',
+            'keycap 1\ufe0f\u20e3',
+            '\u0645\u0631\u062d\u0628\u0627 \u05e9\u05dc\u05d5\u05dd',
+            'Hindi \u0915\u094d\u200d\u0937',
+        ],
+    )
+    def test_emoji_and_scripts_accepted(self, text):
+        assert split_presentation_args({'intent': text, 'suggestions': [text]}) == (
+            {},
+            {'intent': text, 'suggestions': [text]},
+        )
 
     def test_view_input_schema(self):
         schema = {'type': 'object', 'properties': {'q': {'type': 'string'}}}
@@ -680,6 +936,20 @@ class TestDashboardsLink:
             'https://osd.example.com/#/home',
             'https://osd.example.com/;p',
             'https://',
+            'http://127.0.0.1:5601/?',
+            'http://127.0.0.1:5601/#',
+            'http://127.0.0.1:5601?',
+            'http://127.0.0.1:99999',
+            'http://127.0.0.1:0',
+            'http://127.0.0.1:',
+            'http://127.0.0.1:abc',
+            'http://exa mple.com',
+            'http://example.com/a b',
+            'http://127.0.0.1:5601/"><script>',
+            "http://127.0.0.1:5601/it's",
+            'http://127.0.0.1:5601/<x>',
+            'http://ex\tample.com',
+            'http://-bad-.example.com',
         ],
     )
     def test_malformed_url_rejected(self, monkeypatch, value):
@@ -687,9 +957,25 @@ class TestDashboardsLink:
         with pytest.raises(ValueError, match='OPENSEARCH_DASHBOARDS_URL'):
             dashboards_base_url()
 
-    def test_valid_url_with_port_and_path(self, monkeypatch):
-        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_URL', 'https://osd.example.com:5601/osd/')
-        assert dashboards_base_url() == 'https://osd.example.com:5601/osd'
+    @pytest.mark.parametrize(
+        'value,expected',
+        [
+            ('https://osd.example.com:5601/osd/', 'https://osd.example.com:5601/osd'),
+            ('http://127.0.0.1:5601', 'http://127.0.0.1:5601'),
+            ('http://[::1]:5601/', 'http://[::1]:5601'),
+            ('http://osd_dashboards:5601', 'http://osd_dashboards:5601'),
+            ('HTTPS://OSD.example.com/a%20b/', 'https://OSD.example.com/a%20b'),
+        ],
+    )
+    def test_valid_url_with_port_and_path(self, monkeypatch, value, expected):
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_URL', value)
+        assert dashboards_base_url() == expected
+
+    def test_link_built_on_a_path_prefix(self, monkeypatch):
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_URL', 'http://[::1]:5601/osd/')
+        assert discover_ppl_url('source=logs').startswith(
+            'http://[::1]:5601/osd/app/data-explorer/discover#?_q=('
+        )
 
 
 class TestToolVisibility:
