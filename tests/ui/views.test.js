@@ -365,3 +365,275 @@ describe('aggregation headers', () => {
     ]);
   });
 });
+
+// Tool error texts captured from a local OpenSearch 3.8 through PPLQueryTool and SearchIndexTool.
+const ERRORS = JSON.parse(fs.readFileSync(path.join(__dirname, 'opensearch_errors.json'), 'utf8'));
+
+describe('error messages', () => {
+  const { window: w } = load('results', { assembled: false });
+
+  test('errorSummary extracts status and reason from OpenSearch error JSON', () => {
+    assert.equal(w.errorSummary(ERRORS.ppl_404), 'OpenSearch returned 404: no such index [no-such-index]');
+    assert.equal(w.errorSummary(ERRORS.ppl_400), "OpenSearch returned 400: Invalid Query: [wher] is not a valid term at this part of the query: 'source=logs-demo | wher' <-- HERE. Expecting one of 59 possible tokens. Some examples: EOF, 'WHERE', 'FIELDS', 'TABLE', 'RENAME', ...");
+    assert.equal(w.errorSummary(ERRORS.search_404), 'OpenSearch returned 404: no such index [missing-index]');
+    assert.match(w.errorSummary(ERRORS.search_400), /^OpenSearch returned 400: failed to parse date field \[garbage\]/);
+  });
+
+  test('errorSummary handles other shapes and returns null without an OpenSearch error', () => {
+    assert.equal(w.errorSummary("Error: NotFoundError(404, 'index_not_found_exception', 'no such index [x]', x, index_or_alias)"), 'OpenSearch returned 404: no such index [x]');
+    assert.equal(w.errorSummary("Error: RequestError(400, 'search_phase_execution_exception', {'error': {'root_cause': [{'reason': 'bad \\'thing\\''}]}})"), "OpenSearch returned 400: bad 'thing'");
+    assert.equal(w.errorSummary('Error: {"error": "plain message", "status": 503}'), 'OpenSearch returned 503: plain message');
+    assert.equal(w.errorSummary('Error: connection refused'), null);
+    assert.equal(w.errorSummary('The host could not call PPLQueryTool (no response after 60 s).'), null);
+    assert.ok(w.errorSummary('x RequestError(400, \'' + 'a'.repeat(5000) + '\')').length < 400);
+  });
+});
+
+function pplResult(query, columns, rows, types, extra = {}) {
+  return {
+    content: [{ type: 'text', text: 'rows' }],
+    structuredContent: {
+      kind: 'ppl_rows', version: 1, cluster: '', tool: 'PPLQueryTool', refreshable: true,
+      columns, rows, meta: { query, column_types: types }, ...extra,
+    },
+  };
+}
+
+describe('failed in-view calls', () => {
+  test('banner shows the extracted message with the full text collapsed; the old result is marked stale', async () => {
+    const input = { opensearch_cluster_name: '', query: 'source=logs | stats count() by service', size: 0 };
+    const ok = pplResult(input.query, ['count()', 'service'], [[3, 'checkout'], [2, 'search']], ['bigint', 'string']);
+    const v = await openView('results', { serverTools: {} }, input, ok);
+    v.doc.querySelector('details.ppl-editor textarea').value = 'source=no-such-index | head 1';
+    v.doc.querySelector('button.ppl-run').click();
+    await v.reply('tools/call', { isError: true, content: [{ type: 'text', text: ERRORS.ppl_404 }] });
+    const banner = v.doc.querySelector('.banner');
+    assert.equal(banner.querySelector('.error-summary').textContent, 'OpenSearch returned 404: no such index [no-such-index]');
+    assert.equal(banner.querySelector('details.error-details').open, false);
+    assert.equal(banner.querySelector('details.error-details pre').textContent, ERRORS.ppl_404);
+    const app = v.doc.getElementById('app');
+    assert.ok(app.classList.contains('stale'));
+    assert.equal(v.doc.querySelector('.stale-label').textContent, 'Showing previous result for: source=logs | stats count() by service');
+    assert.equal(v.doc.querySelectorAll('svg.chart rect.bar').length, 2);
+    v.doc.querySelector('button.ppl-run').click();
+    await v.reply('tools/call', ok);
+    assert.ok(!app.classList.contains('stale'));
+    assert.equal(v.doc.querySelector('.stale-label'), null);
+  });
+
+  test('a tool error result shows the extracted message', async () => {
+    const v = await openView('results', {}, SEARCH_INPUT, {
+      isError: true, content: [{ type: 'text', text: ERRORS.search_404 }],
+      structuredContent: { kind: 'search_hits', version: 1, omitted: 'error', tool: 'SearchIndexTool' },
+    });
+    assert.equal(v.doc.querySelector('.notice.error .error-summary').textContent, 'OpenSearch returned 404: no such index [missing-index]');
+  });
+});
+
+describe('truncation notice', () => {
+  const cols = (n) => Array.from({ length: n }, (_, i) => 'c' + i);
+  async function notice(rows, columns, meta) {
+    const v = await openView('results', {}, SEARCH_INPUT, searchResult({
+      columns, rows, meta: { index: 'big', total: 10, from: 0, truncated: true, ...meta },
+    }));
+    return v.doc.querySelector('.notice.truncated').textContent;
+  }
+  const five = Array.from({ length: 5 }, (_, i) => cols(5).map((c) => c + i));
+
+  test('names only the dimensions that were cut', async () => {
+    assert.equal(await notice(five, cols(5), { row_count: 10 }), 'Showing 5 of 10 rows; the text result has everything.');
+    assert.equal(await notice(five, cols(5), { row_count: 10, column_count: 5 }), 'Showing 5 of 10 rows; the text result has everything.');
+    assert.equal(await notice(five, cols(5), { column_count: 120 }), 'Showing 5 of 120 columns; the text result has everything.');
+    assert.equal(await notice(five, cols(5), { row_count: 1500, column_count: 120 }), 'Showing 5 of 1,500 rows and 5 of 120 columns; the text result has everything.');
+    assert.equal(await notice(five, cols(5), {}), 'This result was shortened to fit the view; the text result has everything.');
+  });
+
+  test('zero rows: singular and plural', async () => {
+    assert.equal(await notice([], ['a'], { row_count: 1 }), 'The only row is too large for the 1 MiB view limit; see the text result, or narrow the query.');
+    assert.equal(await notice([], ['a'], { row_count: 3 }), 'None of the 3 rows fit in the 1 MiB view limit; see the text result, or narrow the query.');
+  });
+});
+
+describe('time buckets', () => {
+  const { window: w } = load('results', { assembled: false });
+  const H = 3600000;
+
+  test('spanInterval reads fixed units from span() and ignores calendar units', () => {
+    assert.equal(w.spanInterval('source=x | stats count() by span(@timestamp, 1h)'), H);
+    assert.equal(w.spanInterval('stats count() by span(t, 5m), service'), 5 * 60000);
+    assert.equal(w.spanInterval('stats count() by span(t,15 minute)'), 15 * 60000);
+    assert.equal(w.spanInterval('stats count() by span(t, 1d)'), 24 * H);
+    assert.equal(w.spanInterval('stats count() by span(t, 1M)'), null);
+    assert.equal(w.spanInterval('stats count() by span(t, 1y)'), null);
+    assert.equal(w.spanInterval('stats count() by span(bytes, 10)'), null);
+    assert.equal(w.spanInterval('source=x | head 5'), null);
+  });
+
+  test('inferInterval falls back to the smallest spacing and checks the grid', () => {
+    assert.deepEqual(plain(w.inferInterval([0, H, 3 * H], '')), { ms: H, regular: true });
+    assert.deepEqual(plain(w.inferInterval([0, 2 * H, 3 * H], 'stats count() by span(t, 1h)')), { ms: H, regular: true });
+    assert.deepEqual(plain(w.inferInterval([0, H, 2.5 * H], '')), { ms: H, regular: false });
+    assert.equal(w.inferInterval([0], ''), null);
+  });
+
+  test('countLikeColumns covers count(), dc() and their aliases', () => {
+    assert.deepEqual(plain(w.countLikeColumns(['count()', 'dc(user)', 'avg(b)', 'n', 'span'], 'stats count() as n by span(t, 1h)')), [true, true, false, true, false]);
+  });
+
+  test('fillBuckets fills a shared grid with 0 for count-like series only', () => {
+    const a = { name: 'a', column: 0, points: { 0: 1, [H]: 2, [3 * H]: 5 } };
+    const b = { name: 'b', column: 0, points: { 0: 4, [H]: 1 } };
+    const grid = w.fillBuckets([a, b], [0, H, 3 * H], { ms: H, regular: true }, () => true);
+    assert.deepEqual(plain(grid), [0, H, 2 * H, 3 * H]);
+    assert.deepEqual(plain(a.points), { 0: 1, [H]: 2, [2 * H]: 0, [3 * H]: 5 });
+    assert.deepEqual(plain(b.points), { 0: 4, [H]: 1, [2 * H]: 0, [3 * H]: 0 });
+    const c = { points: { 0: 1, [3 * H]: 2 } };
+    assert.deepEqual(plain(w.fillBuckets([c], [0, 3 * H], { ms: H, regular: true }, () => false)), [0, 3 * H]);
+    assert.deepEqual(plain(c.points), { 0: 1, [3 * H]: 2 });
+    assert.deepEqual(plain(w.fillBuckets([c], [0, 3 * H], { ms: H, regular: false }, () => true)), [0, 3 * H]);
+  });
+
+  test('segments break lines at gaps over 1.5x the interval', () => {
+    const points = { 0: 1, [H]: 1, [3 * H]: 1, [4 * H]: 1, [6 * H]: 1 };
+    const ts = [0, H, 3 * H, 4 * H, 6 * H];
+    assert.deepEqual(plain(w.segments(points, ts, { ms: H })), [[0, H], [3 * H, 4 * H], [6 * H]]);
+    assert.deepEqual(plain(w.segments(points, ts, null)), [ts]);
+  });
+
+  test('niceTicks and timeTicks', () => {
+    assert.deepEqual(plain(w.niceTicks(5, 4, true)), [0, 2, 4, 6]);
+    assert.deepEqual(plain(w.niceTicks(1500, 4)), [0, 500, 1000, 1500]);
+    assert.deepEqual(plain(w.niceTicks(0.37, 4)), [0, 0.1, 0.2, 0.3, 0.4]);
+    assert.deepEqual(plain(w.niceTicks(0, 4, true)), [0, 1]);
+    const t0 = Date.parse('2026-11-01T00:00:00Z');
+    assert.equal(w.timeTicks(t0, t0 + 11 * H, 22).ticks.length, 12);
+    const few = w.timeTicks(t0, t0 + 11 * H, 4);
+    assert.ok(few.ticks.length <= 4 && few.step === 3 * H, JSON.stringify(plain(few)));
+  });
+
+  const span = (h) => `2026-11-01 ${String(h).padStart(2, '0')}:00:00`;
+  test('count series split by category share the x domain, with empty buckets drawn at 0', async () => {
+    const q = 'source=ts | stats count() by span(@timestamp, 1h), service';
+    const rows = [[1, span(0), 'a'], [2, span(1), 'a'], [3, span(3), 'a'], [2, span(0), 'b'], [1, span(1), 'b']];
+    const v = await openView('results', {}, {}, pplResult(q, ['count()', 'span(@timestamp,1h)', 'service'], rows, ['bigint', 'timestamp', 'string']));
+    const paths = [...v.doc.querySelectorAll('.time-series path.line')].map((p) => p.getAttribute('d'));
+    assert.equal(paths.length, 2);
+    const ends = paths.map((d) => d.trim().split(/[ML]/).filter(Boolean).pop().split(' ')[0]);
+    assert.equal(ends[0], ends[1]);
+    assert.ok(paths.every((d) => (d.match(/M/g) || []).length === 1));
+    assert.equal(v.doc.querySelector('.chart-note').textContent, '3 empty buckets shown as 0 (PPL omits empty buckets).');
+    assert.deepEqual([...v.doc.querySelectorAll('.y-tick')].map((t) => t.textContent), ['0', '1', '2', '3']);
+    assert.equal(v.doc.querySelector('.y-label').textContent, 'count()');
+  });
+
+  test('non-count series break at missing buckets instead of bridging them', async () => {
+    const q = 'source=ts | stats avg(bytes) by span(@timestamp, 1h)';
+    const rows = [[10.5, span(0)], [11, span(1)], [12, span(4)], [9, span(5)]];
+    const v = await openView('results', {}, {}, pplResult(q, ['avg(bytes)', 'span'], rows, ['double', 'timestamp']));
+    const d = v.doc.querySelector('.time-series path.line').getAttribute('d');
+    assert.equal((d.match(/M/g) || []).length, 2);
+    assert.equal(v.doc.querySelector('.chart-note').textContent, 'Gaps mark missing buckets.');
+  });
+});
+
+describe('formatting and plurals', () => {
+  const { window: w } = load('results', { assembled: false });
+
+  test('byte sizes use 3 significant digits', () => {
+    assert.equal(w.formatBytes(512), '512 B');
+    assert.equal(w.formatBytes(7680), '7.50 KiB');
+    assert.equal(w.formatBytes(141 * 1024 + 300), '141 KiB');
+    assert.equal(w.formatBytes(1.2 * 2 ** 40), '1.20 TiB');
+    assert.equal(w.formatBytes(99.97 * 1024), '100 KiB');
+    assert.equal(w.formatBytes(1048575), '1.00 MiB');
+    assert.equal(w.formatBytes(-2048), '-2.00 KiB');
+  });
+
+  test('percentages, counts and plurals', () => {
+    assert.equal(w.formatPercent(64.28571428571429), '64.3%');
+    assert.equal(w.formatPercent(100), '100%');
+    assert.equal(w.formatNumber(1234567), '1,234,567');
+    assert.equal(w.plural(1, 'row'), '1 row');
+    assert.equal(w.plural(0, 'row'), '0 rows');
+    assert.equal(w.plural(1500, 'matching field'), '1,500 matching fields');
+  });
+
+  test('export status names one row in the singular', async () => {
+    const v = await openView('results', {}, SEARCH_INPUT, searchResult());
+    Object.defineProperty(v.window.navigator, 'clipboard', { value: { writeText: () => Promise.resolve() }, configurable: true });
+    v.doc.querySelector('tbody td.select input').click();
+    v.doc.querySelector('button.copy-csv').click();
+    await flush();
+    assert.equal(v.doc.querySelector('.export-status').textContent, 'Copied CSV of 1 row.');
+    v.doc.querySelector('tbody td.select input').click();
+    v.doc.querySelector('button.copy-json').click();
+    await flush();
+    assert.equal(v.doc.querySelector('.export-status').textContent, 'Copied JSON of 2 rows.');
+  });
+
+  test('numeric cells get thousands separators and at most 3 decimals; long cells keep the full value in the title', async () => {
+    const v = await openView('results', {}, SEARCH_INPUT, searchResult({
+      columns: ['_index', 'n', 'blob'], rows: [['logs', 1234567, 'x'.repeat(300)], ['logs', 52.650000000000006, 'y']],
+    }));
+    const cells = [...v.doc.querySelectorAll('tbody tr.row')][0].querySelectorAll('td:not(.select)');
+    assert.equal(cells[1].textContent, '1,234,567');
+    const second = [...v.doc.querySelectorAll('tbody tr.row')][1].querySelectorAll('td:not(.select)');
+    assert.equal(second[1].textContent, '52.65');
+    assert.equal(second[1].title, '52.650000000000006');
+    assert.equal(cells[2].title, 'x'.repeat(300));
+    assert.ok(cells[2].querySelector('span.cell'));
+    cells[2].click();
+    assert.match(v.doc.querySelector('tr.detail pre').textContent, new RegExp('x{300}'));
+  });
+});
+
+describe('filters and stats', () => {
+  const rows = [
+    ['logs', 'd1', 'checkout', 200], ['logs', 'd2', 'checkout', 500], ['logs', 'd3', 'search', 200],
+    ['logs', 'd4', 'search', 200], ['logs', 'd5', 'payments', 503], ['logs', 'd6', 'checkout', 200],
+  ];
+  const result = () => searchResult({ columns: ['_index', '_id', 'service', 'status'], rows });
+
+  test('header counts filtered rows; stats leave out their own column filter and name the others', async () => {
+    const v = await openView('results', {}, SEARCH_INPUT, result());
+    assert.equal(v.doc.querySelector('.rows-stat').textContent, 'rows: 6');
+    [...v.doc.querySelectorAll('button.chip')].find((b) => b.textContent === 'checkout (3)').click();
+    assert.equal(v.doc.querySelector('.rows-stat').textContent, 'rows: 3 of 6 shown');
+    const select = v.doc.querySelector('select.stats-column');
+    select.value = 'service'; select.dispatchEvent(new v.window.Event('change'));
+    assert.equal(v.doc.querySelector('.stats-scope').textContent, 'service over 6 rows; its own filter (service = checkout) is not applied (computed in the view, not by OpenSearch)');
+    assert.deepEqual([...v.doc.querySelectorAll('table.top-values tr')].map((t) => t.textContent), ['checkout3', 'search2', 'payments1']);
+    select.value = 'status'; select.dispatchEvent(new v.window.Event('change'));
+    assert.equal(v.doc.querySelector('.stats-scope').textContent, 'status over 3 rows matching service = checkout (computed in the view, not by OpenSearch)');
+    [...v.doc.querySelectorAll('button.chip')].find((b) => b.textContent === 'checkout (3)').click();
+    assert.equal(v.doc.querySelector('.rows-stat').textContent, 'rows: 6');
+  });
+});
+
+describe('nested objects', () => {
+  const { window: w } = load('results', { assembled: false });
+
+  test('flattenColumns flattens one level and keeps arrays and deeper objects as values', () => {
+    const rows = [['d1', { id: 'u1', geo: { c: 'US' } }, [1, 2]], ['d2', { id: 'u2' }, null], ['d3', null, []]];
+    const flat = plain(w.flattenColumns(['_id', 'user', 'tags'], rows, null, 100));
+    assert.deepEqual(flat.columns, ['_id', 'user.id', 'user.geo', 'tags']);
+    assert.deepEqual(flat.rows, [['d1', 'u1', { c: 'US' }, [1, 2]], ['d2', 'u2', null, null], ['d3', null, null, []]]);
+    assert.equal(w.flattenColumns(['a', 'b'], [[{ x: 1 }, 'plain'], ['s', 2]], null, 100), null);
+    assert.equal(w.flattenColumns(['user', 'user.id'], [[{ id: 1 }, 2]], null, 100), null);
+    assert.equal(w.flattenColumns(['user'], [[{ a: 1, b: 2, c: 3 }]], null, 2), null);
+    assert.equal(w.flattenColumns(['a'], [[1], [2]], null, 100), null);
+    assert.deepEqual(plain(w.flattenColumns(['s', 'o'], [['x', { k: 1 }]], ['keyword', 'struct'], 100).types), ['keyword', null]);
+  });
+
+  test('the view shows dotted columns and Copy JSON follows them', async () => {
+    const v = await openView('results', {}, SEARCH_INPUT, searchResult({
+      columns: ['_index', '_id', 'user'], rows: [['logs', 'd1', { id: 'u-1', geo: { country: 'US' } }], ['logs', 'd2', { id: 'u-2' }]],
+    }));
+    assert.deepEqual([...v.doc.querySelectorAll('thead th:not(.select)')].map((t) => t.textContent), ['_index', '_id', 'user.id', 'user.geo']);
+    let copied = null;
+    Object.defineProperty(v.window.navigator, 'clipboard', { value: { writeText: (t) => { copied = t; return Promise.resolve(); } }, configurable: true });
+    v.doc.querySelector('button.copy-json').click();
+    await flush();
+    assert.deepEqual(JSON.parse(copied)[0], { _index: 'logs', _id: 'd1', 'user.id': 'u-1', 'user.geo': { country: 'US' } });
+  });
+});

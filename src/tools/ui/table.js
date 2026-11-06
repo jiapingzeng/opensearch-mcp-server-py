@@ -27,7 +27,43 @@ function columnTypes(columns, rows, declared) {
 
 function formatCell(v, type) {
   if (type === 'bytes') return formatBytes(v);
+  if (typeof v === 'number' && isNumericType(type)) return formatNumber(v);
   return cellText(v);
+}
+
+// Flattens object-valued columns one level into dotted columns (user -> user.id, user.geo);
+// arrays and deeper objects stay as JSON. Null when nothing flattens, a column mixes objects
+// with other values, names collide, or the result would exceed `maxColumns`.
+function flattenColumns(columns, rows, types, maxColumns) {
+  var plans = columns.map(function (_, i) {
+    var keys = [], seen = {}, objects = 0;
+    for (var r = 0; r < rows.length; r++) {
+      var v = rows[r][i];
+      if (v === null || v === undefined) continue;
+      if (typeof v !== 'object' || Array.isArray(v)) return null;
+      objects++;
+      Object.keys(v).forEach(function (k) { if (!seen[k]) { seen[k] = true; keys.push(k); } });
+    }
+    return objects && keys.length ? keys : null;
+  });
+  if (!plans.some(Boolean)) return null;
+  var names = [], sources = [];
+  columns.forEach(function (c, i) {
+    if (plans[i]) plans[i].forEach(function (k) { names.push(c + '.' + k); sources.push({ index: i, key: k }); });
+    else { names.push(c); sources.push({ index: i }); }
+  });
+  if (names.length > maxColumns || new Set(names).size !== names.length) return null;
+  return {
+    columns: names,
+    rows: rows.map(function (r) {
+      return sources.map(function (s) {
+        var v = r[s.index];
+        if (s.key === undefined) return v;
+        return v && Object.prototype.hasOwnProperty.call(v, s.key) ? v[s.key] : null;
+      });
+    }),
+    types: sources.map(function (s) { return s.key === undefined && types ? types[s.index] : undefined; })
+  };
 }
 
 function newTableState() { return { sort: null, hidden: {}, filters: {}, stats: '' }; }
@@ -101,8 +137,9 @@ function buildTable(columns, rows, types, state, opts) {
         if (v === null || v === undefined) cls.push('null');
         if (isNumericType(types[i])) cls.push('num');
         if (STATUS_COLUMNS.indexOf(columns[i]) >= 0 && typeof v === 'string' && /^[a-z_]+$/i.test(v)) cls.push('status-' + v.toLowerCase());
-        var td = el('td', formatCell(v, types[i]), cls.join(' '));
-        if (v !== null && v !== undefined) td.title = types[i] === 'bytes' ? v + ' bytes' : rawText(v);
+        var td = el('td', null, cls.join(' '));
+        td.appendChild(el('span', formatCell(v, types[i]), 'cell'));
+        if (v !== null && v !== undefined) td.title = types[i] === 'bytes' && typeof v === 'number' ? plural(v, 'byte') : rawText(v);
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
@@ -201,6 +238,8 @@ function fieldStats(rows, index, type) {
   return stats;
 }
 
+// getRows(column) returns { rows, filters, ignored }: the rows to describe, labels of the
+// filters applied, and the column's own filter, which is left out so its stats stay useful.
 function statsPanel(columns, types, state, getRows) {
   var wrap = el('span');
   var select = el('select', null, 'stats-column');
@@ -215,13 +254,16 @@ function statsPanel(columns, types, state, getRows) {
     panel.textContent = '';
     panel.hidden = i < 0;
     if (i < 0) return;
-    var rows = getRows();
-    var s = fieldStats(rows, i, types[i]);
+    var info = getRows(columns[i]);
+    var s = fieldStats(info.rows, i, types[i]);
     var fmt = function (v) { return types[i] === 'bytes' ? formatBytes(v) : formatNumber(v); };
-    panel.appendChild(el('div', columns[i] + ' over ' + s.count + ' shown rows (computed in the view, not by OpenSearch)', 'label'));
+    var scope = columns[i] + ' over ' + plural(s.count, 'row');
+    if (info.filters.length) scope += ' matching ' + info.filters.join(' and ');
+    if (info.ignored) scope += '; its own filter (' + info.ignored + ') is not applied';
+    panel.appendChild(el('div', scope + ' (computed in the view, not by OpenSearch)', 'label stats-scope'));
     var t = el('table');
     var add = function (k, v) { var tr = el('tr'); tr.appendChild(el('th', k)); tr.appendChild(el('td', v, 'num')); t.appendChild(tr); };
-    add('missing', s.missing); add('distinct', s.distinct);
+    add('missing', formatNumber(s.missing)); add('distinct', formatNumber(s.distinct));
     if (s.min !== undefined) { add('min', fmt(s.min)); add('max', fmt(s.max)); add('avg', fmt(s.avg)); }
     panel.appendChild(t);
     if (s.top.length) {
@@ -230,7 +272,7 @@ function statsPanel(columns, types, state, getRows) {
       s.top.forEach(function (x) {
         var tr = el('tr');
         tr.appendChild(el('td', x.label));
-        tr.appendChild(el('td', x.count, 'num'));
+        tr.appendChild(el('td', formatNumber(x.count), 'num'));
         var bar = el('td'); var m = el('span', null, 'meter');
         m.style.width = Math.max(2, Math.round(120 * x.count / Math.max(1, s.count))) + 'px';
         bar.appendChild(m); tr.appendChild(bar);
@@ -273,12 +315,12 @@ function exportControls(table, data) {
   function rowsOrSelected() { var s = table.selectedRows(); return s.length ? s : table.shownRows(); }
   wrap.appendChild(button('Copy CSV', function () {
     var cols = table.shownColumns(); var rows = rowsOrSelected();
-    copyText(toCsv(cols.names, cols.indexes, rows), 'CSV of ' + rows.length + ' rows', status);
+    copyText(toCsv(cols.names, cols.indexes, rows), 'CSV of ' + plural(rows.length, 'row'), status);
   }, 'copy-csv'));
   wrap.appendChild(document.createTextNode(' '));
   wrap.appendChild(button('Copy JSON', function () {
     var cols = table.shownColumns(); var rows = rowsOrSelected();
-    copyText(toJsonRows(cols.names, cols.indexes, rows), 'JSON of ' + rows.length + ' rows', status);
+    copyText(toJsonRows(cols.names, cols.indexes, rows), 'JSON of ' + plural(rows.length, 'row'), status);
   }, 'copy-json'));
   wrap.appendChild(document.createTextNode(' '));
   if (hostCapabilities.downloadFile) {
@@ -287,13 +329,23 @@ function exportControls(table, data) {
       var cols = table.shownColumns(); var rows = rowsOrSelected();
       var resource = { uri: 'file:///' + csvFileName(data), mimeType: 'text/csv', text: toCsv(cols.names, cols.indexes, rows) };
       request('ui/download-file', { contents: [{ type: 'resource', resource: resource }] }).then(function (r) {
-        status.textContent = r && r.isError ? 'Host did not download the file.' : 'Sent CSV of ' + rows.length + ' rows to the host to download.';
+        status.textContent = r && r.isError ? 'Host did not download the file.' : 'Sent CSV of ' + plural(rows.length, 'row') + ' to the host to download.';
       }, function () { status.textContent = 'Host could not download the file.'; });
     }, 'download-csv'));
     wrap.appendChild(document.createTextNode(' '));
   }
   wrap.appendChild(status);
   return wrap;
+}
+
+// Header stat for the row count: "rows: 6", or "rows: 3 of 6 shown" while filters apply.
+function rowCountStat(total) {
+  var node = el('span', null, 'stat rows-stat');
+  var update = function (shown) {
+    node.textContent = 'rows: ' + (shown === total ? formatNumber(total) : formatNumber(shown) + ' of ' + formatNumber(total) + ' shown');
+  };
+  update(total);
+  return { node: node, update: update };
 }
 
 // Chips, toolbar (export, stats, model context), and the table, wired to one filter state.
@@ -307,20 +359,32 @@ function buildDataSection(data, columns, rows, types, state, opts) {
     var g = groups.filter(function (x) { return x.name === name; })[0];
     if (!g || g.keys.indexOf(state.filters[name]) < 0) delete state.filters[name];
   });
-  function filtered() {
-    var keys = Object.keys(state.filters);
+  // Rows passing every filter except the one on `skip`.
+  function filtered(skip) {
+    var keys = Object.keys(state.filters).filter(function (k) { return k !== skip; });
     if (!keys.length) return rows;
     var idx = keys.map(function (k) { return columns.indexOf(k); });
     return rows.filter(function (r) { return keys.every(function (k, n) { return valueKey(r[idx[n]]) === state.filters[k]; }); });
   }
+  function filterLabel(name) {
+    var g = groups.filter(function (x) { return x.name === name; })[0];
+    return name + ' = ' + (g ? g.labels[state.filters[name]] : '?');
+  }
   var table = buildTable(columns, filtered(), types, state, { picker: true, detail: true, selectable: true });
-  var stats = statsPanel(columns, types, state, function () { return table.shownRows(); });
+  var stats = statsPanel(columns, types, state, function (name) {
+    return {
+      rows: filtered(name),
+      filters: Object.keys(state.filters).filter(function (k) { return k !== name; }).map(filterLabel),
+      ignored: name in state.filters ? filterLabel(name) : null
+    };
+  });
   section.table = table;
-  section.filtered = filtered;
+  section.filtered = function () { return filtered(); };
   function apply() {
     var current = filtered();
     table.setRows(current);
     stats.refresh();
+    if (opts.rowsStat) opts.rowsStat.update(current.length);
     if (opts.onRows) opts.onRows(current);
   }
   section.chips = groups.length ? buildChips(groups, state.filters, function () { if (section.ready) apply(); }) : null;
@@ -334,5 +398,6 @@ function buildDataSection(data, columns, rows, types, state, opts) {
   section.apply = apply;
   section.ready = true;
   stats.refresh();
+  if (opts.rowsStat) opts.rowsStat.update(filtered().length);
   return section;
 }

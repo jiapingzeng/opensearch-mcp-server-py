@@ -29,7 +29,7 @@ function renderExplain(data) {
   var stats = ['matched: ' + (data.matched ? 'yes' : 'no')];
   if (e && typeof e.value === 'number') stats.push('score: ' + formatNumber(e.value));
   app.appendChild(header(data, 'Explain ' + (data.index || '') + (data.id !== undefined && data.id !== null ? ' / ' + data.id : ''), stats));
-  if (m.truncated) app.appendChild(el('div', 'Showing the first ' + m.node_count + ' explanation nodes; the text result has the full tree.', 'notice truncated'));
+  if (m.truncated) app.appendChild(el('div', 'Showing the first ' + plural(m.node_count, 'explanation node') + '; the text result has the full tree.', 'notice truncated'));
   if (!data.matched) app.appendChild(el('div', 'The document does not match the query' + (e && e.description ? ': ' + e.description : '.'), 'notice not-matched'));
   if (!e) return;
   indexExplanation(e, 'r');
@@ -46,7 +46,7 @@ function renderExplain(data) {
         var meter = el('span', null, 'meter');
         meter.style.width = Math.max(2, Math.round(160 * Math.min(1, n.value / total))) + 'px';
         bar.appendChild(meter);
-        bar.appendChild(document.createTextNode(' ' + Math.round(100 * n.value / total) + '%'));
+        bar.appendChild(document.createTextNode(' ' + formatPercent(100 * n.value / total)));
       }
       tr.appendChild(bar);
       tr.appendChild(el('td', cellText(n.description)));

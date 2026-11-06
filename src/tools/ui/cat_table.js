@@ -25,15 +25,16 @@ function catSummary(data, types) {
 function renderCatTable(data) {
   var m = data.meta || {};
   var types = columnTypes(data.columns, data.rows, m.column_types);
-  var stats = ['rows: ' + data.rows.length];
+  var rowsStat = rowCountStat(data.rows.length);
+  var stats = [rowsStat.node];
   if (m.source) stats.push(m.source);
   app.appendChild(header(data, m.title || 'Table', stats.concat(catSummary(data, types))));
   var trunc = truncationNotice(data);
   if (trunc) app.appendChild(trunc);
   var unassigned = data.columns.indexOf('state') >= 0 ? data.rows.filter(function (r) { return r[data.columns.indexOf('state')] === 'UNASSIGNED'; }).length : 0;
-  if (unassigned) app.appendChild(el('div', unassigned + ' unassigned shard' + (unassigned === 1 ? '' : 's') + '.', 'notice warning unassigned'));
+  if (unassigned) app.appendChild(el('div', plural(unassigned, 'unassigned shard') + '.', 'notice warning unassigned'));
   if (data.rows.length === 0) { if (!trunc) app.appendChild(el('div', 'No rows.', 'notice')); return; }
-  var section = buildDataSection(data, data.columns, data.rows, types, catState, { chipSkipNumeric: true });
+  var section = buildDataSection(data, data.columns, data.rows, types, catState, { chipSkipNumeric: true, rowsStat: rowsStat });
   if (section.chips) app.appendChild(section.chips);
   app.appendChild(section.toolbar);
   app.appendChild(section.stats);

@@ -22,8 +22,8 @@ function pagingControls(data) {
   var size = resultsState.pageSize || n || 10;
   var exact = m.total_relation !== 'gte' && typeof m.total === 'number';
   var bar = el('span', null, 'paging');
-  var label = n ? 'hits ' + (from + 1) + '\u2013' + (from + n) : 'no hits from ' + (from + 1);
-  if (typeof m.total === 'number') label += ' of ' + m.total + (m.total_relation === 'gte' ? '+' : '');
+  var label = n === 1 ? 'hit ' + formatNumber(from + 1) : n ? 'hits ' + formatNumber(from + 1) + '\u2013' + formatNumber(from + n) : 'no hits from ' + formatNumber(from + 1);
+  if (typeof m.total === 'number') label += ' of ' + formatNumber(m.total) + (m.total_relation === 'gte' ? '+' : '');
   var prev = button('Previous page', function () {
     var q = withFrom(toolInput.query_dsl, Math.max(0, from - size));
     if (q !== null) callBack(data, { query_dsl: q }, 'Loading page\u2026');
@@ -77,28 +77,34 @@ function renderResults(data) {
   var m = data.meta || {};
   var title = data.kind === 'ppl_rows' ? 'PPL' : 'Search ' + (m.index || '');
   var stats = [];
-  if (data.kind === 'search_hits') {
-    if (m.total !== undefined && m.total !== null) stats.push('total: ' + m.total + (m.total_relation === 'gte' ? '+' : ''));
-  } else if (m.total !== undefined && m.total !== null) stats.push('total: ' + m.total);
-  stats.push('rows: ' + data.rows.length);
-  if (m.took !== undefined && m.took !== null) stats.push('took: ' + m.took + ' ms');
+  if (m.total !== undefined && m.total !== null) {
+    stats.push('total: ' + formatNumber(m.total) + (data.kind === 'search_hits' && m.total_relation === 'gte' ? '+' : ''));
+  }
+  var rowsStat = rowCountStat(data.rows.length);
+  stats.push(rowsStat.node);
+  if (m.took !== undefined && m.took !== null) stats.push('took: ' + formatNumber(m.took) + ' ms');
   if (m._shards) stats.push('shards: ' + m._shards.successful + '/' + m._shards.total);
   if (m.timed_out) stats.push('timed out');
   app.appendChild(header(data, title, stats, [deepLink(data)]));
   var paging = pagingControls(data);
-  if (paging) { var pbar = el('div', null, 'toolbar'); pbar.appendChild(paging); app.appendChild(pbar); }
+  if (paging) { var pbar = el('div', null, 'toolbar paging-bar'); pbar.appendChild(paging); app.appendChild(pbar); }
   var editor = pplEditor(data);
   if (editor) app.appendChild(editor);
   var trunc = truncationNotice(data);
   if (trunc) app.appendChild(trunc);
   if (data.rows.length === 0) { if (!trunc) app.appendChild(el('div', 'No rows.', 'notice')); appendAggregations(m); return; }
-  var types = columnTypes(data.columns, data.rows, m.column_types);
-  var ts = timeSeriesSpec(data, types);
-  var bars = ts ? null : barSpec(data, types);
-  var chart = ts ? buildTimeSeries(data, ts) : bars ? buildBarChart(data, bars) : null;
-  var section = buildDataSection(data, data.columns, data.rows, types, resultsState.table, {
+  // Display shape: one level of nested objects becomes dotted columns. Copy and download
+  // follow the displayed columns; the text result keeps the original documents.
+  var flat = flattenColumns(data.columns, data.rows, m.column_types, VIEW_MAX_COLUMNS);
+  var view = flat ? Object.assign({}, data, { columns: flat.columns, rows: flat.rows }) : data;
+  var types = columnTypes(view.columns, view.rows, flat ? flat.types : m.column_types);
+  var ts = timeSeriesSpec(view, types);
+  var bars = ts ? null : barSpec(view, types);
+  var chart = ts ? buildTimeSeries(view, ts, types) : bars ? buildBarChart(view, bars) : null;
+  var section = buildDataSection(view, view.columns, view.rows, types, resultsState.table, {
     chipExclude: ['_id', '_score'],
     chipSkipNumeric: data.kind === 'ppl_rows',
+    rowsStat: rowsStat,
     onRows: function (rows) { if (chart) chart.setRows(rows); }
   });
   if (section.chips) app.appendChild(section.chips);
@@ -127,9 +133,7 @@ function renderResults(data) {
 
 function appendAggregations(m) {
   (m.aggregations || []).forEach(function (t) {
-    var cut = [];
-    if (typeof t.row_count === 'number') cut.push(t.rows.length + ' of ' + t.row_count + ' rows');
-    if (typeof t.column_count === 'number') cut.push(t.columns.length + ' of ' + t.column_count + ' columns');
+    var cut = truncationParts(t.rows.length, t.row_count, t.columns.length, t.column_count);
     var note = !t.truncated ? '' : cut.length ? ' (showing ' + cut.join(' and ') + ')' : ' (truncated)';
     app.appendChild(el('h3', 'Aggregation: ' + t.name + note));
     app.appendChild(buildTable(t.columns, t.rows, columnTypes(t.columns, t.rows), newTableState(), {}).node);

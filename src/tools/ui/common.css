@@ -37,6 +37,7 @@ th[aria-sort="descending"]::after { content: " \25BC"; }
 tbody tr.row { cursor: pointer; }
 tbody tr.row:hover { background: var(--color-background-tertiary, light-dark(#eef1f4, #1c2128)); }
 td.null { color: var(--color-text-tertiary, light-dark(#818b98, #6e7681)); }
+td > .cell { display: inline-block; max-width: 40ch; overflow: hidden; text-overflow: ellipsis; vertical-align: top; }
 td.status-green, td.status-started { color: var(--color-text-success, light-dark(#1a7f37, #3fb950)); }
 td.status-yellow, td.status-initializing, td.status-relocating { color: var(--color-text-warning, light-dark(#9a6700, #d29922)); }
 td.status-red, td.status-unassigned { color: var(--color-text-danger, light-dark(#d1242f, #f85149)); font-weight: var(--font-weight-semibold, 600); }
@@ -67,12 +68,20 @@ details.columns label { margin-right: 10px; white-space: nowrap; }
 .pill { border-radius: 999px; padding: 3px 10px; text-align: left; }
 .banner { padding: 6px 8px; margin-bottom: 6px; border-radius: var(--border-radius-md, 6px);
   border: var(--border-width-regular, 1px) solid var(--color-border-danger, light-dark(#d1242f, #f85149)); }
+.error-details { margin-top: 4px; color: var(--color-text-primary, light-dark(#1f2328, #e6edf3)); }
+.error-details pre { max-height: 200px; overflow: auto; font-size: 12px; }
+.stale-label { margin-bottom: 6px; font-weight: var(--font-weight-semibold, 600); }
+#app.stale > :not(header):not(.banner):not(.stale-label):not(.ppl-editor):not(.paging-bar) { opacity: .45; }
+.label.stats-scope { text-transform: none; letter-spacing: normal; }
 .panel { padding: 8px; margin-bottom: 6px; border-radius: var(--border-radius-md, 6px);
   border: var(--border-width-regular, 1px) solid var(--color-border-secondary, light-dark(#e3e8ee, #30363d)); }
 .panel table { width: auto; }
-svg.chart { width: 100%; max-width: 720px; display: block; }
+svg.chart { width: 100%; display: block; overflow: visible; }
 svg.chart .bar { fill: var(--color-text-info, light-dark(#0969da, #4493f8)); }
 svg.chart .axis { stroke: var(--color-border-primary, light-dark(#d1d9e0, #3d444d)); }
+svg.chart .grid { stroke: var(--color-border-secondary, light-dark(#e3e8ee, #30363d)); stroke-dasharray: 3 3; }
+svg.chart .axis-label { fill: var(--color-text-secondary, light-dark(#59636e, #9198a1)); font-family: var(--font-sans, system-ui, sans-serif); }
+svg.chart .point { stroke: none; }
 svg.chart .area { opacity: .15; }
 svg.chart .line { fill: none; stroke-width: 2; }
 svg.chart text { fill: currentColor; font-size: 12px; font-family: var(--font-mono, ui-monospace, monospace); }

@@ -25,7 +25,7 @@ function renderHealth(data) {
   top.appendChild(badge);
   if (typeof h.active_shards_percent_as_number === 'number') {
     var pct = h.active_shards_percent_as_number;
-    top.appendChild(el('span', formatNumber(pct) + '% of shards active', 'stat active-pct'));
+    top.appendChild(el('span', formatPercent(pct) + ' of shards active', 'stat active-pct'));
     var meter = el('span', null, 'meter');
     meter.style.width = Math.round(Math.max(0, Math.min(100, pct)) * 1.6) + 'px';
     top.appendChild(meter);
@@ -43,7 +43,7 @@ function renderHealth(data) {
   });
   app.appendChild(card);
   if (typeof h.unassigned_shards === 'number' && h.unassigned_shards > 0) {
-    app.appendChild(el('div', h.unassigned_shards + ' unassigned shard' + (h.unassigned_shards === 1 ? '' : 's') + '. On a single-node cluster, replicas stay unassigned; otherwise check allocation (GetShardsTool, GetAllocationTool).', 'notice warning unassigned'));
+    app.appendChild(el('div', plural(h.unassigned_shards, 'unassigned shard') + '. On a single-node cluster, replicas stay unassigned; otherwise check allocation (GetShardsTool, GetAllocationTool).', 'notice warning unassigned'));
   }
   if (Array.isArray(data.rows) && data.rows.length) {
     var rows = data.rows.slice().sort(function (a, b) {

@@ -29,8 +29,8 @@ function typeCounts(nodes, counts) {
 function renderMapping(data) {
   var m = data.meta || {};
   var names = data.indices.map(function (i) { return i.name; });
-  app.appendChild(header(data, 'Mapping: ' + names.join(', '), ['fields: ' + (m.field_count || 0)]));
-  if (m.truncated) app.appendChild(el('div', 'Showing the first ' + m.field_count + ' fields; the text result has the full mapping.', 'notice truncated'));
+  app.appendChild(header(data, 'Mapping: ' + names.join(', '), ['fields: ' + formatNumber(m.field_count || 0)]));
+  if (m.truncated) app.appendChild(el('div', 'Showing the first ' + plural(m.field_count, 'field') + '; the text result has the full mapping.', 'notice truncated'));
   var bar = el('div', null, 'toolbar');
   var search = document.createElement('input');
   search.type = 'search'; search.placeholder = 'Filter by field path or type'; search.value = mappingState.query;
@@ -68,7 +68,7 @@ function renderMapping(data) {
       if (!nodes.length) holder.appendChild(el('div', q ? 'No fields match.' : 'No fields.', 'muted'));
       else holder.appendChild(buildTree(nodes, opts));
     });
-    count.textContent = q ? shown + ' matching fields' : '';
+    count.textContent = q ? plural(shown, 'matching field') : '';
     var types = {};
     data.indices.forEach(function (idx) { typeCounts(idx.fields, types); });
     summary.textContent = 'types: ' + Object.keys(types).sort().map(function (t) { return t + ' ' + types[t]; }).join(', ');
