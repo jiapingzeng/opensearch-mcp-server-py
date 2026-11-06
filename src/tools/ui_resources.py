@@ -223,8 +223,21 @@ def view_input_schema(input_schema: dict) -> dict:
 _EMOJI_TAG_SEQUENCE = re.compile(
     '\U0001f3f4[\U000e0030-\U000e0039\U000e0061-\U000e007a]{3,6}\U000e007f'
 )
-_ZWJ = '\u200d'
+_ZWJ, _ZWNJ = '\u200d', '\u200c'
 _VS15, _VS16 = '\ufe0e', '\ufe0f'
+_KEYCAP_BASES, _KEYCAP = '0123456789#*', '\u20e3'
+# Scripts with a virama whose Unicode name is two words; the rest are one word.
+_TWO_WORD_VIRAMA_SCRIPTS = frozenset(
+    {
+        'DIVES AKURU',
+        'GUNJALA GONDI',
+        'MASARAM GONDI',
+        'MEETEI MAYEK',
+        'SYLOTI NAGRI',
+        'TAI THAM',
+        'ZANABAZAR SQUARE',
+    }
+)
 # Invisible characters outside Cc/Cf: variation selectors, combining grapheme joiner, fillers.
 _INVISIBLE = re.compile('[\ufe00-\ufe0d\U000e0100-\U000e01ef\u034f\u115f\u1160\u3164\uffa0]')
 
@@ -246,9 +259,31 @@ def _is_emoji_joiner(text: str, i: int) -> bool:
     )
 
 
+def _virama_script(ch: str) -> str:
+    # The script a virama belongs to, read from the start of its Unicode name.
+    words = unicodedata.name(ch).split()
+    two = ' '.join(words[:2])
+    return two if two in _TWO_WORD_VIRAMA_SCRIPTS else words[0]
+
+
+def _is_virama_joiner(text: str, i: int) -> bool:
+    # A ZWJ or ZWNJ right after a virama (combining class 9), before a letter of its script.
+    if i == 0 or i + 1 >= len(text) or unicodedata.combining(text[i - 1]) != 9:
+        return False
+    letter = text[i + 1]
+    return unicodedata.category(letter).startswith('L') and unicodedata.name(
+        letter, ''
+    ).startswith(_virama_script(text[i - 1]) + ' ')
+
+
+def _is_keycap_selector(text: str, i: int) -> bool:
+    return i > 0 and text[i - 1] in _KEYCAP_BASES and text[i + 1 : i + 2] == _KEYCAP
+
+
 def _has_control_chars(text: str, allowed: str = '') -> bool:
     # Rejects control, format (bidi, zero-width, tags) and invisible characters. Allowed:
-    # a ZWJ between pictographs, VS15/VS16 right after a pictograph, and subdivision flags.
+    # a ZWJ between pictographs, a ZWJ or ZWNJ in an Indic conjunct, VS15/VS16 right after
+    # a pictograph, VS16 in a keycap, and subdivision flags.
     text = _EMOJI_TAG_SEQUENCE.sub('\U0001f3f4', text)
     if _INVISIBLE.search(text):
         return True
@@ -256,10 +291,16 @@ def _has_control_chars(text: str, allowed: str = '') -> bool:
         if ch in allowed:
             continue
         if ch == _ZWJ:
-            if not _is_emoji_joiner(text, i):
+            if not (_is_emoji_joiner(text, i) or _is_virama_joiner(text, i)):
+                return True
+        elif ch == _ZWNJ:
+            if not _is_virama_joiner(text, i):
                 return True
         elif ch in (_VS15, _VS16):
-            if i == 0 or not _is_pictographic(text[i - 1]):
+            if not (
+                (i > 0 and _is_pictographic(text[i - 1]))
+                or (ch == _VS16 and _is_keycap_selector(text, i))
+            ):
                 return True
         elif unicodedata.category(ch) in ('Cc', 'Cf'):
             return True

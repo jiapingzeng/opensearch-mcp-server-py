@@ -1063,6 +1063,17 @@ describe('bidi and invisible characters', () => {
     assert.equal(w.cellText('de\u200dlete'), 'de' + mark(0x200D) + 'lete');
     assert.equal(w.cellText('\u{1F468}\u200d'), '\u{1F468}' + mark(0x200D));
     assert.equal(w.cellText('\u200d\u{1F468}'), mark(0x200D) + '\u{1F468}');
+    assert.equal(w.cellText('a\u200db'), 'a' + mark(0x200D) + 'b');
+    assert.equal(w.cellText('\u0915\u094d\u200dx'), '\u0915\u094d' + mark(0x200D) + 'x');
+    assert.equal(w.cellText('\u0915\u094d\u200cx'), '\u0915\u094d' + mark(0x200C) + 'x');
+    assert.equal(w.cellText('\u0915\u094d\u200d\u0995'), '\u0915\u094d' + mark(0x200D) + '\u0995');
+    assert.equal(w.cellText('\u0915\u094d\u200d'), '\u0915\u094d' + mark(0x200D));
+    assert.equal(w.cellText('\u0915\u200d\u094d\u0937'), '\u0915' + mark(0x200D) + '\u094d\u0937');
+  });
+  test('keycaps and joiners in Indic conjuncts stay', () => {
+    for (const s of ['1\ufe0f\u20e3 #\ufe0f\u20e3 *\ufe0f\u20e3', '\u0915\u094d\u200d\u0937', '\u0915\u094d\u200c\u0937', '\u0d28\u0d4d\u200d\u0d31', '\u{11013}\u{11046}\u200d\u{11030}']) {
+      assert.equal(w.cellText(s), s);
+    }
   });
   test('joiners inside emoji sequences stay', () => {
     for (const s of ['\u{1F469}\u{1F3FB}\u200d\u2764\ufe0f\u200d\u{1F468}\u{1F3FC}', '\u{1F3F3}\ufe0f\u200d\u{1F308}', '\u{1F9D1}\u{1F3FE}\u200d\u2695\ufe0f']) {

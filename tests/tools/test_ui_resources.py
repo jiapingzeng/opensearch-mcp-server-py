@@ -957,7 +957,9 @@ class TestPresentationArgs:
             {'intent': 'joiner run \U0001f468\u200d\u200d\U0001f469'},
             {'intent': 'joiner then letter \U0001f468\u200dx'},
             {'intent': 'selector after letter x\ufe0f'},
-            {'intent': 'keycap 1\ufe0f\u20e3'},
+            {'intent': 'selector before keycap after letter x\ufe0f\u20e3'},
+            {'intent': 'keycap selector without keycap 1\ufe0f'},
+            {'intent': 'text selector in keycap 1\ufe0e\u20e3'},
             {'intent': 'selectors \u2764\ufe0f\ufe0f'},
             {'intent': 'vs1 \u2764\ufe00'},
             {'intent': 'supplement x\U000e0100\U000e01ef'},
@@ -966,7 +968,13 @@ class TestPresentationArgs:
             {'intent': 'hangul filler a\u3164b'},
             {'intent': 'halfwidth filler a\uffa0b'},
             {'intent': 'zwnj a\u200cb'},
-            {'intent': 'Indic half form \u0915\u094d\u200d\u0937'},
+            {'intent': 'zwj a\u200db'},
+            {'intent': 'virama joiner before Latin \u0915\u094d\u200dx'},
+            {'intent': 'virama non-joiner before Latin \u0915\u094d\u200cx'},
+            {'intent': 'virama joiner before another script \u0915\u094d\u200d\u0995'},
+            {'intent': 'virama joiner at end \u0915\u094d\u200d'},
+            {'intent': 'virama joiner run \u0915\u094d\u200d\u200d\u0937'},
+            {'intent': 'joiner before virama \u0915\u200d\u094d\u0937'},
         ],
     )
     def test_control_and_format_chars_rejected(self, args):
@@ -986,6 +994,12 @@ class TestPresentationArgs:
             'skin tone family \U0001f469\U0001f3fb\u200d\u2764\ufe0f\u200d\U0001f468\U0001f3fc',
             'health worker \U0001f9d1\U0001f3fe\u200d\u2695\ufe0f',
             '\u0645\u0631\u062d\u0628\u0627 \u05e9\u05dc\u05d5\u05dd',
+            'keycaps 1\ufe0f\u20e3 #\ufe0f\u20e3 *\ufe0f\u20e3 and bare 2\u20e3',
+            'Devanagari half form \u0915\u094d\u200d\u0937',
+            'Devanagari explicit virama \u0915\u094d\u200c\u0937',
+            'Malayalam chillu \u0d28\u0d4d\u200d\u0d31',
+            'Bengali ya-phala \u09b0\u09cd\u200d\u09af',
+            'Brahmi conjunct \U00011013\U00011046\u200d\U00011030',
         ],
     )
     def test_emoji_and_scripts_accepted(self, text):

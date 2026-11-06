@@ -68,7 +68,8 @@ function dict(init) {
   return d;
 }
 // Bidi controls, zero-width, tag, variation-selector-supplement and filler characters, shown
-// as visible markers so data cannot spoof or hide text. A ZWJ inside an emoji is kept.
+// as visible markers so data cannot spoof or hide text. A ZWJ inside an emoji, and a ZWJ or
+// ZWNJ in an Indic conjunct, are kept.
 var HIDDEN_CHARS_RE = /[\u034f\u061c\u115f\u1160\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\u3164\ufeff\uffa0\u{e0000}-\u{e007f}\u{e0100}-\u{e01ef}]/gu;
 var PICTOGRAPH_RE = /\p{Extended_Pictographic}/u;
 var EMOJI_MODIFIER_RE = /^(?:\ufe0f|\ud83c[\udffb-\udfff])$/;
@@ -80,9 +81,23 @@ function isEmojiJoiner(s, i) {
   if (before.length && EMOJI_MODIFIER_RE.test(before[before.length - 1])) before.pop();
   return before.length > 0 && PICTOGRAPH_RE.test(before[before.length - 1]);
 }
+// Characters with canonical combining class 9 (viramas), and the scripts they belong to. The pair
+// regex is tested on exactly two code points, so it needs no anchors.
+var VIRAMA_RE = /^[\u094d\u09cd\u0a4d\u0acd\u0b4d\u0bcd\u0c4d\u0ccd\u0d3b\u0d3c\u0d4d\u0dca\u0e3a\u0eba\u0f84\u1039\u103a\u1714\u1715\u1734\u17d2\u1a60\u1b44\u1baa\u1bab\u1bf2\u1bf3\u2d7f\ua806\ua82c\ua8c4\ua953\ua9c0\uaaf6\uabed\u{10a3f}\u{11046}\u{11070}\u{1107f}\u{110b9}\u{11133}\u{11134}\u{111c0}\u{11235}\u{112ea}\u{1134d}\u{11442}\u{114c2}\u{115bf}\u{1163f}\u{116b6}\u{1172b}\u{11839}\u{1193d}\u{1193e}\u{119e0}\u{11a34}\u{11a47}\u{11a99}\u{11c3f}\u{11d44}\u{11d45}\u{11d97}\u{11f41}\u{11f42}]$/u;
+var VIRAMA_SCRIPT_PAIR_RE = new RegExp('(?:' + ('Ahom Balinese Batak Bengali Bhaiksuki Brahmi Chakma Devanagari Dives_Akuru Dogra Grantha Gujarati Gunjala_Gondi Gurmukhi Hanunoo Javanese Kaithi Kannada Kawi Kharoshthi Khmer Khojki Khudawadi Lao Malayalam Masaram_Gondi Meetei_Mayek Modi Myanmar Nandinagari Newa Oriya Rejang Saurashtra Sharada Siddham Sinhala Soyombo Sundanese Syloti_Nagri Tagalog Tai_Tham Takri Tamil Telugu Thai Tibetan Tifinagh Tirhuta Zanabazar_Square')
+  .split(' ').map(function (sc) { return '\\p{scx=' + sc + '}{2}'; }).join('|') + ')', 'u');
+// A ZWJ or ZWNJ right after a virama, before a letter of the virama's script.
+function isViramaJoiner(s, i) {
+  var prev = Array.from(s.slice(Math.max(0, i - 2), i)).pop();
+  var next = s.codePointAt(i + 1);
+  if (!prev || next === undefined || !VIRAMA_RE.test(prev)) return false;
+  var letter = String.fromCodePoint(next);
+  return /^\p{L}$/u.test(letter) && VIRAMA_SCRIPT_PAIR_RE.test(prev + letter);
+}
 function showHidden(s) {
   return s.replace(HIDDEN_CHARS_RE, function (c, i, str) {
     if (c === '\u200d' && isEmojiJoiner(str, i)) return c;
+    if ((c === '\u200d' || c === '\u200c') && isViramaJoiner(str, i)) return c;
     return '\u27e6U+' + c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0') + '\u27e7';
   });
 }
