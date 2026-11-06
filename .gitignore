@@ -29,4 +29,7 @@ wheels/
 *.egg-info
 /__pycache__
 
+# Test-only npm dependencies (tests/ui)
+node_modules/
+
 tmp

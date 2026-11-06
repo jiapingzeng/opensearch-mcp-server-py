@@ -1,0 +1,12 @@
+{
+  "name": "opensearch-mcp-view-tests",
+  "private": true,
+  "description": "node --test suite for the MCP Apps views in src/tools/ui. Test-only; nothing here ships in the package.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
+}
