@@ -40,7 +40,7 @@ th[aria-sort="descending"]::after { content: " \25BC"; }
 tbody tr.row { cursor: pointer; }
 tbody tr.row:hover { background: var(--color-background-tertiary, light-dark(#eef1f4, #1c2128)); }
 td.null { color: var(--color-text-tertiary, light-dark(#818b98, #6e7681)); }
-td > .cell { display: inline-block; max-width: 40ch; overflow: hidden; text-overflow: ellipsis; vertical-align: top; unicode-bidi: plaintext; }
+td > .cell { unicode-bidi: plaintext; }
 td.status-green, td.status-started { color: var(--color-text-success, light-dark(#1a7f37, #3fb950)); }
 td.status-yellow, td.status-initializing, td.status-relocating { color: var(--color-text-warning, light-dark(#9a6700, #d29922)); }
 td.status-red, td.status-unassigned { color: var(--color-text-danger, light-dark(#d1242f, #f85149)); font-weight: var(--font-weight-semibold, 600); }

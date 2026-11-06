@@ -38,11 +38,14 @@ function columnTypes(columns, rows, declared, exact) {
   });
 }
 
+// Cut in text, not CSS: inline cells lay out about twice as fast as clipped inline-blocks.
+var TABLE_CELL_MAX = 40;
+
 function formatCell(v, type) {
   if (type === 'bytes') return formatBytes(v);
   if (typeof v === 'number' && isNumericType(type)) return formatNumber(v);
   if (isExactInteger(v, type)) return formatNumber(BigInt(v));
-  return cellText(v);
+  return cellText(v, TABLE_CELL_MAX);
 }
 
 // JSON text for `values` under `names`, as JSON.stringify(obj, null, 2) would print it, but

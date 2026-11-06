@@ -851,6 +851,14 @@ describe('resize observers', () => {
 });
 
 describe('exports', () => {
+  test('table cells are cut to 40 characters; title and CSV keep the whole value', async () => {
+    const long = 'x'.repeat(39) + 'yz';
+    const v = await openView('results', {}, SEARCH_INPUT, searchResult({ columns: ['_index', 's'], rows: [['logs', long]] }));
+    const td = v.doc.querySelector('tbody tr.row').querySelectorAll('td:not(.select)')[1];
+    assert.equal(td.textContent, 'x'.repeat(39) + '\u2026');
+    assert.equal(td.title, long);
+    assert.equal(await copied(v, 'button.copy-csv'), `_index,s\r\nlogs,${long}\r\n`);
+  });
   test('CSV carries raw values, not display formatting', async () => {
     const v = await openView('results', {}, SEARCH_INPUT, searchResult({ columns: ['_index', 'n', 'f'], rows: [['logs', 1234567, 0.0004], ['logs', -0, 52.650000000000006]] }));
     assert.equal(columnCells(v.doc, 1)[0], '1,234,567');

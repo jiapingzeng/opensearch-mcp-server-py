@@ -72,9 +72,10 @@ var HIDDEN_CHARS_RE = /[\u061c\u200b\u200e\u200f\u202a-\u202e\u2060\u2066-\u2069
 function showHidden(s) {
   return s.replace(HIDDEN_CHARS_RE, function (c) { return '\u27e6U+' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0') + '\u27e7'; });
 }
-function cellText(v) {
+function cellText(v, max) {
   var s = showHidden(rawText(v));
-  return s.length > CELL_MAX ? s.slice(0, CELL_MAX - 1) + '\u2026' : s;
+  max = max || CELL_MAX;
+  return s.length > max ? s.slice(0, max - 1) + '\u2026' : s;
 }
 // Identity for filtering and grouping: typed and untruncated, so "1" and 1, or two long
 // strings sharing a prefix, never collide.
