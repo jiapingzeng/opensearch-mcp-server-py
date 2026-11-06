@@ -7,11 +7,11 @@ var FILL_MAX_BUCKETS = 2000;
 var CHART_DEFAULT_WIDTH = 720;
 var CHAR_PX = 7.3;  // 12px monospace advance, for label layout
 var TIME_TYPES = ['timestamp', 'date', 'datetime', 'time', 'date_nanos'];
-var FIXED_UNITS = { ms: 1, s: 1000, m: 60000, h: 3600000, d: 86400000, w: 604800000 };
-var UNIT_ALIASES = {
+var FIXED_UNITS = dict({ ms: 1, s: 1000, m: 60000, h: 3600000, d: 86400000, w: 604800000 });
+var UNIT_ALIASES = dict({
   millisecond: 'ms', milliseconds: 'ms', second: 's', seconds: 's', sec: 's', minute: 'm', minutes: 'm',
   min: 'm', hour: 'h', hours: 'h', day: 'd', days: 'd', week: 'w', weeks: 'w'
-};
+});
 var TIME_STEPS = [1e3, 5e3, 15e3, 3e4, 6e4, 3e5, 9e5, 18e5, 36e5, 72e5, 108e5, 216e5, 432e5,
   864e5, 1728e5, 6048e5, 12096e5, 2592e6, 7776e6, 31536e6];
 
@@ -33,21 +33,18 @@ function spanInterval(query) {
   return key && FIXED_UNITS[key] ? Number(m[1]) * FIXED_UNITS[key] : null;
 }
 
-// { ms, regular }: the bucket width (span, else the smallest spacing) and whether every
-// timestamp sits on that grid. Null with fewer than two timestamps.
+// { ms, regular }: the span() bucket width and whether every timestamp sits on that grid.
+// Null without a fixed-unit span (raw rows are not buckets) or with fewer than two timestamps.
 function inferInterval(ts, query) {
-  if (ts.length < 2) return null;
-  var min = Infinity;
-  for (var i = 1; i < ts.length; i++) if (ts[i] - ts[i - 1] > 0 && ts[i] - ts[i - 1] < min) min = ts[i] - ts[i - 1];
-  var ms = spanInterval(query) || min;
-  if (!isFinite(ms) || ms <= 0) return null;
+  var ms = spanInterval(query);
+  if (ts.length < 2 || !ms || !isFinite(ms) || ms <= 0) return null;
   var regular = ts.every(function (t) { var k = (t - ts[0]) / ms; return Math.abs(k - Math.round(k)) < 1e-6; });
   return { ms: ms, regular: regular };
 }
 
 // Column names whose empty buckets mean 0: count(), dc(), distinct_count(), and their `as` aliases.
 function countLikeColumns(columns, query) {
-  var aliases = {};
+  var aliases = dict();
   var re = /\b(?:count|dc|distinct_count)\s*\([^)]*\)\s+as\s+`?([\w.@]+)`?/gi, m;
   while ((m = re.exec(query || ''))) aliases[m[1]] = true;
   return columns.map(function (c) { return /^(count|dc|distinct_count)\s*\(/i.test(String(c)) || c === 'count' || !!aliases[c]; });
@@ -82,18 +79,26 @@ function segments(points, ts, interval) {
   return out;
 }
 
-// About `count` evenly spaced ticks from 0 that cover `max`, with 1/2/2.5/5 x 10^k steps.
-function niceTicks(max, count, integer) {
-  if (!(max > 0)) max = 1;
-  var raw = max / (count || 4);
+// About `count` evenly spaced ticks with 1/2/2.5/5 x 10^k steps covering [min, max]; min
+// defaults to 0 and only a negative min extends the axis below 0.
+function niceTicks(max, count, integer, min) {
+  if (!(max > 0) || !isFinite(max)) max = min < 0 ? 0 : 1;
+  min = min < 0 && isFinite(min) ? min : 0;
+  var raw = (max - min) / (count || 4);
   var mag = Math.pow(10, Math.floor(Math.log10(raw)));
   var norm = raw / mag;
   var mult = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 && !integer ? 2.5 : norm <= 5 ? 5 : 10;
   var step = mult * mag;
   if (integer && step < 1) step = 1;
+  // Subnormal ranges underflow the step to 0 or overflow it; fall back to the range itself.
+  if (!(step > 0) || !isFinite(step) || (max - min) / step > 1000) return min < 0 ? [min, 0, max] : [0, max];
+  var first = Math.floor(min / step + 1e-9);
   var ticks = [];
-  for (var i = 0; i * step < max + step * 1e-9 || ticks.length < 2; i++) ticks.push(Number((i * step).toPrecision(12)));
-  if (ticks[ticks.length - 1] < max) ticks.push(Number((ticks.length * step).toPrecision(12)));
+  for (var i = first; i * step < max + step * 1e-9 || ticks.length < 2; i++) ticks.push(Number((i * step).toPrecision(12)) || 0);
+  if (ticks[ticks.length - 1] < max) {
+    var end = Number(((first + ticks.length) * step).toPrecision(12));
+    ticks.push(isFinite(end) ? end : max);
+  }
   return ticks;
 }
 
@@ -123,14 +128,17 @@ function chartWidth(node) {
   var w = node.clientWidth;
   return w > 0 ? Math.floor(w) : CHART_DEFAULT_WIDTH;
 }
-// Redraws when the container width changes; hidden containers (width 0) are skipped.
+// Redraws when the container width changes; hidden containers (width 0) are skipped. Stops
+// observing once the node leaves the document (a re-render replaced it).
 function onWidthChange(node, redraw) {
   if (typeof ResizeObserver !== 'function') return;
   var last = 0;
-  new ResizeObserver(function () {
+  var observer = new ResizeObserver(function () {
+    if (!node.isConnected) { observer.disconnect(); return; }
     var w = Math.floor(node.clientWidth);
     if (w > 0 && w !== last) { last = w; redraw(); }
-  }).observe(node);
+  });
+  observer.observe(node);
 }
 
 function barSpec(data, types) {
@@ -206,7 +214,7 @@ function buildTimeSeries(data, spec) {
   var valueName = spec.values.map(function (i) { return data.columns[i]; }).join(', ');
 
   function seriesOf(rows) {
-    var series = [], byKey = {};
+    var series = [], byKey = dict();
     function get(key, name, column) {
       if (!(key in byKey)) { byKey[key] = series.length; series.push({ name: name, column: column, points: {} }); }
       return series[byKey[key]];
@@ -228,7 +236,7 @@ function buildTimeSeries(data, spec) {
   var model = null;
   function prepare(rows) {
     var series = seriesOf(rows);
-    var times = {};
+    var times = dict();
     series.forEach(function (s) { Object.keys(s.points).forEach(function (t) { times[t] = 1; }); });
     var ts = Object.keys(times).map(Number).sort(function (a, b) { return a - b; });
     var interval = inferInterval(ts, query);
@@ -246,10 +254,10 @@ function buildTimeSeries(data, spec) {
     if (ts.length < 2) { holder.appendChild(el('div', 'Not enough time buckets to chart; see the table.', 'muted')); return; }
     if (model.filled) note.textContent = plural(model.filled, 'empty bucket') + ' shown as 0 (PPL omits empty buckets).';
     else if (model.gaps) note.textContent = 'Gaps mark missing buckets.';
-    var max = 0;
-    series.forEach(function (s) { Object.keys(s.points).forEach(function (t) { if (s.points[t] > max) max = s.points[t]; }); });
-    var yTicks = niceTicks(max, 4, model.integer);
-    var yMax = yTicks[yTicks.length - 1];
+    var max = 0, min = 0;
+    series.forEach(function (s) { Object.keys(s.points).forEach(function (t) { var v = s.points[t]; if (v > max) max = v; if (v < min) min = v; }); });
+    var yTicks = niceTicks(max, 4, model.integer, min);
+    var yMin = yTicks[0], yMax = yTicks[yTicks.length - 1];
     var yLabels = yTicks.map(formatNumber);
     var L = 30 + Math.ceil(Math.max.apply(null, yLabels.map(function (s) { return s.length; })) * CHAR_PX);
     var W = chartWidth(wrap);
@@ -260,11 +268,11 @@ function buildTimeSeries(data, spec) {
     var xt = timeTicks(t0, t1, Math.max(2, Math.floor(plotW / (labelChars * CHAR_PX + 18))));
     if (oneDay && xt.step < 6e4) labelChars = 8;
     var x = function (t) { return L + (t - t0) / (t1 - t0) * plotW; };
-    var y = function (v) { return T + (1 - v / yMax) * (H - T - B); };
+    var y = function (v) { return T + (1 - (v - yMin) / (yMax - yMin)) * (H - T - B); };
     var chart = svg('svg', { 'class': 'chart', width: '100%', viewBox: '0 0 ' + W + ' ' + H, role: 'img' });
     chart.appendChild(svg('title', {}, series.map(function (s) { return s.name; }).join(', ') + ' over ' + data.columns[spec.time]));
     yTicks.forEach(function (v, i) {
-      chart.appendChild(svg('line', { 'class': i ? 'grid' : 'axis', x1: L, y1: y(v), x2: L + plotW, y2: y(v) }));
+      chart.appendChild(svg('line', { 'class': v === 0 ? 'axis' : 'grid', x1: L, y1: y(v), x2: L + plotW, y2: y(v) }));
       chart.appendChild(svg('text', { 'class': 'y-tick', x: L - 6, y: y(v) + 4, 'text-anchor': 'end' }, yLabels[i]));
     });
     chart.appendChild(svg('line', { 'class': 'axis', x1: L, y1: T, x2: L, y2: H - B }));
@@ -279,7 +287,7 @@ function buildTimeSeries(data, spec) {
     });
     var caption = data.columns[spec.time] + ' (UTC' + (oneDay ? ', ' + new Date(t0).toISOString().slice(0, 10) : '') + ')';
     chart.appendChild(svg('text', { 'class': 'axis-label x-label', x: L + plotW / 2, y: H - 8, 'text-anchor': 'middle' }, caption));
-    var base = (H - B).toFixed(1);
+    var base = y(Math.min(Math.max(0, yMin), yMax)).toFixed(1);
     series.forEach(function (s, n) {
       var segs = segments(s.points, ts, interval);
       var line = '', area = '';

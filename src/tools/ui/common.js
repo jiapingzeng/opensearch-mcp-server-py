@@ -60,8 +60,20 @@ function rawText(v) {
   if (v === null || v === undefined) return '';
   return typeof v === 'object' ? JSON.stringify(v) : String(v);
 }
+// Maps keyed by index data (column names, values, field paths) must not inherit
+// Object.prototype, or keys such as "constructor" and "__proto__" misbehave.
+function dict(init) {
+  var d = Object.create(null);
+  if (init) Object.keys(init).forEach(function (k) { d[k] = init[k]; });
+  return d;
+}
+// Bidi controls and zero-width characters, shown as visible markers so data cannot spoof text.
+var HIDDEN_CHARS_RE = /[\u061c\u200b\u200e\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/g;
+function showHidden(s) {
+  return s.replace(HIDDEN_CHARS_RE, function (c) { return '\u27e6U+' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0') + '\u27e7'; });
+}
 function cellText(v) {
-  var s = rawText(v);
+  var s = showHidden(rawText(v));
   return s.length > CELL_MAX ? s.slice(0, CELL_MAX - 1) + '\u2026' : s;
 }
 // Identity for filtering and grouping: typed and untruncated, so "1" and 1, or two long
@@ -70,12 +82,14 @@ function valueKey(v) {
   if (v === null || v === undefined) return 'null:';
   return (typeof v === 'object' ? 'json:' : typeof v + ':') + rawText(v);
 }
+var collator = new Intl.Collator(undefined, { numeric: true });
 function compare(a, b) {
   if (a === b) return 0;
   if (a === null || a === undefined) return 1;
   if (b === null || b === undefined) return -1;
-  if (typeof a === 'number' && typeof b === 'number') return a - b;
-  return rawText(a).localeCompare(rawText(b), undefined, { numeric: true });
+  var na = typeof a === 'number' || typeof a === 'bigint', nb = typeof b === 'number' || typeof b === 'bigint';
+  if (na && nb) return a < b ? -1 : a > b ? 1 : 0;
+  return collator.compare(rawText(a), rawText(b));
 }
 // Byte sizes in 1024-based units with 3 significant digits: 512 B, 7.50 KiB, 141 KiB, 1.20 TiB.
 function formatBytes(n) {
@@ -91,12 +105,22 @@ function formatBytes(n) {
   }
   return sign + r.toFixed(r < 10 ? 2 : r < 100 ? 1 : 0) + ' ' + units[i];
 }
+// Thousands separators; at most 3 decimals from 1 up, 3 significant digits below 1 and
+// exponent notation below 1e-6, so a non-zero value never shows as 0. -0 shows as 0.
 function formatNumber(n) {
+  if (typeof n === 'bigint') return n.toLocaleString('en-US');
   if (typeof n !== 'number' || !isFinite(n)) return cellText(n);
-  return Number.isInteger(n) ? n.toLocaleString('en-US') : n.toLocaleString('en-US', { maximumFractionDigits: 3 });
+  if (n === 0) return '0';
+  if (Number.isInteger(n)) return n.toLocaleString('en-US');
+  var abs = Math.abs(n);
+  if (abs >= 1) return n.toLocaleString('en-US', { maximumFractionDigits: 3 });
+  if (abs < 1e-6) return Number(n.toPrecision(3)).toExponential();
+  return n.toLocaleString('en-US', { maximumSignificantDigits: 3 });
 }
 function formatPercent(n) {
   if (typeof n !== 'number' || !isFinite(n)) return cellText(n);
+  if (n === 0) return '0%';
+  if (Math.abs(n) < 0.05) return n < 0 ? '>-0.1%' : '<0.1%';
   return n.toLocaleString('en-US', { maximumFractionDigits: 1 }) + '%';
 }
 // "1 row", "2 rows", "1,500 rows"; `many` for irregular plurals.
@@ -113,9 +137,14 @@ function unescapePython(s) {
     return c in simple ? simple[c] : all;
   });
 }
-// The first balanced {...} in `s` that parses as JSON, or null.
+// Bounds on error parsing: tool error text can be large and adversarial.
+var ERROR_PARSE_MAX_CHARS = 65536;
+var ERROR_PARSE_MAX_STARTS = 20;
+// The first balanced {...} in `s` that parses as JSON, or null. Tries at most
+// ERROR_PARSE_MAX_STARTS opening braces, so the scan stays linear in the input.
 function firstJsonObject(s) {
-  for (var start = s.indexOf('{'); start >= 0; start = s.indexOf('{', start + 1)) {
+  var tries = 0;
+  for (var start = s.indexOf('{'); start >= 0 && tries < ERROR_PARSE_MAX_STARTS; start = s.indexOf('{', start + 1), tries++) {
     var depth = 0, inString = false;
     for (var i = start; i < s.length; i++) {
       var c = s[i];
@@ -145,6 +174,7 @@ function errorReason(body) {
 // "Error searching: NotFoundError(404, '{\n  \"error\": ...}')". Null when nothing is found.
 function parseOpenSearchError(text) {
   if (typeof text !== 'string' || !text) return null;
+  text = text.slice(0, ERROR_PARSE_MAX_CHARS);
   var status = null, reason = null;
   var m = /\b[A-Za-z]*(?:Error|Exception)\((\d{3})\s*,/.exec(text);
   if (m) status = Number(m[1]);
@@ -387,6 +417,7 @@ function copyText(text, what, status) {
     var box = el('div', null, 'panel copy-fallback');
     var area = el('textarea');
     area.readOnly = true; area.rows = 6; area.value = text;
+    area.setAttribute('aria-label', 'Text to copy: ' + what);
     box.appendChild(el('div', 'The host blocked clipboard access. The ' + what + ' is selected below; press Ctrl+C (\u2318C on macOS) to copy it.', 'muted'));
     box.appendChild(area);
     box.appendChild(button('Close', function () { box.remove(); }));

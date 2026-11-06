@@ -13,7 +13,7 @@ var HEALTH_METRICS = [
   ['number_of_in_flight_fetch', 'In-flight fetches'],
   ['task_max_waiting_in_queue_millis', 'Longest task wait (ms)', 'warn']
 ];
-var STATUS_ORDER = { red: 0, yellow: 1, green: 2 };
+var STATUS_ORDER = dict({ red: 0, yellow: 1, green: 2 });
 
 function renderHealth(data) {
   var h = data.health || {};

@@ -12,6 +12,9 @@ const UI = path.resolve(__dirname, '../../src/tools/ui');
 const VIEWS = {
   results: { title: 'OpenSearch results', scripts: ['common.js', 'table.js', 'charts.js', 'results.js'] },
   table: { title: 'OpenSearch table', scripts: ['common.js', 'table.js', 'cat_table.js'] },
+  health: { title: 'OpenSearch cluster health', scripts: ['common.js', 'health.js'] },
+  mapping: { title: 'OpenSearch index mapping', scripts: ['common.js', 'tree.js', 'mapping.js'] },
+  explain: { title: 'OpenSearch score explanation', scripts: ['common.js', 'tree.js', 'explain.js'] },
 };
 const read = (name) => fs.readFileSync(path.join(UI, name), 'utf8');
 const scripts = (view) => VIEWS[view].scripts.map(read).join('\n');
@@ -43,7 +46,13 @@ function load(view, { assembled = true } = {}) {
     pretendToBeVisual: true,
     beforeParse(window) {
       Object.defineProperty(window, 'parent', { value: host, configurable: true });
-      window.ResizeObserver = class { observe() {} disconnect() {} };
+      // Records observers so tests can fire resizes and check disconnects.
+      window.observers = [];
+      window.ResizeObserver = class {
+        constructor(cb) { this.cb = cb; this.nodes = []; this.disconnected = false; window.observers.push(this); }
+        observe(node) { this.nodes.push(node); }
+        disconnect() { this.disconnected = true; }
+      };
       const add = window.addEventListener.bind(window);
       window.addEventListener = (type, fn, opts) => { if (type === 'message') listener = fn; return add(type, fn, opts); };
     },
@@ -469,11 +478,16 @@ describe('time buckets', () => {
     assert.equal(w.spanInterval('source=x | head 5'), null);
   });
 
-  test('inferInterval falls back to the smallest spacing and checks the grid', () => {
-    assert.deepEqual(plain(w.inferInterval([0, H, 3 * H], '')), { ms: H, regular: true });
-    assert.deepEqual(plain(w.inferInterval([0, 2 * H, 3 * H], 'stats count() by span(t, 1h)')), { ms: H, regular: true });
-    assert.deepEqual(plain(w.inferInterval([0, H, 2.5 * H], '')), { ms: H, regular: false });
-    assert.equal(w.inferInterval([0], ''), null);
+  test('inferInterval needs a fixed-unit span and checks the grid', () => {
+    const q = 'stats count() by span(t, 1h)';
+    assert.deepEqual(plain(w.inferInterval([0, H, 3 * H], q)), { ms: H, regular: true });
+    assert.deepEqual(plain(w.inferInterval([0, 2 * H, 3 * H], q)), { ms: H, regular: true });
+    assert.deepEqual(plain(w.inferInterval([0, H, 2.5 * H], q)), { ms: H, regular: false });
+    assert.equal(w.inferInterval([0], q), null);
+    // Raw rows (no span) are not buckets, whatever their spacing.
+    assert.equal(w.inferInterval([0, H, 3 * H], ''), null);
+    assert.equal(w.inferInterval([0, H, 3 * H], 'source=logs | fields @timestamp, latency'), null);
+    assert.equal(w.inferInterval([0, H, 3 * H], 'stats count() by span(t, 1M)'), null);
   });
 
   test('countLikeColumns covers count(), dc() and their aliases', () => {
@@ -635,5 +649,406 @@ describe('nested objects', () => {
     v.doc.querySelector('button.copy-json').click();
     await flush();
     assert.deepEqual(JSON.parse(copied)[0], { _index: 'logs', _id: 'd1', 'user.id': 'u-1', 'user.geo': { country: 'US' } });
+  });
+});
+
+async function copied(v, selector) {
+  let text = null;
+  Object.defineProperty(v.window.navigator, 'clipboard', { value: { writeText: (t) => { text = t; return Promise.resolve(); } }, configurable: true });
+  v.doc.querySelector(selector).click();
+  await flush();
+  return text;
+}
+const headerNames = (doc) => [...doc.querySelectorAll('thead th:not(.select)')].map((t) => t.textContent);
+const columnCells = (doc, n) => [...doc.querySelectorAll('tbody tr.row')].map((tr) => tr.querySelectorAll('td:not(.select)')[n].textContent);
+
+describe('keys that shadow Object.prototype', () => {
+  const { window: w } = load('results', { assembled: false });
+  const hostile = '{"constructor":"c1","toString":"t1","valueOf":"v","hasOwnProperty":5,"__proto__":{"x":1},"id":"u1"}';
+
+  test('flattenColumns keeps every key', () => {
+    const flat = plain(w.flattenColumns(['_id', 'user'], [['d1', JSON.parse(hostile)]], null, 100));
+    assert.deepEqual(flat.columns, ['_id', 'user.constructor', 'user.toString', 'user.valueOf', 'user.hasOwnProperty', 'user.__proto__', 'user.id']);
+    assert.deepEqual(flat.rows, [['d1', 'c1', 't1', 'v', 5, { x: 1 }, 'u1']]);
+  });
+
+  test('countLikeColumns, units and dict lookups ignore inherited names', () => {
+    assert.deepEqual(plain(w.countLikeColumns(['constructor', 'toString', 'x'], '')), [false, false, false]);
+    assert.equal(w.spanInterval('stats count() by span(t, 1 constructor)'), null);
+    const d = w.dict();
+    assert.equal('constructor' in d, false);
+    assert.equal(d.toString, undefined);
+  });
+
+  test('columns named constructor and __proto__ show, filter, sort and export', async () => {
+    const rows = [['logs', 'a', 'x'], ['logs', 'a', 'y'], ['logs', 'b', 'z']];
+    const v = await openView('results', {}, SEARCH_INPUT, searchResult({ columns: ['_index', 'constructor', '__proto__'], rows }));
+    assert.deepEqual(headerNames(v.doc), ['_index', 'constructor', '__proto__']);
+    [...v.doc.querySelectorAll('button.chip')].find((b) => b.textContent === 'a (2)').click();
+    assert.equal(v.doc.querySelector('.rows-stat').textContent, 'rows: 2 of 3 shown');
+    const select = v.doc.querySelector('select.stats-column');
+    select.value = 'constructor'; select.dispatchEvent(new v.window.Event('change'));
+    assert.match(v.doc.querySelector('.stats-scope').textContent, /its own filter \(constructor = a\) is not applied/);
+    const json = JSON.parse(await copied(v, 'button.copy-json'));
+    assert.deepEqual(Object.keys(json[0]), ['_index', 'constructor', '__proto__']);
+    assert.equal(json[0].__proto__, 'x');  // own property, parsed back by JSON.parse
+    v.doc.querySelector('tbody tr.row td:not(.select)').click();
+    assert.match(v.doc.querySelector('tr.detail pre').textContent, /"__proto__": "x"/);
+  });
+
+  test('health status and mapping paths named like prototype members', async () => {
+    const health = await openView('health', {}, {}, {
+      content: [{ type: 'text', text: 'h' }],
+      structuredContent: { kind: 'cluster_health', version: 1, cluster: '', tool: 'ClusterHealthTool', health: { status: 'constructor' },
+        columns: ['index', 'status', 'unassigned_shards'], rows: [['b', 'green', 0], ['a', 'toString', 1], ['c', 'red', 2]] },
+    });
+    assert.equal(health.doc.querySelector('.status-badge').className, 'status-badge unknown');
+    assert.deepEqual([...health.doc.querySelectorAll('tbody tr')].map((tr) => tr.firstChild.textContent), ['c', 'b', 'a']);
+    const field = (name, path, extra = {}) => ({ name, path, type: 'keyword', ...extra });
+    const mapping = await openView('mapping', {}, {}, {
+      content: [{ type: 'text', text: 'm' }],
+      structuredContent: { kind: 'index_mapping', version: 1, cluster: '', tool: 'IndexMappingTool', meta: { field_count: 3 },
+        indices: [{ name: 'i', fields: [{ name: 'a', path: 'a', type: 'object', children: [{ name: 'toString', path: 'toString', type: 'object', children: [field('x', 'toString.x')] }] }] }] },
+    });
+    const sub = mapping.doc.querySelectorAll('ul.tree ul.tree')[1];
+    assert.equal(sub.hidden, true, 'depth-1 node collapsed by default, not opened by an inherited key');
+    assert.equal(mapping.doc.querySelector('.type-summary').textContent, 'types: keyword 1, object 2');
+  });
+});
+
+describe('small numbers', () => {
+  const { window: w } = load('results', { assembled: false });
+
+  test('formatNumber never rounds non-zero to 0 and never prints -0', () => {
+    assert.equal(w.formatNumber(0.0004), '0.0004');
+    assert.equal(w.formatNumber(-0.0001), '-0.0001');
+    assert.equal(w.formatNumber(0.00012345), '0.000123');
+    assert.equal(w.formatNumber(1e-7), '1e-7');
+    assert.equal(w.formatNumber(-1.234e-9), '-1.23e-9');
+    assert.equal(w.formatNumber(5e-324), '5e-324');
+    assert.equal(w.formatNumber(-0), '0');
+    assert.equal(w.formatNumber(0.5), '0.5');
+    assert.equal(w.formatNumber(123.45678), '123.457');
+    assert.equal(w.formatNumber(-0.99999), '-1');
+    assert.equal(w.formatCell(0.0004, 'double'), '0.0004');
+    assert.equal(w.formatPercent(0.01), '<0.1%');
+    assert.equal(w.formatPercent(-0), '0%');
+    assert.equal(w.formatPercent(12.34), '12.3%');
+  });
+
+  test('y-axis ticks for small values are distinct and non-zero above the base', () => {
+    const labels = plain(w.niceTicks(0.0004, 4, false)).map(w.formatNumber);
+    assert.deepEqual(labels, ['0', '0.0001', '0.0002', '0.0003', '0.0004']);
+  });
+
+  test('table cells show small decimals', async () => {
+    const v = await openView('results', {}, SEARCH_INPUT, searchResult({ columns: ['_index', 'n'], rows: [['logs', 0.0004], ['logs', -0.0001], ['logs', 1e-7]] }));
+    assert.deepEqual(columnCells(v.doc, 1), ['0.0004', '-0.0001', '1e-7']);
+  });
+});
+
+describe('time series without span()', () => {
+  const at = (s) => `2026-11-01 00:00:${String(s).padStart(2, '0')}`;
+  test('raw rows draw one continuous line with no fill and no note', async () => {
+    const q = 'source=logs | fields @timestamp, latency';
+    const rows = [0, 1, 3, 4, 9, 10, 17, 30, 31, 45].map((s, i) => [at(s), i + 0.5]);
+    const v = await openView('results', {}, {}, pplResult(q, ['@timestamp', 'latency'], rows, ['timestamp', 'double']));
+    const d = v.doc.querySelector('.time-series path.line').getAttribute('d');
+    assert.equal((d.match(/M/g) || []).length, 1);
+    assert.equal(v.doc.querySelector('.chart-note').textContent, '');
+  });
+
+  test('a count column without span() is not filled', async () => {
+    const q = 'source=logs | stats count() by @timestamp';
+    const rows = [[1, at(0)], [2, at(1)], [3, at(5)]];
+    const v = await openView('results', {}, {}, pplResult(q, ['count()', '@timestamp'], rows, ['bigint', 'timestamp']));
+    assert.equal(v.doc.querySelector('.chart-note').textContent, '');
+    const d = v.doc.querySelector('.time-series path.line').getAttribute('d');
+    assert.equal((d.match(/[ML]/g) || []).length, 3);
+  });
+
+  test('fillBuckets stops at FILL_MAX_BUCKETS', () => {
+    const { window: w } = load('results', { assembled: false });
+    const s = { points: { 0: 1, [w.FILL_MAX_BUCKETS * 1000]: 2 } };
+    const ts = [0, w.FILL_MAX_BUCKETS * 1000];
+    assert.deepEqual(plain(w.fillBuckets([s], ts, { ms: 1000, regular: true }, () => true)), ts);
+    assert.equal(s.filled, undefined);
+    const ok = { points: { 0: 1, [(w.FILL_MAX_BUCKETS - 1) * 1000]: 2 } };
+    assert.equal(w.fillBuckets([ok], [0, (w.FILL_MAX_BUCKETS - 1) * 1000], { ms: 1000, regular: true }, () => true).length, w.FILL_MAX_BUCKETS);
+  });
+});
+
+describe('negative values', () => {
+  test('the y axis extends below 0 and no point drops into the x labels', async () => {
+    const q = 'source=ts | stats avg(delta) by span(@timestamp, 1h)';
+    const rows = [[-5, '2026-11-01 00:00:00'], [3, '2026-11-01 01:00:00'], [-12.5, '2026-11-01 02:00:00']];
+    const v = await openView('results', {}, {}, pplResult(q, ['avg(delta)', 'span'], rows, ['double', 'timestamp']));
+    const ticks = [...v.doc.querySelectorAll('.y-tick')].map((t) => Number(t.textContent));
+    assert.ok(ticks[0] <= -12.5 && ticks[ticks.length - 1] >= 3, JSON.stringify(ticks));
+    const ys = v.doc.querySelector('path.line').getAttribute('d').match(/-?\d+(\.\d+)? (-?\d+(\.\d+)?)/g).map((p) => Number(p.split(' ')[1]));
+    assert.ok(ys.every((y) => y >= 12 && y <= 280 - 54), JSON.stringify(ys));
+  });
+
+  test('niceTicks covers a negative minimum', () => {
+    const { window: w } = load('results', { assembled: false });
+    assert.deepEqual(plain(w.niceTicks(3, 4, false, -12.5)), [-15, -10, -5, 0, 5]);
+    assert.deepEqual(plain(w.niceTicks(0, 4, true, -3)), [-3, -2, -1, 0]);
+  });
+});
+
+describe('degenerate tick ranges', () => {
+  const { window: w } = load('results', { assembled: false });
+  test('niceTicks terminates for subnormal and extreme maxima', () => {
+    for (const max of [5e-324, 1e-320, 1e-310, Number.MIN_VALUE * 7, 1e308, Number.MAX_VALUE, Infinity, NaN]) {
+      const t = plain(w.niceTicks(max, 4, false));
+      assert.ok(t.length >= 2 && t.length < 20 && t.every(Number.isFinite), `${max}: ${JSON.stringify(t)}`);
+    }
+    assert.deepEqual(plain(w.niceTicks(5e-324, 4, false)), [0, 5e-324]);
+  });
+});
+
+describe('hostile error text', () => {
+  const { window: w } = load('results', { assembled: false });
+  const timed = (fn) => { const t = Date.now(); const r = fn(); return { r, ms: Date.now() - t }; };
+
+  test('parsing is bounded for brace floods', () => {
+    for (const text of [
+      'x RequestError(400, \'' + '{'.repeat(200000) + '\')',
+      '{'.repeat(200000),
+      '{a'.repeat(100000) + '}'.repeat(100000),
+      '{"'.repeat(100000),
+      "'reason': '" + '\\'.repeat(100000),
+    ]) {
+      const { ms } = timed(() => w.errorSummary(text));
+      assert.ok(ms < 500, `${text.slice(0, 20)}: ${ms} ms`);
+    }
+  });
+
+  test('JSON is found after a few stray braces but not after many', () => {
+    const body = '{"error": {"reason": "boom"}, "status": 400}';
+    assert.equal(w.errorSummary('x {y} {z} ' + body), 'OpenSearch returned 400: boom');
+    assert.equal(w.firstJsonObject('{ '.repeat(25) + body), null);
+    assert.equal(w.parseOpenSearchError('x'.repeat(70000) + body), null);
+  });
+});
+
+describe('resize observers', () => {
+  test('a replaced chart stops observing', async () => {
+    const input = { opensearch_cluster_name: '', query: 'source=logs | stats count() by service', size: 0 };
+    const ok = pplResult(input.query, ['count()', 'service'], [[3, 'checkout'], [2, 'search']], ['bigint', 'string']);
+    const v = await openView('results', { serverTools: {} }, input, ok);
+    const first = v.window.observers.filter((o) => o.nodes.some((n) => n.classList && n.classList.contains('chart-wrap')));
+    assert.equal(first.length, 1);
+    v.doc.querySelector('button.refresh').click();
+    await v.reply('tools/call', ok);
+    first[0].cb([]);
+    assert.equal(first[0].disconnected, true);
+    const live = v.window.observers.filter((o) => !o.disconnected && o.nodes.some((n) => n.classList && n.classList.contains('chart-wrap')));
+    live.forEach((o) => o.cb([]));
+    assert.equal(live.length, 1);
+    assert.equal(live[0].disconnected, false);
+  });
+});
+
+describe('exports', () => {
+  test('CSV carries raw values, not display formatting', async () => {
+    const v = await openView('results', {}, SEARCH_INPUT, searchResult({ columns: ['_index', 'n', 'f'], rows: [['logs', 1234567, 0.0004], ['logs', -0, 52.650000000000006]] }));
+    assert.equal(columnCells(v.doc, 1)[0], '1,234,567');
+    assert.equal(await copied(v, 'button.copy-csv'), '_index,n,f\r\nlogs,1234567,0.0004\r\nlogs,0,52.650000000000006\r\n');
+  });
+
+  test('dotted columns from nested objects escape formulas in headers and values', async () => {
+    const v = await openView('results', {}, SEARCH_INPUT, searchResult({
+      columns: ['_index', '@user'], rows: [['logs', { id: '=cmd|calc', name: '\uff1dSUM(A1)' }], ['logs', { id: 'ok', name: '-1' }]],
+    }));
+    assert.deepEqual(headerNames(v.doc), ['_index', '@user.id', '@user.name']);
+    assert.equal(await copied(v, 'button.copy-csv'), "_index,'@user.id,'@user.name\r\nlogs,'=cmd|calc,'\uff1dSUM(A1)\r\nlogs,ok,'-1\r\n");
+  });
+
+  test('full-width formula characters are neutralized', () => {
+    const { window: w } = load('results', { assembled: false });
+    for (const c of ['\uff1d', '\uff0b', '\uff0d', '\uff20']) assert.equal(w.csvCell(c + '1+1'), "'" + c + '1+1');
+    assert.equal(w.csvCell('a\uff1d'), 'a\uff1d');
+  });
+});
+
+describe('integers beyond 2^53', () => {
+  const big = ['9007199254740993', '9223372036854775807', '-9223372036854775808'];
+  const rows = [['logs', big[0], 'a'], ['logs', 5, 'b'], ['logs', big[1], 'c'], ['logs', big[2], 'd'], ['logs', null, 'e']];
+  const result = () => searchResult({ columns: ['_index', 'big', 'k'], rows, meta: { index: 'logs', total: 5, from: 0, integer_strings: ['big'] } });
+
+  test('shown exactly with separators, right-aligned, raw value in the title', async () => {
+    const v = await openView('results', {}, SEARCH_INPUT, result());
+    assert.deepEqual(columnCells(v.doc, 1), ['9,007,199,254,740,993', '5', '9,223,372,036,854,775,807', '-9,223,372,036,854,775,808', '']);
+    const td = v.doc.querySelectorAll('tbody tr.row')[0].querySelectorAll('td:not(.select)')[1];
+    assert.ok(td.classList.contains('num'));
+    assert.equal(td.title, big[0]);
+  });
+
+  test('sort numerically with BigInt, nulls last', async () => {
+    const v = await openView('results', {}, SEARCH_INPUT, result());
+    v.doc.querySelectorAll('thead th:not(.select)')[1].querySelector('button').click();
+    assert.deepEqual(columnCells(v.doc, 2), ['d', 'b', 'a', 'c', 'e']);
+    v.doc.querySelectorAll('thead th:not(.select)')[1].querySelector('button').click();
+    assert.deepEqual(columnCells(v.doc, 2), ['c', 'a', 'b', 'd', 'e']);
+  });
+
+  test('CSV, JSON export, row detail and stats keep every digit', async () => {
+    const v = await openView('results', {}, SEARCH_INPUT, result());
+    assert.equal(await copied(v, 'button.copy-csv'), `_index,big,k\r\nlogs,${big[0]},a\r\nlogs,5,b\r\nlogs,${big[1]},c\r\nlogs,${big[2]},d\r\nlogs,,e\r\n`);
+    const json = await copied(v, 'button.copy-json');
+    assert.match(json, new RegExp(`"big": ${big[0]},`));
+    assert.match(json, new RegExp(`"big": ${big[2]},`));
+    assert.match(json, /"big": null,/);
+    assert.deepEqual(JSON.parse(json).map((r) => r.k), ['a', 'b', 'c', 'd', 'e']);
+    v.doc.querySelector('tbody tr.row td:not(.select)').click();
+    assert.match(v.doc.querySelector('tr.detail pre').textContent, new RegExp(`"big": ${big[0]},`));
+    const select = v.doc.querySelector('select.stats-column');
+    select.value = 'big'; select.dispatchEvent(new v.window.Event('change'));
+    const stat = (k) => [...v.doc.querySelectorAll('.panel.stats tr')].find((tr) => tr.firstChild.textContent === k).lastChild.textContent;
+    assert.equal(stat('min'), '-9,223,372,036,854,775,808');
+    assert.equal(stat('max'), '9,223,372,036,854,775,807');
+  });
+
+  test('PPL bigint and _cat number columns, and flattened nested fields', async () => {
+    const ppl = await openView('results', {}, {}, pplResult('source=x', ['id', 'n'], [[big[0], 1], ['12', 2]], ['bigint', 'int'], {}));
+    assert.deepEqual(columnCells(ppl.doc, 0), ['9,007,199,254,740,993', '12']);
+    const nested = await openView('results', {}, SEARCH_INPUT, searchResult({
+      columns: ['_index', 'user'], rows: [['logs', { id: big[1] }], ['logs', { id: 7 }]],
+      meta: { index: 'logs', total: 2, from: 0, integer_strings: ['user.id'] },
+    }));
+    assert.deepEqual(columnCells(nested.doc, 1), ['9,223,372,036,854,775,807', '7']);
+    const cat = await openView('table', {}, {}, {
+      content: [{ type: 'text', text: 'n' }],
+      structuredContent: { kind: 'cat_table', version: 1, cluster: '', tool: 'CatNodesTool', columns: ['name', 'docs'], rows: [['n1', big[0]], ['n2', 3]],
+        meta: { title: 'Nodes', source: '_cat/nodes', column_types: ['string', 'number'], integer_strings: ['docs'] } },
+    });
+    assert.deepEqual(columnCells(cat.doc, 1), ['9,007,199,254,740,993', '3']);
+  });
+
+  test('a digit string in a non-numeric column stays text', () => {
+    const { window: w } = load('results', { assembled: false });
+    assert.equal(w.formatCell('9007199254740993', 'string'), '9007199254740993');
+    assert.equal(w.csvCell('-5', 'keyword'), "'-5");
+    assert.equal(w.csvCell('-5', 'long'), '-5');
+  });
+});
+
+describe('accessibility', () => {
+  const rows = [['logs', 'd1', 'b'], ['logs', 'd2', 'a'], ['logs', 'd3', 'c']];
+  const view = () => openView('results', { updateModelContext: { text: {} }, serverTools: {} }, SEARCH_INPUT, searchResult({ columns: ['_index', '_id', 'service'], rows }));
+
+  test('sortable headers are buttons with aria-sort', async () => {
+    const v = await view();
+    const ths = [...v.doc.querySelectorAll('thead th:not(.select)')];
+    assert.ok(ths.every((th) => th.querySelector('button.sort') && th.getAttribute('aria-sort') === 'none'));
+    const btn = ths[2].querySelector('button.sort');
+    assert.equal(btn.tabIndex, 0);
+    btn.click();
+    assert.equal(v.doc.querySelectorAll('thead th:not(.select)')[2].getAttribute('aria-sort'), 'ascending');
+    assert.deepEqual(columnCells(v.doc, 2), ['a', 'b', 'c']);
+    v.doc.querySelectorAll('thead th:not(.select)')[2].querySelector('button.sort').click();
+    assert.equal(v.doc.querySelectorAll('thead th:not(.select)')[2].getAttribute('aria-sort'), 'descending');
+    assert.equal(v.doc.querySelectorAll('thead th:not(.select)')[0].getAttribute('aria-sort'), 'none');
+  });
+
+  test('row details open from a labelled toggle button with aria-expanded', async () => {
+    const v = await view();
+    const toggle = v.doc.querySelector('tbody tr.row button.row-toggle');
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+    assert.equal(toggle.getAttribute('aria-label'), 'Details for row d1');
+    toggle.click();
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+    assert.match(v.doc.querySelector('tr.detail pre').textContent, /"_id": "d1"/);
+    v.doc.querySelectorAll('thead th:not(.select)')[2].querySelector('button').click();
+    assert.equal(v.doc.querySelectorAll('tr.detail').length, 1, 'detail follows its row across a sort');
+    assert.equal(v.doc.querySelector('tr.detail').previousSibling.querySelector('button.row-toggle'), toggle);
+    toggle.click();
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+    assert.equal(v.doc.querySelector('tr.detail'), null);
+  });
+
+  test('every form control has an accessible name', async () => {
+    for (const v of [await view(), await openView('results', { serverTools: {} }, { query: 'source=x' }, pplResult('source=x', ['a'], [['x']], ['string']))]) {
+      const unnamed = [...v.doc.querySelectorAll('input, select, textarea, button')].filter((c) =>
+        !(c.getAttribute('aria-label') || '').trim() && !c.closest('label') && !c.textContent.trim());
+      assert.deepEqual(unnamed.map((c) => c.outerHTML), []);
+    }
+    const m = await openView('mapping', {}, {}, mappingResult());
+    assert.equal(m.doc.querySelector('input.mapping-search').getAttribute('aria-label'), 'Filter fields by path or type');
+  });
+
+  test('mapping leaves are not tab stops', async () => {
+    const m = await openView('mapping', {}, {}, mappingResult());
+    const toggles = [...m.doc.querySelectorAll('.node .toggle')];
+    assert.equal(toggles.filter((t) => t.tagName === 'BUTTON').length, 1);
+    const leaves = toggles.filter((t) => t.classList.contains('leaf'));
+    assert.equal(leaves.length, 2);
+    assert.ok(leaves.every((t) => t.tagName === 'SPAN' && t.getAttribute('aria-hidden') === 'true'));
+  });
+
+  test('sorting moves the existing row elements instead of rebuilding them', async () => {
+    const v = await view();
+    const before = new Set(v.doc.querySelectorAll('tbody tr.row'));
+    v.doc.querySelectorAll('thead th:not(.select)')[2].querySelector('button').click();
+    const after = [...v.doc.querySelectorAll('tbody tr.row')];
+    assert.ok(after.every((tr) => before.has(tr)));
+    v.doc.querySelector('th.select input').click();
+    assert.ok([...v.doc.querySelectorAll('tbody td.select input')].every((b) => b.checked));
+  });
+});
+
+function mappingResult() {
+  return {
+    content: [{ type: 'text', text: 'm' }],
+    structuredContent: { kind: 'index_mapping', version: 1, cluster: '', tool: 'IndexMappingTool', meta: { field_count: 3 },
+      indices: [{ name: 'i', fields: [{ name: 'user', path: 'user', type: 'object', children: [{ name: 'id', path: 'user.id', type: 'keyword' }] }, { name: 'ts', path: 'ts', type: 'date', details: { format: 'strict_date_optional_time||epoch_millis' } }] }] },
+  };
+}
+
+describe('paging labels', () => {
+  const page = async (meta, rows) => {
+    const v = await openView('results', { serverTools: {} }, SEARCH_INPUT, searchResult({ rows, meta: { index: 'logs', total_relation: 'eq', ...meta } }));
+    return v.doc.querySelector('.page-label').textContent;
+  };
+  test('empty index and past-the-end pages', async () => {
+    assert.equal(await page({ total: 0, from: 0 }, []), 'No hits');
+    assert.equal(await page({ total: 20, from: 20 }, []), 'No hits after hit 20 of 20');
+    assert.equal(await page({ total: 6, from: 0 }, [['logs', 'd1', 'x']]), 'hit 1 of 6');
+  });
+});
+
+describe('bidi and invisible characters', () => {
+  const { window: w } = load('results', { assembled: false });
+  test('cells show controls as visible markers; raw values stay raw', async () => {
+    assert.equal(w.cellText('\u202eevil.exe\u202c'), '\u27e6U+202E\u27e7evil.exe\u27e6U+202C\u27e7');
+    assert.equal(w.cellText('a\u200bb\u2066c\ufeff'), 'a\u27e6U+200B\u27e7b\u27e6U+2066\u27e7c\u27e6U+FEFF\u27e7');
+    assert.equal(w.cellText('\u{1F468}\u200d\u{1F469}'), '\u{1F468}\u200d\u{1F469}');
+    assert.equal(w.cellText('\u0645\u0631\u062d\u0628\u0627'), '\u0645\u0631\u062d\u0628\u0627');
+    const v = await openView('results', {}, SEARCH_INPUT, searchResult({ columns: ['_index', 'f'], rows: [['logs', '\u202eevil.exe\u202c'], ['logs', 'x']] }));
+    const td = v.doc.querySelectorAll('tbody tr.row')[0].querySelectorAll('td:not(.select)')[1];
+    assert.equal(td.title, '\u202eevil.exe\u202c');
+    assert.match(read('common.css'), /td > \.cell \{[^}]*unicode-bidi: plaintext/);
+    assert.equal(await copied(v, 'button.copy-csv'), '_index,f\r\nlogs,\u202eevil.exe\u202c\r\nlogs,x\r\n');
+  });
+});
+
+describe('empty strings', () => {
+  test('chips and top values label an empty string', async () => {
+    const rows = [['logs', 'd1', ''], ['logs', 'd2', '9'], ['logs', 'd3', '9']];
+    const v = await openView('results', {}, SEARCH_INPUT, searchResult({ columns: ['_index', '_id', 'zip'], rows }));
+    assert.deepEqual([...v.doc.querySelectorAll('button.chip')].map((b) => b.textContent), ['(empty) (1)', '9 (2)']);
+    const select = v.doc.querySelector('select.stats-column');
+    select.value = 'zip'; select.dispatchEvent(new v.window.Event('change'));
+    assert.deepEqual([...v.doc.querySelectorAll('table.top-values tr')].map((t) => t.firstChild.textContent), ['9', '(empty)']);
+  });
+});
+
+describe('aggregation notes', () => {
+  test('server notes for aggregations without a table are shown', async () => {
+    const base = searchResult();
+    const meta = { ...base.structuredContent.meta, aggregation_notes: ['aggregation m (matrix_stats) is not shown; see the text result'] };
+    const v = await openView('results', {}, SEARCH_INPUT, { ...base, structuredContent: { ...base.structuredContent, meta } });
+    assert.equal(v.doc.querySelector('.agg-note').textContent, 'Aggregation m (matrix_stats) is not shown; see the text result.');
   });
 });

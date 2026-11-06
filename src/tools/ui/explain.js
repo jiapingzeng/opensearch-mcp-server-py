@@ -1,7 +1,7 @@
 // Score explanation tree for ExplainTool: total score, top contributing clauses, and the
 // collapsible breakdown OpenSearch returned.
 var TOP_CONTRIBUTORS = 5;
-var explainState = { expanded: {} };
+var explainState = { expanded: dict() };
 
 function explainChildren(node) { return node.details || []; }
 // Ids are positional paths, stable for the same response shape across re-renders.
@@ -49,7 +49,7 @@ function renderExplain(data) {
         bar.appendChild(document.createTextNode(' ' + formatPercent(100 * n.value / total)));
       }
       tr.appendChild(bar);
-      tr.appendChild(el('td', cellText(n.description)));
+      tr.appendChild(el('td', cellText(n.description), 'description'));
       t.appendChild(tr);
     });
     app.appendChild(t);

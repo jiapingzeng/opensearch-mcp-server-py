@@ -7,7 +7,7 @@ function catSummary(data, types) {
   ['health', 'state'].forEach(function (name) {
     var i = data.columns.indexOf(name);
     if (i < 0) return;
-    var counts = {};
+    var counts = dict();
     data.rows.forEach(function (r) { var k = r[i] === null || r[i] === undefined ? '(none)' : String(r[i]); counts[k] = (counts[k] || 0) + 1; });
     parts.push(name + ': ' + Object.keys(counts).sort().map(function (k) { return k + ' ' + counts[k]; }).join(', '));
   });
@@ -24,7 +24,7 @@ function catSummary(data, types) {
 
 function renderCatTable(data) {
   var m = data.meta || {};
-  var types = columnTypes(data.columns, data.rows, m.column_types);
+  var types = columnTypes(data.columns, data.rows, m.column_types, m.integer_strings);
   var rowsStat = rowCountStat(data.rows.length);
   var stats = [rowsStat.node];
   if (m.source) stats.push(m.source);

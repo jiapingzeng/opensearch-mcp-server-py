@@ -22,8 +22,8 @@ function pagingControls(data) {
   var size = resultsState.pageSize || n || 10;
   var exact = m.total_relation !== 'gte' && typeof m.total === 'number';
   var bar = el('span', null, 'paging');
-  var label = n === 1 ? 'hit ' + formatNumber(from + 1) : n ? 'hits ' + formatNumber(from + 1) + '\u2013' + formatNumber(from + n) : 'no hits from ' + formatNumber(from + 1);
-  if (typeof m.total === 'number') label += ' of ' + formatNumber(m.total) + (m.total_relation === 'gte' ? '+' : '');
+  var label = n === 1 ? 'hit ' + formatNumber(from + 1) : n ? 'hits ' + formatNumber(from + 1) + '\u2013' + formatNumber(from + n) : from ? 'No hits after hit ' + formatNumber(from) : 'No hits';
+  if (typeof m.total === 'number' && (n || m.total)) label += ' of ' + formatNumber(m.total) + (m.total_relation === 'gte' ? '+' : '');
   var prev = button('Previous page', function () {
     var q = withFrom(toolInput.query_dsl, Math.max(0, from - size));
     if (q !== null) callBack(data, { query_dsl: q }, 'Loading page\u2026');
@@ -47,6 +47,7 @@ function pplEditor(data) {
   box.addEventListener('toggle', function () { resultsState.editorOpen = box.open; });
   box.appendChild(el('summary', 'Edit and re-run query'));
   var area = el('textarea', null, 'callback');
+  area.setAttribute('aria-label', 'PPL query');
   area.rows = 3; area.value = toolInput.query; area.spellcheck = false;
   box.appendChild(area);
   var bar = el('div', null, 'toolbar');
@@ -97,7 +98,7 @@ function renderResults(data) {
   // follow the displayed columns; the text result keeps the original documents.
   var flat = flattenColumns(data.columns, data.rows, m.column_types, VIEW_MAX_COLUMNS);
   var view = flat ? Object.assign({}, data, { columns: flat.columns, rows: flat.rows }) : data;
-  var types = columnTypes(view.columns, view.rows, flat ? flat.types : m.column_types);
+  var types = columnTypes(view.columns, view.rows, flat ? flat.types : m.column_types, m.integer_strings);
   var ts = timeSeriesSpec(view, types);
   var bars = ts ? null : barSpec(view, types);
   var chart = ts ? buildTimeSeries(view, ts, types) : bars ? buildBarChart(view, bars) : null;
@@ -136,7 +137,10 @@ function appendAggregations(m) {
     var cut = truncationParts(t.rows.length, t.row_count, t.columns.length, t.column_count);
     var note = !t.truncated ? '' : cut.length ? ' (showing ' + cut.join(' and ') + ')' : ' (truncated)';
     app.appendChild(el('h3', 'Aggregation: ' + t.name + note));
-    app.appendChild(buildTable(t.columns, t.rows, columnTypes(t.columns, t.rows), newTableState(), {}).node);
+    app.appendChild(buildTable(t.columns, t.rows, columnTypes(t.columns, t.rows, null, t.integer_strings), newTableState(), {}).node);
+  });
+  (m.aggregation_notes || []).forEach(function (text) {
+    if (typeof text === 'string') app.appendChild(el('div', text.charAt(0).toUpperCase() + text.slice(1) + '.', 'notice agg-note'));
   });
 }
 

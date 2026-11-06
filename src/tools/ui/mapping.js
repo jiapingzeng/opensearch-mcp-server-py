@@ -1,6 +1,6 @@
 // Index mapping tree for IndexMappingTool: collapsible objects, field types, multi-fields,
 // mapping parameters, and a search box that filters by field path or type.
-var mappingState = { query: '', expanded: {} };
+var mappingState = { query: '', expanded: dict() };
 
 function mappingChildren(node) {
   var multi = (node.fields || []).map(function (f) { return Object.assign({ multi: true }, f); });
@@ -35,6 +35,7 @@ function renderMapping(data) {
   var search = document.createElement('input');
   search.type = 'search'; search.placeholder = 'Filter by field path or type'; search.value = mappingState.query;
   search.className = 'mapping-search';
+  search.setAttribute('aria-label', 'Filter fields by path or type');
   bar.appendChild(search);
   var treeOpts = { id: function (n) { return n.path; }, children: mappingChildren, expanded: mappingState.expanded, defaultDepth: 1, render: renderField };
   bar.appendChild(button('Expand all', function () { data.indices.forEach(function (i) { setAllExpanded(i.fields, treeOpts, true); }); drawTrees(); }, 'expand-all'));
@@ -63,13 +64,13 @@ function renderMapping(data) {
       if (data.indices.length > 1) holder.appendChild(el('h3', idx.name));
       var nodes = q ? filterMapping(idx.fields, q) : idx.fields;
       // While filtering, show every kept node expanded without touching the saved expansion.
-      var opts = q ? Object.assign({}, treeOpts, { expanded: {}, defaultDepth: 1e9 }) : treeOpts;
+      var opts = q ? Object.assign({}, treeOpts, { expanded: dict(), defaultDepth: 1e9 }) : treeOpts;
       (function countAll(list) { list.forEach(function (n) { if (!q || matches(n, q)) shown++; countAll(mappingChildren(n)); }); })(nodes);
       if (!nodes.length) holder.appendChild(el('div', q ? 'No fields match.' : 'No fields.', 'muted'));
       else holder.appendChild(buildTree(nodes, opts));
     });
     count.textContent = q ? plural(shown, 'matching field') : '';
-    var types = {};
+    var types = dict();
     data.indices.forEach(function (idx) { typeCounts(idx.fields, types); });
     summary.textContent = 'types: ' + Object.keys(types).sort().map(function (t) { return t + ' ' + types[t]; }).join(', ');
   }

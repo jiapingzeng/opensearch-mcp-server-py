@@ -15,7 +15,14 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from tools.ui_resources import RESULTS_VIEW_URI, TABLE_VIEW_URI, UI_RESOURCES
+from tools.ui_resources import (
+    EXPLAIN_VIEW_URI,
+    HEALTH_VIEW_URI,
+    MAPPING_VIEW_URI,
+    RESULTS_VIEW_URI,
+    TABLE_VIEW_URI,
+    UI_RESOURCES,
+)
 
 
 HERE = Path(__file__).parent
@@ -32,7 +39,14 @@ def _missing(reason):
 
 def test_suite_assembles_views_like_the_server():
     text = SUITE.read_text(encoding='utf-8')
-    for name, uri in (('results', RESULTS_VIEW_URI), ('table', TABLE_VIEW_URI)):
+    views = {
+        'results': RESULTS_VIEW_URI,
+        'table': TABLE_VIEW_URI,
+        'health': HEALTH_VIEW_URI,
+        'mapping': MAPPING_VIEW_URI,
+        'explain': EXPLAIN_VIEW_URI,
+    }
+    for name, uri in views.items():
         match = re.search(rf"{name}: \{{ title: '([^']+)', scripts: \[([^\]]+)\]", text)
         assert match, f'views.test.js does not define the {name} view'
         assert match.group(1) == UI_RESOURCES[uri]['title']

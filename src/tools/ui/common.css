@@ -32,12 +32,15 @@ th { position: sticky; top: 0; cursor: pointer; user-select: none;
   background: var(--color-background-secondary, light-dark(#f6f8fa, #161b22));
   font-weight: var(--font-weight-semibold, 600); }
 th.select, td.select { cursor: default; width: 1px; }
+th > button.sort { all: unset; cursor: pointer; }
+th > button.sort:focus-visible, .row-toggle:focus-visible { outline: 2px solid var(--color-border-info, light-dark(#0969da, #4493f8)); outline-offset: 1px; }
+.row-toggle { border: none; background: none; padding: 0 4px; }
 th[aria-sort="ascending"]::after { content: " \25B2"; }
 th[aria-sort="descending"]::after { content: " \25BC"; }
 tbody tr.row { cursor: pointer; }
 tbody tr.row:hover { background: var(--color-background-tertiary, light-dark(#eef1f4, #1c2128)); }
 td.null { color: var(--color-text-tertiary, light-dark(#818b98, #6e7681)); }
-td > .cell { display: inline-block; max-width: 40ch; overflow: hidden; text-overflow: ellipsis; vertical-align: top; }
+td > .cell { display: inline-block; max-width: 40ch; overflow: hidden; text-overflow: ellipsis; vertical-align: top; unicode-bidi: plaintext; }
 td.status-green, td.status-started { color: var(--color-text-success, light-dark(#1a7f37, #3fb950)); }
 td.status-yellow, td.status-initializing, td.status-relocating { color: var(--color-text-warning, light-dark(#9a6700, #d29922)); }
 td.status-red, td.status-unassigned { color: var(--color-text-danger, light-dark(#d1242f, #f85149)); font-weight: var(--font-weight-semibold, 600); }
@@ -111,9 +114,11 @@ ul.tree { list-style: none; margin: 0; padding-left: 16px; }
 ul.tree.root { padding-left: 0; }
 ul.tree li { margin: 1px 0; }
 .node { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
-.toggle { border: none; background: none; padding: 0 2px; width: 1.4em; text-align: center; }
+.toggle { display: inline-block; border: none; background: none; padding: 0 2px; width: 1.4em; text-align: center; }
 .toggle.leaf { visibility: hidden; }
 .node .name { font-family: var(--font-mono, ui-monospace, monospace); }
+.node .details, .node .description, .node .name { min-width: 0; overflow-wrap: anywhere; }
+table.contributors td.description { white-space: normal; overflow-wrap: anywhere; }
 .node .type { font-size: 11px; padding: 0 6px; border-radius: var(--border-radius-sm, 4px);
   background: var(--color-background-secondary, light-dark(#f6f8fa, #161b22)); }
 .node .score { font-family: var(--font-mono, ui-monospace, monospace); font-variant-numeric: tabular-nums;
