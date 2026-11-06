@@ -219,9 +219,12 @@ def view_input_schema(input_schema: dict) -> dict:
     return schema
 
 
-# Subdivision flags: black flag, 3-6 tag letters or digits, cancel tag.
-_EMOJI_TAG_SEQUENCE = re.compile(
-    '\U0001f3f4[\U000e0030-\U000e0039\U000e0061-\U000e007a]{3,6}\U000e007f'
+# The RGI subdivision flags (England, Scotland, Wales): black flag, tag letters, cancel tag.
+_SUBDIVISION_FLAGS = re.compile(
+    '|'.join(
+        '\U0001f3f4' + ''.join(chr(0xE0000 + ord(c)) for c in code) + '\U000e007f'
+        for code in ('gbeng', 'gbsct', 'gbwls')
+    )
 )
 _ZWJ, _ZWNJ = '\u200d', '\u200c'
 _VS15, _VS16 = '\ufe0e', '\ufe0f'
@@ -238,12 +241,45 @@ _TWO_WORD_VIRAMA_SCRIPTS = frozenset(
         'ZANABAZAR SQUARE',
     }
 )
-# Invisible characters outside Cc/Cf: variation selectors, combining grapheme joiner, fillers.
-_INVISIBLE = re.compile('[\ufe00-\ufe0d\U000e0100-\U000e01ef\u034f\u115f\u1160\u3164\uffa0]')
+# Default_Ignorable_Code_Point (Unicode 17, including unassigned code points) except ZWNJ, ZWJ,
+# VS15 and VS16, which _has_control_chars allows only in context.
+_INVISIBLE = re.compile(
+    '[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b\u200e\u200f\u202a-\u202e'
+    '\u2060-\u206f\u3164\ufe00-\ufe0d\ufeff\uffa0\ufff0-\ufff8\U0001bca0-\U0001bca3'
+    '\U0001d173-\U0001d17a\U000e0000-\U000e0fff]'
+)
+# Extended_Pictographic (Unicode 17, including reserved emoji ranges), the set JavaScript's
+# \p{Extended_Pictographic} matches, so the server and the views agree on emoji.
+_EXTENDED_PICTOGRAPHIC = re.compile(
+    '[\u00a9\u00ae\u203c\u2049\u2122\u2139\u2194-\u2199\u21a9\u21aa\u231a\u231b\u2328\u23cf'
+    '\u23e9-\u23f3\u23f8-\u23fa\u24c2\u25aa\u25ab\u25b6\u25c0\u25fb-\u25fe\u2600-\u2604\u260e'
+    '\u2611\u2614\u2615\u2618\u261d\u2620\u2622\u2623\u2626\u262a\u262e\u262f\u2638-\u263a\u2640'
+    '\u2642\u2648-\u2653\u265f\u2660\u2663\u2665\u2666\u2668\u267b\u267e\u267f\u2692-\u2697\u2699'
+    '\u269b\u269c\u26a0\u26a1\u26a7\u26aa\u26ab\u26b0\u26b1\u26bd\u26be\u26c4\u26c5\u26c8'
+    '\u26ce\u26cf\u26d1\u26d3\u26d4\u26e9\u26ea\u26f0-\u26f5\u26f7-\u26fa\u26fd\u2702\u2705'
+    '\u2708-\u270d\u270f\u2712\u2714\u2716\u271d\u2721\u2728\u2733\u2734\u2744\u2747\u274c\u274e'
+    '\u2753-\u2755\u2757\u2763\u2764\u2795-\u2797\u27a1\u27b0\u27bf\u2934\u2935\u2b05-\u2b07'
+    '\u2b1b\u2b1c\u2b50\u2b55\u3030\u303d\u3297\u3299\U0001f004\U0001f02c-\U0001f02f'
+    '\U0001f094-\U0001f09f\U0001f0af\U0001f0b0\U0001f0c0\U0001f0cf\U0001f0d0\U0001f0f6-\U0001f0ff'
+    '\U0001f170\U0001f171\U0001f17e\U0001f17f\U0001f18e\U0001f191-\U0001f19a\U0001f1ae-\U0001f1e5'
+    '\U0001f201-\U0001f20f\U0001f21a\U0001f22f\U0001f232-\U0001f23a\U0001f23c-\U0001f23f'
+    '\U0001f249-\U0001f25f\U0001f266-\U0001f321\U0001f324-\U0001f393\U0001f396\U0001f397'
+    '\U0001f399-\U0001f39b\U0001f39e-\U0001f3f0\U0001f3f3-\U0001f3f5\U0001f3f7-\U0001f3fa'
+    '\U0001f400-\U0001f4fd\U0001f4ff-\U0001f53d\U0001f549-\U0001f54e\U0001f550-\U0001f567'
+    '\U0001f56f\U0001f570\U0001f573-\U0001f57a\U0001f587\U0001f58a-\U0001f58d\U0001f590'
+    '\U0001f595\U0001f596\U0001f5a4\U0001f5a5\U0001f5a8\U0001f5b1\U0001f5b2\U0001f5bc'
+    '\U0001f5c2-\U0001f5c4\U0001f5d1-\U0001f5d3\U0001f5dc-\U0001f5de\U0001f5e1\U0001f5e3\U0001f5e8'
+    '\U0001f5ef\U0001f5f3\U0001f5fa-\U0001f64f\U0001f680-\U0001f6c5\U0001f6cb-\U0001f6d2'
+    '\U0001f6d5-\U0001f6e5\U0001f6e9\U0001f6eb-\U0001f6f0\U0001f6f3-\U0001f6ff'
+    '\U0001f7da-\U0001f7ff\U0001f80c-\U0001f80f\U0001f848-\U0001f84f\U0001f85a-\U0001f85f'
+    '\U0001f888-\U0001f88f\U0001f8ae\U0001f8af\U0001f8bc-\U0001f8bf\U0001f8c2-\U0001f8cf'
+    '\U0001f8d9-\U0001f8ff\U0001f90c-\U0001f93a\U0001f93c-\U0001f945\U0001f947-\U0001f9ff'
+    '\U0001fa58-\U0001fa5f\U0001fa6e-\U0001faff\U0001fc00-\U0001fffd]'
+)
 
 
 def _is_pictographic(ch: str) -> bool:
-    return unicodedata.category(ch) == 'So'
+    return _EXTENDED_PICTOGRAPHIC.match(ch) is not None
 
 
 def _is_emoji_joiner(text: str, i: int) -> bool:
@@ -283,8 +319,8 @@ def _is_keycap_selector(text: str, i: int) -> bool:
 def _has_control_chars(text: str, allowed: str = '') -> bool:
     # Rejects control, format (bidi, zero-width, tags) and invisible characters. Allowed:
     # a ZWJ between pictographs, a ZWJ or ZWNJ in an Indic conjunct, VS15/VS16 right after
-    # a pictograph, VS16 in a keycap, and subdivision flags.
-    text = _EMOJI_TAG_SEQUENCE.sub('\U0001f3f4', text)
+    # a pictograph, VS16 in a keycap, and the three subdivision flags.
+    text = _SUBDIVISION_FLAGS.sub('\U0001f3f4', text)
     if _INVISIBLE.search(text):
         return True
     for i, ch in enumerate(text):

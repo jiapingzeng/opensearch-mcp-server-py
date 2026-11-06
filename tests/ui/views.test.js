@@ -19,12 +19,12 @@ const VIEWS = {
 const read = (name) => fs.readFileSync(path.join(UI, name), 'utf8');
 const scripts = (view) => VIEWS[view].scripts.map(read).join('\n');
 
-// Same assembly as load_ui_html.
+// Same assembly as load_ui_html; function replacements so `$` patterns in the files stay literal.
 function assemble(view) {
   return read('shell.html')
-    .replace('{{title}}', VIEWS[view].title)
-    .replace('/*{{style}}*/', read('common.css'))
-    .replace('/*{{script}}*/', scripts(view));
+    .replace('{{title}}', () => VIEWS[view].title)
+    .replace('/*{{style}}*/', () => read('common.css'))
+    .replace('/*{{script}}*/', () => scripts(view));
 }
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
@@ -1069,6 +1069,17 @@ describe('bidi and invisible characters', () => {
     assert.equal(w.cellText('\u0915\u094d\u200d\u0995'), '\u0915\u094d' + mark(0x200D) + '\u0995');
     assert.equal(w.cellText('\u0915\u094d\u200d'), '\u0915\u094d' + mark(0x200D));
     assert.equal(w.cellText('\u0915\u200d\u094d\u0937'), '\u0915' + mark(0x200D) + '\u094d\u0937');
+  });
+  test('every default-ignorable character except VS15 and VS16 is marked', () => {
+    const ignorable = /^\p{Default_Ignorable_Code_Point}$/u;
+    const missed = [];
+    for (let cp = 0; cp <= 0x10FFFF; cp++) {
+      if (cp >= 0xD800 && cp <= 0xDFFF) continue;
+      const c = String.fromCodePoint(cp);
+      if (ignorable.test(c) && cp !== 0xFE0E && cp !== 0xFE0F && w.cellText('a' + c + 'b') !== 'a' + mark(cp) + 'b') missed.push(cp.toString(16));
+    }
+    assert.deepEqual(missed, []);
+    assert.equal(w.cellText('a\u17b4\u180b\ufe00\ufff0\u{e0fff}b'), 'a' + mark(0x17B4) + mark(0x180B) + mark(0xFE00) + mark(0xFFF0) + mark(0xE0FFF) + 'b');
   });
   test('keycaps and joiners in Indic conjuncts stay', () => {
     for (const s of ['1\ufe0f\u20e3 #\ufe0f\u20e3 *\ufe0f\u20e3', '\u0915\u094d\u200d\u0937', '\u0915\u094d\u200c\u0937', '\u0d28\u0d4d\u200d\u0d31', '\u{11013}\u{11046}\u200d\u{11030}']) {

@@ -952,6 +952,23 @@ class TestPresentationArgs:
                 + '\U000e007f'
             },
             {'intent': 'short flag \U0001f3f4\U000e0067\U000e0062\U000e007f'},
+            {
+                'intent': 'fake flags \U0001f3f4\U000e0069\U000e0067\U000e006e\U000e006f\U000e0072'
+                '\U000e0065\U000e007f\U0001f3f4\U000e0064\U000e0065\U000e006c\U000e0065\U000e0074'
+                '\U000e0065\U000e007f'
+            },
+            {'suggestions': ['fake flag \U0001f3f4' + '\U000e0061' * 6 + '\U000e007f']},
+            {'intent': 'khmer inherent vowels a\u17b4b\u17b5c'},
+            {'intent': 'mongolian selectors a\u180bb\u180cc\u180dd\u180fe'},
+            {'intent': 'unassigned format a\u2065b'},
+            {'intent': 'unassigned specials a\ufff0b\ufff8c'},
+            {'intent': 'invisible operator a\u2061b'},
+            {'intent': 'shorthand format a\U0001bca0b'},
+            {'intent': 'musical format a\U0001d173b'},
+            {'suggestions': ['unassigned tags ab\U000e0080\U000e00ff']},
+            {'suggestions': ['unassigned ignorables ab\U000e01f0\U000e0fff']},
+            {'intent': 'joiner between box drawing \u2500\u200d\u2500'},
+            {'intent': 'selectors on box drawing \u2500\ufe0e\u2500\ufe0f'},
             {'intent': 'de\u200dlete'},
             {'intent': 'trailing joiner \U0001f468\u200d'},
             {'intent': 'joiner run \U0001f468\u200d\u200d\U0001f469'},
@@ -986,6 +1003,7 @@ class TestPresentationArgs:
         [
             'team \U0001f468\u200d\U0001f469\u200d\U0001f467',
             'heart \u2764\ufe0f and text style \u2764\ufe0e',
+            'flag \U0001f3f4\U000e0067\U000e0062\U000e0065\U000e006e\U000e0067\U000e007f',
             'flag \U0001f3f4\U000e0067\U000e0062\U000e0073\U000e0063\U000e0074\U000e007f',
             'flag \U0001f3f4\U000e0067\U000e0062\U000e0077\U000e006c\U000e0073\U000e007f',
             'pirate \U0001f3f4\u200d\u2620\ufe0f',
@@ -1000,6 +1018,7 @@ class TestPresentationArgs:
             'Malayalam chillu \u0d28\u0d4d\u200d\u0d31',
             'Bengali ya-phala \u09b0\u09cd\u200d\u09af',
             'Brahmi conjunct \U00011013\U00011046\u200d\U00011030',
+            'emoji-style punctuation and arrows \u203c\ufe0f \u2194\ufe0f \u3030\ufe0f',
         ],
     )
     def test_emoji_and_scripts_accepted(self, text):

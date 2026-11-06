@@ -67,10 +67,11 @@ function dict(init) {
   if (init) Object.keys(init).forEach(function (k) { d[k] = init[k]; });
   return d;
 }
-// Bidi controls, zero-width, tag, variation-selector-supplement and filler characters, shown
-// as visible markers so data cannot spoof or hide text. A ZWJ inside an emoji, and a ZWJ or
-// ZWNJ in an Indic conjunct, are kept.
-var HIDDEN_CHARS_RE = /[\u034f\u061c\u115f\u1160\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\u3164\ufeff\uffa0\u{e0000}-\u{e007f}\u{e0100}-\u{e01ef}]/gu;
+// Default-ignorable characters (bidi controls, zero-width, tags, variation selectors except VS15
+// and VS16, fillers, unassigned ignorables), shown as visible markers so data cannot spoof or
+// hide text. Same set as _INVISIBLE on the server. A ZWJ inside an emoji, and a ZWJ or ZWNJ in an
+// Indic conjunct, are kept.
+var HIDDEN_CHARS_RE = /[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b-\u200f\u202a-\u202e\u2060-\u206f\u3164\ufe00-\ufe0d\ufeff\uffa0\ufff0-\ufff8\u{1bca0}-\u{1bca3}\u{1d173}-\u{1d17a}\u{e0000}-\u{e0fff}]/gu;
 var PICTOGRAPH_RE = /\p{Extended_Pictographic}/u;
 var EMOJI_MODIFIER_RE = /^(?:\ufe0f|\ud83c[\udffb-\udfff])$/;
 // A ZWJ between two pictographs, the left one optionally carrying VS16 or a skin tone.
