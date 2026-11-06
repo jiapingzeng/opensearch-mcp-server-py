@@ -227,7 +227,7 @@ function presentation(data) {
   }
   var items = Array.isArray(data.suggestions) ? data.suggestions.filter(function (s) { return typeof s === 'string' && s; }).slice(0, 3) : [];
   // Pills send ui/message, so they appear only when the host accepts it.
-  if (items.length && hostCapabilities.message) {
+  if (items.length && hostCapabilities.message && hostCapabilities.message.text) {
     frag.appendChild(el('div', 'Planned next steps (suggested by the assistant)', 'label'));
     var pills = el('div', null, 'pills');
     var status = el('span', null, 'muted');

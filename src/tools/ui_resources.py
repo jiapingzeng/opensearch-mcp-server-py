@@ -721,7 +721,11 @@ def cap_structured_content(payload: dict) -> dict:
             t_cols, t_rows, t_trunc = _cap_table(table['columns'], table['rows'])
             capped = {**table, 'columns': t_cols, 'rows': t_rows}
             if t_trunc:
-                capped.update(truncated=True, row_count=len(table['rows']))
+                capped['truncated'] = True
+            if len(t_rows) < len(table['rows']):
+                capped['row_count'] = len(table['rows'])
+            if len(t_cols) < len(table['columns']):
+                capped['column_count'] = len(table['columns'])
             tables.append(capped)
         if tables:
             meta['aggregations'] = tables

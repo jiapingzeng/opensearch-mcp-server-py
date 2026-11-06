@@ -451,6 +451,17 @@ class TestCaps:
         assert table['row_count'] == 501
         assert 'truncated' not in capped['meta']
 
+    def test_cap_reports_only_columns_when_only_columns_are_cut(self):
+        payload = search_hits_payload(SEARCH_RESPONSE, '', 'logs')
+        columns = [f'c{i}' for i in range(STRUCTURED_CONTENT_MAX_COLUMNS + 1)]
+        payload['meta']['aggregations'] = [
+            {'name': 'wide', 'columns': columns, 'rows': [list(range(len(columns)))] * 3}
+        ]
+        table = cap_structured_content(payload)['meta']['aggregations'][0]
+        assert table['truncated'] is True and 'row_count' not in table
+        assert table['column_count'] == STRUCTURED_CONTENT_MAX_COLUMNS + 1
+        assert len(table['columns']) == STRUCTURED_CONTENT_MAX_COLUMNS and len(table['rows']) == 3
+
     def test_byte_cap_halves_the_largest_aggregation_table(self):
         payload = search_hits_payload(SEARCH_RESPONSE, '', 'logs')
         payload['meta']['aggregations'] = [

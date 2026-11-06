@@ -127,7 +127,10 @@ function renderResults(data) {
 
 function appendAggregations(m) {
   (m.aggregations || []).forEach(function (t) {
-    var note = !t.truncated ? '' : typeof t.row_count === 'number' ? ' (showing ' + t.rows.length + ' of ' + t.row_count + ' rows)' : ' (truncated)';
+    var cut = [];
+    if (typeof t.row_count === 'number') cut.push(t.rows.length + ' of ' + t.row_count + ' rows');
+    if (typeof t.column_count === 'number') cut.push(t.columns.length + ' of ' + t.column_count + ' columns');
+    var note = !t.truncated ? '' : cut.length ? ' (showing ' + cut.join(' and ') + ')' : ' (truncated)';
     app.appendChild(el('h3', 'Aggregation: ' + t.name + note));
     app.appendChild(buildTable(t.columns, t.rows, columnTypes(t.columns, t.rows), newTableState(), {}).node);
   });

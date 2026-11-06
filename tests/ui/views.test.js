@@ -270,6 +270,13 @@ describe('host capability gating', () => {
     assert.deepEqual(all.request('ui/open-link').params, { url: 'http://127.0.0.1:5601/app/x' });
   });
 
+  test('pills need message with text', async () => {
+    for (const [caps, count] of [[{ message: {} }, 0], [{ message: { image: {} } }, 0], [{ message: { text: {} } }, 1]]) {
+      const v = await openView('results', caps, SEARCH_INPUT, searchResult());
+      assert.equal(v.doc.querySelectorAll('button.pill').length, count, JSON.stringify(caps));
+    }
+  });
+
   test('model context needs updateModelContext with text', async () => {
     for (const [caps, shown] of [[{}, false], [{ updateModelContext: { image: {} } }, false], [{ updateModelContext: { text: {} } }, true]]) {
       const v = await openView('results', caps, SEARCH_INPUT, searchResult());
@@ -334,5 +341,27 @@ describe('model context size caps', () => {
     v.doc.querySelector('button.add-context').click();
     const payload = JSON.parse(v.request('ui/update-model-context').params.content[0].text.split('\n')[1]);
     assert.deepEqual(payload, { tool: 'SearchIndexTool', cluster: 'c1', columns: ['_index', '_id', 'service'], rows: [['logs', 'd1', 'checkout']] });
+  });
+});
+
+describe('aggregation headers', () => {
+  test('name the dimension that was cut', async () => {
+    const aggregations = [
+      { name: 'whole', columns: ['k'], rows: [['a']] },
+      { name: 'rows', columns: ['k'], rows: [['a']], truncated: true, row_count: 9 },
+      { name: 'cols', columns: ['k'], rows: [['a'], ['b']], truncated: true, column_count: 4 },
+      { name: 'both', columns: ['k'], rows: [['a']], truncated: true, row_count: 9, column_count: 4 },
+      { name: 'bare', columns: ['k'], rows: [['a']], truncated: true },
+    ];
+    const base = searchResult();
+    const result = { ...base, structuredContent: { ...base.structuredContent, meta: { ...base.structuredContent.meta, aggregations } } };
+    const v = await openView('results', {}, SEARCH_INPUT, result);
+    assert.deepEqual([...v.doc.querySelectorAll('h3')].map((h) => h.textContent), [
+      'Aggregation: whole',
+      'Aggregation: rows (showing 1 of 9 rows)',
+      'Aggregation: cols (showing 1 of 4 columns)',
+      'Aggregation: both (showing 1 of 9 rows and 1 of 4 columns)',
+      'Aggregation: bare (truncated)',
+    ]);
   });
 });
