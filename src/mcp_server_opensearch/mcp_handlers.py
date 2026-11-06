@@ -3,6 +3,7 @@
 
 """MCP request handlers shared by the stdio and streaming transports."""
 
+import logging
 from mcp.server import Server
 from mcp.server.apps import APP_MIME_TYPE, EXTENSION_ID, client_supports_apps
 from mcp.shared.exceptions import MCPError
@@ -20,6 +21,7 @@ from mcp.types import (
     TextResourceContents,
     Tool,
 )
+from pydantic import BaseModel
 from tools.ui_resources import (
     UI_RESOURCES,
     apps_enabled,
@@ -36,6 +38,9 @@ from tools.ui_resources import (
     view_input_schema,
 )
 from typing import Any
+
+
+logger = logging.getLogger(__name__)
 
 
 def client_apps_support(ctx: Any) -> bool | None:
@@ -60,7 +65,15 @@ def _advertises_apps(capabilities: Any) -> bool:
 async def _gate_handshake(ctx, call_next):
     # A client known not to support Apps gets the flag-off capabilities in its handshake.
     result = await call_next(ctx)
-    if ctx.method not in ('initialize', 'server/discover') or not isinstance(result, dict):
+    if ctx.method not in ('initialize', 'server/discover'):
+        return result
+    if isinstance(result, BaseModel):
+        result = result.model_dump(by_alias=True, mode='json', exclude_none=True)
+    elif not isinstance(result, dict):
+        logger.warning(
+            f'MCP Apps gating skipped for {ctx.method}: unexpected result type '
+            f'{type(result).__name__}'
+        )
         return result
     if ctx.method == 'initialize':
         capabilities = (ctx.params or {}).get('capabilities')
@@ -69,6 +82,7 @@ async def _gate_handshake(ctx, call_next):
     elif client_apps_support(ctx) is not False:
         return result
     server_caps = dict(result.get('capabilities') or {})
+    # UI resources are the only resources this server serves, so the capability goes too.
     server_caps.pop('resources', None)
     extensions = {
         k: v for k, v in (server_caps.get('extensions') or {}).items() if k != EXTENSION_ID

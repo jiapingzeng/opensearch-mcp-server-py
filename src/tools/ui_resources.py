@@ -393,12 +393,36 @@ def ppl_rows_payload(response: Any, cluster: str, query: str) -> dict | None:
 # _cat sizes use 1024-based units; see the OpenSearch ByteSizeUnit.
 _BYTE_UNITS = {'b': 1, 'kb': 1 << 10, 'mb': 1 << 20, 'gb': 1 << 30, 'tb': 1 << 40, 'pb': 1 << 50}
 _BYTE_RE = re.compile(r'^(\d+(?:\.\d+)?)(b|kb|mb|gb|tb|pb)$')
-_NUMBER_RE = re.compile(r'^-?\d+(?:\.\d+)?$')
+# No leading zeros, so values such as "007" stay strings.
+_NUMBER_RE = re.compile(r'^-?(?:0|[1-9]\d*)(?:\.\d+)?$')
+# Names, addresses and ordinals that look numeric but are labels, not quantities.
+_IDENTIFIER_COLUMNS = frozenset(
+    {
+        'index',
+        'node',
+        'id',
+        'ip',
+        'host',
+        'name',
+        'shard',
+        'prirep',
+        'uuid',
+        'alias',
+        'pid',
+        'port',
+    }
+)
+_IDENTIFIER_SUFFIXES = ('.id', '_id', 'uuid', '.name', '.ip')
 
 
-def _column_type(values: list) -> str:
+def _is_identifier(column: str) -> bool:
+    name = str(column).lower()
+    return name in _IDENTIFIER_COLUMNS or name.endswith(_IDENTIFIER_SUFFIXES)
+
+
+def _column_type(column: str, values: list) -> str:
     present = [v for v in values if v is not None and v != '']
-    if not present or not all(isinstance(v, str) for v in present):
+    if _is_identifier(column) or not present or not all(isinstance(v, str) for v in present):
         return 'string'
     if all(_NUMBER_RE.match(v) for v in present):
         return 'number'
@@ -428,7 +452,7 @@ def cat_table_payload(entries: Any, cluster: str, title: str, source: str) -> di
         for key in entry:
             if key not in columns:
                 columns.append(key)
-    types = [_column_type([e.get(c) for e in entries]) for c in columns]
+    types = [_column_type(c, [e.get(c) for e in entries]) for c in columns]
     rows = [[_convert(e.get(c), t) for c, t in zip(columns, types)] for e in entries]
     meta = {'title': title, 'source': source, 'column_types': types}
     return _structured('cat_table', cluster, columns, rows, meta)
@@ -683,7 +707,7 @@ def _too_large(payload: dict, size: int) -> dict:
 
 
 def cap_structured_content(payload: dict) -> dict:
-    """Apply the row, column and byte caps; halve rows to fit, else return a too_large marker."""
+    """Apply the row, column and byte caps; halve the largest table to fit, else too_large."""
     has_rows = 'omitted' not in payload and isinstance(payload.get('rows'), list)
     if has_rows:
         payload = dict(payload)
@@ -697,15 +721,24 @@ def cap_structured_content(payload: dict) -> dict:
             t_cols, t_rows, t_trunc = _cap_table(table['columns'], table['rows'])
             capped = {**table, 'columns': t_cols, 'rows': t_rows}
             if t_trunc:
-                capped['truncated'] = True
+                capped.update(truncated=True, row_count=len(table['rows']))
             tables.append(capped)
         if tables:
             meta['aggregations'] = tables
         payload.update(columns=columns, rows=rows)
         size = _serialized_size({**payload, 'meta': meta})
-        while size > STRUCTURED_CONTENT_MAX_BYTES and payload['rows']:
-            payload['rows'] = payload['rows'][: len(payload['rows']) // 2]
-            truncated = True
+        # Halve whichever table is largest, hits or an aggregation, until the payload fits.
+        while size > STRUCTURED_CONTENT_MAX_BYTES:
+            candidates = [t for t in [payload, *tables] if t['rows']]
+            if not candidates:
+                break
+            target = max(candidates, key=lambda t: _serialized_size(t['rows']))
+            if target is payload:
+                truncated = True
+            else:
+                target.setdefault('row_count', len(target['rows']))
+                target['truncated'] = True
+            target['rows'] = target['rows'][: len(target['rows']) // 2]
             size = _serialized_size({**payload, 'meta': meta})
         if truncated:
             meta.update(truncated=True, row_count=original_rows, column_count=original_columns)

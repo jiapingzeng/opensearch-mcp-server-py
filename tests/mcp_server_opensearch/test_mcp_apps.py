@@ -8,7 +8,16 @@ from mcp.client.extension import advertise
 from mcp.server import Server
 from mcp.server.apps import APP_MIME_TYPE, EXTENSION_ID
 from mcp.shared.exceptions import MCPError
-from mcp.types import METHOD_NOT_FOUND, ClientCapabilities
+from mcp.types import (
+    METHOD_NOT_FOUND,
+    ClientCapabilities,
+    DiscoverResult,
+    ResourcesCapability,
+    RootsCapability,
+    SamplingCapability,
+    ServerCapabilities,
+    ToolsCapability,
+)
 from mcp_server_opensearch.mcp_handlers import (
     _gate_handshake,
     build_handlers,
@@ -16,6 +25,8 @@ from mcp_server_opensearch.mcp_handlers import (
     configure_apps,
 )
 from tools.tool_annotations import read_only_annotations, write_annotations
+from tools.tool_params import SearchIndexArgs
+from tools.tool_params import validate_args_for_mode as real_validate_args_for_mode
 from tools.ui_resources import (
     MAPPING_VIEW_URI,
     RESULTS_VIEW_URI,
@@ -150,6 +161,52 @@ class TestHandshakeGate:
     @pytest.mark.asyncio
     async def test_discover_with_unknown_capabilities_unchanged(self):
         assert await self._run('server/discover', {}) == self.RESULT
+
+    @pytest.mark.asyncio
+    async def test_discover_with_known_non_ui_capabilities_gets_flag_off(self):
+        caps = ClientCapabilities(
+            roots=RootsCapability(list_changed=True),
+            sampling=SamplingCapability(),
+            extensions={'other.example/ext': {}},
+        )
+        result = await self._run('server/discover', {}, caps)
+        assert result['capabilities'] == {
+            'tools': {'listChanged': False},
+            'extensions': {'other.example/ext': {}},
+        }
+
+    @pytest.mark.asyncio
+    async def test_base_model_result_is_normalized_then_gated(self):
+        model = DiscoverResult(
+            supported_versions=['2026-07-28'],
+            capabilities=ServerCapabilities(
+                tools=ToolsCapability(list_changed=False),
+                resources=ResourcesCapability(subscribe=False, list_changed=False),
+                extensions={EXTENSION_ID: {}},
+            ),
+        )
+        ctx = SimpleNamespace(
+            method='server/discover',
+            params={},
+            session=SimpleNamespace(client_capabilities=ClientCapabilities()),
+        )
+        dumped = model.model_dump(by_alias=True, mode='json', exclude_none=True)
+        result = await _gate_handshake(ctx, AsyncMock(return_value=model))
+        assert result == {**dumped, 'capabilities': {'tools': {'listChanged': False}}}
+        assert result['supportedVersions'] == ['2026-07-28']
+        ui = ClientCapabilities(extensions={EXTENSION_ID: {'mimeTypes': [APP_MIME_TYPE]}})
+        ctx.session.client_capabilities = ui
+        assert await _gate_handshake(ctx, AsyncMock(return_value=model)) == dumped
+
+    @pytest.mark.asyncio
+    async def test_unexpected_result_type_logs_warning_and_passes_through(self, caplog):
+        caplog.set_level(logging.WARNING, logger='mcp_server_opensearch.mcp_handlers')
+        ctx = SimpleNamespace(method='initialize', params={'capabilities': {}}, session=None)
+        result = await _gate_handshake(ctx, AsyncMock(return_value=['unexpected']))
+        assert result == ['unexpected']
+        assert [r.getMessage() for r in caplog.records] == [
+            'MCP Apps gating skipped for initialize: unexpected result type list'
+        ]
 
     @pytest.mark.asyncio
     async def test_other_methods_untouched(self):
@@ -332,6 +389,34 @@ class TestFlagOnUiClient:
         assert result.content[0].text == 'hits'
 
     @pytest.mark.asyncio
+    async def test_real_args_model_after_split(self, apps_on):
+        tools = _registry()
+        tools['SearchIndexTool']['args_model'] = SearchIndexArgs
+        args = {
+            'index': 'logs',
+            'query_dsl': {'query': {'match_all': {}}, 'from': 1},
+            'size': 5,
+            'intent': 'Find the 500s.',
+            'suggestions': ['Group by host'],
+        }
+        with patch('tools.tool_params.validate_args_for_mode', real_validate_args_for_mode):
+            async with Client(_server(tools), extensions=UI_CLIENT) as client:
+                result = await client.call_tool('SearchIndexTool', args)
+        parsed = tools['SearchIndexTool']['function'].call_args.args[0]
+        assert isinstance(parsed, SearchIndexArgs)
+        assert parsed.model_dump(exclude_none=True) == {
+            'opensearch_cluster_name': '',
+            'index': 'logs',
+            'query_dsl': {'query': {'match_all': {}}, 'from': 1},
+            'format': 'json',
+            'size': 5,
+        }
+        assert not hasattr(parsed, 'intent') and not hasattr(parsed, 'suggestions')
+        sc = result.structured_content
+        assert sc['intent'] == 'Find the 500s.' and sc['suggestions'] == ['Group by host']
+        assert sc['meta']['index'] == 'logs' and sc['meta']['from'] == 1
+
+    @pytest.mark.asyncio
     async def test_list_and_read_resource(self, apps_on):
         async with Client(_server(_registry()), extensions=UI_CLIENT) as client:
             resources = (await client.list_resources()).resources
@@ -456,10 +541,25 @@ class TestFlagOnUiClient:
         assert sc['meta']['truncated'] is True and sc['meta']['row_count'] == 8
 
     @pytest.mark.asyncio
-    async def test_too_large_marker(self, apps_on):
+    async def test_aggregation_dominated_result_is_halved(self, apps_on):
         tools = _registry()
         aggs = {'big': {'buckets': [{'key': 'k' * STRUCTURED_CONTENT_MAX_BYTES, 'doc_count': 1}]}}
         big = {'hits': {'hits': [{'_source': {'a': 1}}]}, 'aggregations': aggs}
+        tools['SearchIndexTool']['function'].return_value = [
+            {'type': 'text', 'text': 't', 'view_data': big}
+        ]
+        async with Client(_server(tools), extensions=UI_CLIENT) as client:
+            result = await client.call_tool('SearchIndexTool', {'intent': 'n'})
+        sc = result.structured_content
+        assert 'omitted' not in sc and sc['rows'] == [[None, None, None, 1]]
+        table = sc['meta']['aggregations'][0]
+        assert table['rows'] == [] and table['truncated'] is True and table['row_count'] == 1
+        assert 'truncated' not in sc['meta']
+
+    @pytest.mark.asyncio
+    async def test_too_large_marker(self, apps_on):
+        tools = _registry()
+        big = {'hits': {'hits': [{'_source': {'k' * STRUCTURED_CONTENT_MAX_BYTES: 1}}]}}
         tools['SearchIndexTool']['function'].return_value = [
             {'type': 'text', 'text': 't', 'view_data': big}
         ]

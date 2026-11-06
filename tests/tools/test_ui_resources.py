@@ -259,6 +259,23 @@ class TestCatTablePayloads:
     def test_non_table_input(self, entries):
         assert cat_table_payload(entries, '', 't', 's') is None
 
+    def test_identifier_columns_and_leading_zeros_stay_strings(self):
+        rows = [
+            {'index': '2024', 'shard': '0', 'prirep': 'p', 'ip': '10', 'node': '1', 'id': '42',
+             'name': '7', 'node.id': '3', 'zip': '02134', 'code': '007', 'docs': '12'},
+            {'index': '2025', 'shard': '1', 'prirep': 'r', 'ip': '11', 'node': '2', 'id': '43',
+             'name': '8', 'node.id': '4', 'zip': '10001', 'code': '12', 'docs': '0'},
+        ]  # fmt: skip
+        payload = cat_table_payload(rows, '', 'Shards', '_cat/shards')
+        types = dict(zip(payload['columns'], payload['meta']['column_types']))
+        assert types == {**dict.fromkeys(rows[0], 'string'), 'docs': 'number'}
+        first = dict(zip(payload['columns'], payload['rows'][0]))
+        assert first['index'] == '2024' and first['shard'] == '0' and first['id'] == '42'
+        assert first['zip'] == '02134' and first['code'] == '007'
+        assert (
+            first['docs'] == 12 and dict(zip(payload['columns'], payload['rows'][1]))['docs'] == 0
+        )
+
     def test_list_indices_mirrors_text(self):
         names = list_indices_payload(CAT_INDICES, '', SimpleNamespace(include_detail=False))
         assert names['columns'] == ['index'] and names['rows'] == [['logs'], ['ts']]
@@ -431,7 +448,38 @@ class TestCaps:
         capped = cap_structured_content(payload)
         table = capped['meta']['aggregations'][0]
         assert len(table['rows']) == 500 and table['truncated'] is True
+        assert table['row_count'] == 501
         assert 'truncated' not in capped['meta']
+
+    def test_byte_cap_halves_the_largest_aggregation_table(self):
+        payload = search_hits_payload(SEARCH_RESPONSE, '', 'logs')
+        payload['meta']['aggregations'] = [
+            {'name': 'small', 'columns': ['key', 'doc_count'], 'rows': [['a', 1]]},
+            {'name': 'big', 'columns': ['key', 'doc_count'], 'rows': [['x' * 300_000, 1]] * 8},
+        ]
+        capped = cap_structured_content(payload)
+        small, big = capped['meta']['aggregations']
+        assert 'omitted' not in capped
+        assert capped['rows'] == payload['rows'] and 'truncated' not in capped['meta']
+        assert small == {'name': 'small', 'columns': ['key', 'doc_count'], 'rows': [['a', 1]]}
+        assert len(big['rows']) == 2 and big['truncated'] is True and big['row_count'] == 8
+        assert len(json.dumps(capped)) <= STRUCTURED_CONTENT_MAX_BYTES
+
+    def test_byte_cap_halves_hits_and_aggregations_by_size(self):
+        payload = {
+            'kind': 'search_hits',
+            'version': 1,
+            'columns': ['a'],
+            'rows': [['h' * 200_000]] * 4,
+            'meta': {
+                'aggregations': [{'name': 'g', 'columns': ['k'], 'rows': [['g' * 200_000]] * 4}]
+            },
+        }
+        capped = cap_structured_content(payload)
+        assert len(capped['rows']) + len(capped['meta']['aggregations'][0]['rows']) <= 5
+        assert capped['rows'] and capped['meta']['aggregations'][0]['rows']
+        assert capped['meta']['truncated'] is True
+        assert len(json.dumps(capped)) <= STRUCTURED_CONTENT_MAX_BYTES
 
 
 class TestViewPayload:
@@ -723,6 +771,7 @@ class TestRegistry:
         urls = re.findall(r'https?://[^\s\'"]*', html)
         assert urls == ['http://www.w3.org/2000/svg']  # SVG namespace, not a load
         assert html.count('startView(') == 2  # definition and one call
+        assert html.count('</script>') == 1  # no script text can close the inline script early
 
     @pytest.mark.parametrize(
         'name',
