@@ -219,21 +219,51 @@ def view_input_schema(input_schema: dict) -> dict:
     return schema
 
 
-# Emoji tag sequences (subdivision flags): black flag, tag letters/digits, cancel tag.
+# Subdivision flags: black flag, 3-6 tag letters or digits, cancel tag.
 _EMOJI_TAG_SEQUENCE = re.compile(
-    '\U0001f3f4[\U000e0030-\U000e0039\U000e0061-\U000e007a]+\U000e007f'
+    '\U0001f3f4[\U000e0030-\U000e0039\U000e0061-\U000e007a]{3,6}\U000e007f'
 )
 _ZWJ = '\u200d'
+_VS15, _VS16 = '\ufe0e', '\ufe0f'
+# Invisible characters outside Cc/Cf: variation selectors, combining grapheme joiner, fillers.
+_INVISIBLE = re.compile('[\ufe00-\ufe0d\U000e0100-\U000e01ef\u034f\u115f\u1160\u3164\uffa0]')
+
+
+def _is_pictographic(ch: str) -> bool:
+    return unicodedata.category(ch) == 'So'
+
+
+def _is_emoji_joiner(text: str, i: int) -> bool:
+    # A ZWJ joins two pictographs; the left one may carry VS16 or a skin-tone modifier.
+    before = i - 1
+    if before > 0 and (text[before] == _VS16 or '\U0001f3fb' <= text[before] <= '\U0001f3ff'):
+        before -= 1
+    return (
+        before >= 0
+        and i + 1 < len(text)
+        and _is_pictographic(text[before])
+        and _is_pictographic(text[i + 1])
+    )
 
 
 def _has_control_chars(text: str, allowed: str = '') -> bool:
-    # Format characters (Cf) are rejected, including bidi controls and zero-width spaces,
-    # except the joiner in emoji sequences and tag characters inside an emoji flag.
-    text = _EMOJI_TAG_SEQUENCE.sub('', text)
-    return any(
-        unicodedata.category(ch) in ('Cc', 'Cf') and ch not in allowed and ch != _ZWJ
-        for ch in text
-    )
+    # Rejects control, format (bidi, zero-width, tags) and invisible characters. Allowed:
+    # a ZWJ between pictographs, VS15/VS16 right after a pictograph, and subdivision flags.
+    text = _EMOJI_TAG_SEQUENCE.sub('\U0001f3f4', text)
+    if _INVISIBLE.search(text):
+        return True
+    for i, ch in enumerate(text):
+        if ch in allowed:
+            continue
+        if ch == _ZWJ:
+            if not _is_emoji_joiner(text, i):
+                return True
+        elif ch in (_VS15, _VS16):
+            if i == 0 or not _is_pictographic(text[i - 1]):
+                return True
+        elif unicodedata.category(ch) in ('Cc', 'Cf'):
+            return True
+    return False
 
 
 def split_presentation_args(arguments: dict) -> tuple[dict, dict]:
@@ -250,7 +280,7 @@ def split_presentation_args(arguments: dict) -> tuple[dict, dict]:
         ):
             raise ValueError(
                 f"'intent' must be a string of at most {INTENT_MAX_CHARS} characters with no "
-                'control characters, bidi controls or zero-width spaces; newlines, tabs and '
+                'control characters, bidi controls or invisible characters; newlines, tabs and '
                 'emoji are fine.'
             )
         if intent.strip():
@@ -271,7 +301,7 @@ def split_presentation_args(arguments: dict) -> tuple[dict, dict]:
             raise ValueError(
                 f"'suggestions' must be a list of at most {SUGGESTIONS_MAX_ITEMS} non-empty "
                 f'strings of at most {SUGGESTION_MAX_CHARS} characters each, with no control '
-                'characters, bidi controls or zero-width spaces.'
+                'characters, bidi controls or invisible characters.'
             )
         if suggestions:
             presentation['suggestions'] = suggestions
@@ -371,8 +401,25 @@ def _with_exact_integers(table: dict) -> dict:
 
 
 # Bucket fields that are not columns of their own (key is placed first).
-_BUCKET_SKIP = frozenset({'key', 'key_as_string', 'meta'})
+_BUCKET_KEYS = ('key', 'key_as_string')
 _AGG_NESTING = ('aggs', 'aggregations')
+
+
+def _sub_column(out: dict, prefix: str, name: str, suffixes: list[str] | None) -> str:
+    """Column base for sub-aggregation `name`, with an agg: prefix when needed.
+
+    The prefix keeps names that look like response metadata (meta, *_as_string) and names
+    that would overwrite an existing column. `suffixes` are the metric's column suffixes;
+    None for a single-bucket aggregation, whose columns start with the base and a dot.
+    """
+    base = prefix + name
+    if suffixes is None:
+        taken = any(c.startswith(base + '.') for c in out)
+    else:
+        taken = any(base + s in out for s in suffixes)
+    if name == 'meta' or name.endswith('_as_string') or taken:
+        return f'{prefix}agg:{name}'
+    return base
 
 
 def _agg_types(query_dsl: Any) -> dict[tuple, str]:
@@ -424,7 +471,10 @@ def _metric_cells(agg: dict, depth: int = 0) -> tuple[dict, bool]:
     Returns the cells and whether anything (a list field) was left out.
     """
     if 'value' in agg and not isinstance(agg['value'], (dict, list)):
-        return {'': agg.get('value_as_string', agg['value'])}, False
+        single = {'': agg.get('value_as_string', agg['value'])}
+        if isinstance(agg.get('keys'), list):  # max_bucket, min_bucket
+            single['.keys'] = agg['keys']
+        return single, False
     cells: dict[str, Any] = {}
     partial = False
     for k, v in agg.items():
@@ -480,9 +530,13 @@ class _AggTables:
     def cells(self, path: tuple, obj: dict, prefix: str, out: dict, children: list) -> None:
         """Columns of one bucket (or single-bucket aggregation) and its sub-aggregations."""
         for k, v in obj.items():
-            if k in _BUCKET_SKIP or k.endswith('_as_string'):
-                continue
             sub_path = path + (k,)
+            if k in _BUCKET_KEYS:
+                continue
+            if k == 'meta' and sub_path not in self.types:  # the aggregation's own metadata
+                continue
+            if k.endswith('_as_string') and not isinstance(v, dict):  # formatted copy
+                continue
             if not isinstance(v, (dict, list)):
                 out[prefix + k] = v
             elif isinstance(v, list):
@@ -490,18 +544,19 @@ class _AggTables:
             elif 'buckets' in v:
                 children.append((sub_path, v))
             elif isinstance(v.get('hits'), dict) and isinstance(v['hits'].get('hits'), list):
-                out[prefix + k] = [
+                out[_sub_column(out, prefix, k, [''])] = [
                     h.get('_source') for h in v['hits']['hits'] if isinstance(h, dict)
                 ]
             elif 'doc_count' in v:
-                self.cells(sub_path, v, f'{prefix}{k}.', out, children)
+                self.cells(sub_path, v, f'{_sub_column(out, prefix, k, None)}.', out, children)
             else:
                 metric, partial = _metric_cells(v)
                 if not metric:
                     self.note(sub_path)
                 elif partial:
                     self.note(sub_path, partly=True)
-                out.update({f'{prefix}{k}{s}': x for s, x in metric.items()})
+                base = _sub_column(out, prefix, k, list(metric))
+                out.update({f'{base}{s}': x for s, x in metric.items()})
 
     def buckets(self, path: tuple, buckets: list, parent: dict) -> None:
         rows: list[dict] = []

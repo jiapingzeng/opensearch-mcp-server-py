@@ -373,6 +373,21 @@ describe('aggregation headers', () => {
       'Aggregation: bare (truncated)',
     ]);
   });
+  test('prefixed sub-aggregation columns and bucket keys are shown', async () => {
+    const aggregations = [
+      { name: 'm', columns: ['value', 'keys'], rows: [[3, ['a', 'b']]] },
+      { name: 'by_host', columns: ['key', 'doc_count', 'agg:meta', 'agg:price_as_string'], rows: [['h1', 5, 1, '9.0']] },
+    ];
+    const base = searchResult();
+    const result = { ...base, structuredContent: { ...base.structuredContent, meta: { ...base.structuredContent.meta, aggregations } } };
+    const v = await openView('results', {}, SEARCH_INPUT, result);
+    const tables = [...v.doc.querySelectorAll('h3 + *')];
+    const cells = (t) => [...t.querySelectorAll('tbody tr.row td:not(.select)')].map((td) => td.textContent);
+    const heads = (t) => [...t.querySelectorAll('thead th')].map((th) => th.textContent).join(' ');
+    assert.deepEqual(cells(tables[0]), ['3', '["a","b"]']);
+    assert.match(heads(tables[1]), /agg:meta.*agg:price_as_string/);
+    assert.deepEqual(cells(tables[1]), ['h1', '5', '1', '9.0']);
+  });
 });
 
 // Tool error texts captured from a local OpenSearch 3.8 through PPLQueryTool and SearchIndexTool.
@@ -1038,6 +1053,51 @@ describe('bidi and invisible characters', () => {
     assert.equal(td.title, '\u202eevil.exe\u202c');
     assert.match(read('common.css'), /td > \.cell \{[^}]*unicode-bidi: plaintext/);
     assert.equal(await copied(v, 'button.copy-csv'), '_index,f\r\nlogs,\u202eevil.exe\u202c\r\nlogs,x\r\n');
+  });
+  const mark = (cp) => '\u27e6U+' + cp.toString(16).toUpperCase().padStart(4, '0') + '\u27e7';
+  test('tags, selector supplement, fillers and stray joiners are marked', () => {
+    const tags = [...'hi'].map((c) => String.fromCodePoint(0xE0000 + c.charCodeAt(0))).join('');
+    assert.equal(w.cellText('ok' + tags + '\u{E007F}'), 'ok' + mark(0xE0068) + mark(0xE0069) + mark(0xE007F));
+    assert.equal(w.cellText('x\u{E0100}\u{E01EF}'), 'x' + mark(0xE0100) + mark(0xE01EF));
+    assert.equal(w.cellText('a\u200cb\u034fc\u3164d\uffa0e'), 'a' + mark(0x200C) + 'b' + mark(0x34F) + 'c' + mark(0x3164) + 'd' + mark(0xFFA0) + 'e');
+    assert.equal(w.cellText('de\u200dlete'), 'de' + mark(0x200D) + 'lete');
+    assert.equal(w.cellText('\u{1F468}\u200d'), '\u{1F468}' + mark(0x200D));
+    assert.equal(w.cellText('\u200d\u{1F468}'), mark(0x200D) + '\u{1F468}');
+  });
+  test('joiners inside emoji sequences stay', () => {
+    for (const s of ['\u{1F469}\u{1F3FB}\u200d\u2764\ufe0f\u200d\u{1F468}\u{1F3FC}', '\u{1F3F3}\ufe0f\u200d\u{1F308}', '\u{1F9D1}\u{1F3FE}\u200d\u2695\ufe0f']) {
+      assert.equal(w.cellText(s), s);
+    }
+  });
+});
+
+describe('cutting long cells', () => {
+  const { window: w } = load('results', { assembled: false });
+  const cut = (s) => w.formatCell(s, 'keyword');
+  test('an emoji at the cut stays whole', () => {
+    const s = cut('a'.repeat(38) + '\u{1F600}\u{1F600}');
+    assert.equal(s, 'a'.repeat(38) + '\u2026');
+    assert.doesNotMatch(s, /[\ud800-\udbff](?![\udc00-\udfff])/);
+  });
+  test('a marker at the cut is dropped whole', () => {
+    assert.equal(cut('a'.repeat(35) + '\u202ebbbbbbbb'), 'a'.repeat(35) + '\u2026');
+    assert.equal(cut('a'.repeat(30) + '\u202ebbbbbbbb'), 'a'.repeat(30) + '\u27e6U+202E\u27e7' + 'b\u2026');
+  });
+  test('a combining mark stays with its letter, and family emoji stay whole', () => {
+    assert.equal(cut('a'.repeat(38) + 'e\u0301xyz'), 'a'.repeat(38) + '\u2026');
+    assert.equal(cut('a'.repeat(33) + '\u{1F468}\u200d\u{1F469}\u200d\u{1F467}xyz'), 'a'.repeat(33) + '\u2026');
+  });
+  test('one grapheme longer than the cut falls back to code points', () => {
+    const s = cut('a' + '\u0301'.repeat(60));
+    assert.equal(s.length, 40);
+    assert.ok(s.endsWith('\u2026'));
+  });
+  test('without Intl.Segmenter surrogate pairs and markers are still kept whole', () => {
+    const v = load('results', { assembled: false });
+    v.window.eval('graphemes = null;');
+    assert.equal(v.window.formatCell('a'.repeat(38) + '\u{1F600}\u{1F600}', 'keyword'), 'a'.repeat(38) + '\u2026');
+    assert.equal(v.window.formatCell('a'.repeat(35) + '\u202ebbbbbbbb', 'keyword'), 'a'.repeat(35) + '\u2026');
+    assert.equal(v.window.clip('a'.repeat(37) + '\u{1F600}b', 39), 'a'.repeat(37) + '\u2026');
   });
 });
 

@@ -404,6 +404,94 @@ class TestAggregations:
         assert named['empty_avg']['rows'] == [[None]]
         assert notes == []
 
+    def test_reserved_and_colliding_sub_aggregation_names_get_a_prefix(self):
+        dsl = {
+            'aggs': {
+                'by_host': {
+                    'terms': {'field': 'h'},
+                    'aggs': {
+                        'meta': {'max': {'field': 'a'}},
+                        'price_as_string': {'avg': {'field': 'p'}},
+                    },
+                }
+            }
+        }
+        bucket = {
+            'key': 'h1',
+            'key_as_string': 'H1',
+            'doc_count': 5,
+            'meta': {'value': 1},
+            'price_as_string': {'value': 9, 'value_as_string': '9.0'},
+        }
+        named, notes = self.tables({'by_host': {'meta': {'team': 'x'}, 'buckets': [bucket]}}, dsl)
+        assert named['by_host']['columns'] == [
+            'key',
+            'doc_count',
+            'agg:meta',
+            'agg:price_as_string',
+        ]
+        assert named['by_host']['rows'] == [['H1', 5, 1, '9.0']]
+        assert notes == []
+
+    def test_aggregation_meta_without_request_body_is_skipped(self):
+        named, _ = self.tables(
+            {
+                'f': {
+                    'doc_count': 2,
+                    'meta': {'team': 'x'},
+                    'from_as_string': 'a',
+                    'm': {'value': 1},
+                }
+            }
+        )
+        assert named['f']['columns'] == ['doc_count', 'm']
+
+    def test_sub_aggregation_named_like_a_parent_column_keeps_both(self):
+        path = {'buckets': [{'key': '/a', 'doc_count': 2, 'host': {'value': 42}}]}
+        named, _ = self.tables(
+            {
+                'host': {'buckets': [{'key': 'h1', 'doc_count': 5, 'path': path}]},
+                'svc': {
+                    'buckets': [
+                        {
+                            'key': 'api',
+                            'doc_count': 3,
+                            'f': {'doc_count': 1},
+                            'f.doc_count': {'value': 7},
+                            'top': {'hits': {'hits': []}},
+                            'g': {'doc_count': 1, 'top': {'hits': {'hits': [{'_source': {}}]}}},
+                        }
+                    ]
+                },
+            }
+        )
+        assert named['host > path']['columns'] == ['host', 'key', 'doc_count', 'agg:host']
+        assert named['host > path']['rows'] == [['h1', '/a', 2, 42]]
+        assert named['svc']['columns'] == [
+            'key',
+            'doc_count',
+            'f.doc_count',
+            'agg:f.doc_count',
+            'top',
+            'g.doc_count',
+            'g.top',
+        ]
+
+    def test_bucket_pipeline_keys_are_shown(self):
+        named, notes = self.tables(
+            {
+                'm': {'value': 3, 'keys': ['a', 'b']},
+                'svc': {
+                    'buckets': [{'key': 'api', 'doc_count': 1, 'lo': {'value': 1, 'keys': ['x']}}]
+                },
+            }
+        )
+        assert named['m']['columns'] == ['value', 'keys']
+        assert named['m']['rows'] == [[3, ['a', 'b']]]
+        assert named['svc']['columns'] == ['key', 'doc_count', 'lo', 'lo.keys']
+        assert named['svc']['rows'] == [['api', 1, 1, ['x']]]
+        assert notes == []
+
     def test_unsupported_aggregations_get_a_note_with_their_type(self):
         dsl = {
             'size': 0,
@@ -858,6 +946,27 @@ class TestPresentationArgs:
             {'intent': 'smuggled tags \U000e0041\U000e0042'},
             {'intent': 'tags without a flag \U000e0067\U000e0062\U000e007f'},
             {'suggestions': ['zero\u200bwidth']},
+            {
+                'intent': '\U0001f3f4'
+                + ''.join(chr(0xE0000 + ord(c)) for c in 'a' * 43)
+                + '\U000e007f'
+            },
+            {'intent': 'short flag \U0001f3f4\U000e0067\U000e0062\U000e007f'},
+            {'intent': 'de\u200dlete'},
+            {'intent': 'trailing joiner \U0001f468\u200d'},
+            {'intent': 'joiner run \U0001f468\u200d\u200d\U0001f469'},
+            {'intent': 'joiner then letter \U0001f468\u200dx'},
+            {'intent': 'selector after letter x\ufe0f'},
+            {'intent': 'keycap 1\ufe0f\u20e3'},
+            {'intent': 'selectors \u2764\ufe0f\ufe0f'},
+            {'intent': 'vs1 \u2764\ufe00'},
+            {'intent': 'supplement x\U000e0100\U000e01ef'},
+            {'intent': 'grapheme joiner a\u034fb'},
+            {'intent': 'fillers \u115f\u1160'},
+            {'intent': 'hangul filler a\u3164b'},
+            {'intent': 'halfwidth filler a\uffa0b'},
+            {'intent': 'zwnj a\u200cb'},
+            {'intent': 'Indic half form \u0915\u094d\u200d\u0937'},
         ],
     )
     def test_control_and_format_chars_rejected(self, args):
@@ -870,10 +979,13 @@ class TestPresentationArgs:
             'team \U0001f468\u200d\U0001f469\u200d\U0001f467',
             'heart \u2764\ufe0f and text style \u2764\ufe0e',
             'flag \U0001f3f4\U000e0067\U000e0062\U000e0073\U000e0063\U000e0074\U000e007f',
+            'flag \U0001f3f4\U000e0067\U000e0062\U000e0077\U000e006c\U000e0073\U000e007f',
+            'pirate \U0001f3f4\u200d\u2620\ufe0f',
+            'rainbow \U0001f3f3\ufe0f\u200d\U0001f308',
             'skin tone \U0001f44d\U0001f3fd',
-            'keycap 1\ufe0f\u20e3',
+            'skin tone family \U0001f469\U0001f3fb\u200d\u2764\ufe0f\u200d\U0001f468\U0001f3fc',
+            'health worker \U0001f9d1\U0001f3fe\u200d\u2695\ufe0f',
             '\u0645\u0631\u062d\u0628\u0627 \u05e9\u05dc\u05d5\u05dd',
-            'Hindi \u0915\u094d\u200d\u0937',
         ],
     )
     def test_emoji_and_scripts_accepted(self, text):

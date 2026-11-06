@@ -67,15 +67,45 @@ function dict(init) {
   if (init) Object.keys(init).forEach(function (k) { d[k] = init[k]; });
   return d;
 }
-// Bidi controls and zero-width characters, shown as visible markers so data cannot spoof text.
-var HIDDEN_CHARS_RE = /[\u061c\u200b\u200e\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/g;
+// Bidi controls, zero-width, tag, variation-selector-supplement and filler characters, shown
+// as visible markers so data cannot spoof or hide text. A ZWJ inside an emoji is kept.
+var HIDDEN_CHARS_RE = /[\u034f\u061c\u115f\u1160\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\u3164\ufeff\uffa0\u{e0000}-\u{e007f}\u{e0100}-\u{e01ef}]/gu;
+var PICTOGRAPH_RE = /\p{Extended_Pictographic}/u;
+var EMOJI_MODIFIER_RE = /^(?:\ufe0f|\ud83c[\udffb-\udfff])$/;
+// A ZWJ between two pictographs, the left one optionally carrying VS16 or a skin tone.
+function isEmojiJoiner(s, i) {
+  var next = s.codePointAt(i + 1);
+  if (next === undefined || !PICTOGRAPH_RE.test(String.fromCodePoint(next))) return false;
+  var before = Array.from(s.slice(Math.max(0, i - 6), i));
+  if (before.length && EMOJI_MODIFIER_RE.test(before[before.length - 1])) before.pop();
+  return before.length > 0 && PICTOGRAPH_RE.test(before[before.length - 1]);
+}
 function showHidden(s) {
-  return s.replace(HIDDEN_CHARS_RE, function (c) { return '\u27e6U+' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0') + '\u27e7'; });
+  return s.replace(HIDDEN_CHARS_RE, function (c, i, str) {
+    if (c === '\u200d' && isEmojiJoiner(str, i)) return c;
+    return '\u27e6U+' + c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0') + '\u27e7';
+  });
+}
+var graphemes = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+var MARKER_RE = /^\u27e6U\+[0-9A-F]{4,6}\u27e7/;
+// Cuts `s` to at most `max` UTF-16 units with an ellipsis, never inside a grapheme (or, without
+// Intl.Segmenter, a surrogate pair) or a hidden-character marker.
+function cutText(s, max) {
+  if (s.length <= max) return s;
+  var end = max - 1, fit = 0;
+  if (graphemes) {
+    var it = graphemes.segment(s.slice(0, max + 1))[Symbol.iterator](), seg;
+    while (!(seg = it.next()).done && seg.value.index + seg.value.segment.length <= end) fit = seg.value.index + seg.value.segment.length;
+  }
+  // No segmenter, or one grapheme longer than the cut (stacked combining marks).
+  if (fit) end = fit;
+  else if (/[\ud800-\udbff]/.test(s.charAt(end - 1))) end--;
+  var open = s.lastIndexOf('\u27e6', end - 1);
+  if (open >= 0 && MARKER_RE.test(s.slice(open)) && s.indexOf('\u27e7', open) >= end) end = open;
+  return s.slice(0, end) + '\u2026';
 }
 function cellText(v, max) {
-  var s = showHidden(rawText(v));
-  max = max || CELL_MAX;
-  return s.length > max ? s.slice(0, max - 1) + '\u2026' : s;
+  return cutText(showHidden(rawText(v)), max || CELL_MAX);
 }
 // Identity for filtering and grouping: typed and untruncated, so "1" and 1, or two long
 // strings sharing a prefix, never collide.
@@ -128,7 +158,7 @@ function formatPercent(n) {
 function plural(n, one, many) {
   return formatNumber(n) + ' ' + (n === 1 ? one : (many || one + 's'));
 }
-function clip(s, max) { s = String(s); return s.length > max ? s.slice(0, max - 1) + '\u2026' : s; }
+function clip(s, max) { return cutText(String(s), max); }
 
 // Undoes Python string-literal escapes (\n, \', \\, \uXXXX) in an exception repr.
 function unescapePython(s) {
