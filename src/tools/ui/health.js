@@ -1,3 +1,6 @@
+// Copyright OpenSearch Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 // Cluster health card for ClusterHealthTool: status badge, node and shard counts, with
 // unassigned shards highlighted; refresh re-calls the tool with the same arguments.
 function renderHealth(data) {

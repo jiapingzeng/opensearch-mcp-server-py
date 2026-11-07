@@ -1,3 +1,6 @@
+// Copyright OpenSearch Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 // Inline-SVG charts: bars for one category and one number (PPL `stats ... by field`), and a
 // line/area time series for a time column plus numbers, optionally split by one category.
 // Both size to their container and redraw on resize; the rest of the view is untouched.

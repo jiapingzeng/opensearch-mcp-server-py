@@ -1,3 +1,6 @@
+// Copyright OpenSearch Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 // Collapsible tree. Expansion is keyed by node id in `expanded`, so it survives re-renders.
 function buildTree(nodes, opts) {
   var rootList = el('ul', null, 'tree root');

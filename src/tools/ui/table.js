@@ -1,3 +1,6 @@
+// Copyright OpenSearch Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 // Typed, sortable table with column picker, JSON rows, row selection, filter chips, field
 // statistics and CSV/JSON export. State is keyed by column name so it survives a refresh.
 var CHIP_MAX_VALUES = 8;

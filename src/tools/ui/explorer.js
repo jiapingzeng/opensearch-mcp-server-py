@@ -1,3 +1,6 @@
+// Copyright OpenSearch Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 // Index explorer for IndexExplorerTool: a searchable index list and, for the selected index,
 // Overview, Mapping, Shards and Sample documents tabs. Tabs load through the existing read-only
 // tools (named in data.tools) on first open and are cached per index and tab.

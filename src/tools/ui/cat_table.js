@@ -1,3 +1,6 @@
+// Copyright OpenSearch Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 // Table view for _cat-style tools (ListIndexTool, GetShardsTool, CatNodesTool, GetAllocationTool):
 // numbers and byte sizes sort numerically and show units; health and state are coloured.
 var catState = newTableState();

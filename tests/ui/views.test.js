@@ -1,3 +1,6 @@
+// Copyright OpenSearch Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 // Tests for the MCP Apps views in src/tools/ui. Run with `npm ci && npm test` in this directory,
 // or through tests/ui/test_views_js.py under pytest.
 'use strict';

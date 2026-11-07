@@ -1,3 +1,6 @@
+// Copyright OpenSearch Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 // Cluster overview for ClusterOverviewTool: health, nodes, indices, shards (unassigned reasons
 // and allocation explanations) and disk allocation. Each section renders, fails and refreshes on
 // its own; clicking a node or an unassigned shard filters the sections, clicking an index asks

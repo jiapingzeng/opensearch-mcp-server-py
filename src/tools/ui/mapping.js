@@ -1,3 +1,6 @@
+// Copyright OpenSearch Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 // Index mapping tree: collapsible objects, field types, multi-fields, mapping parameters, and a
 // search box that filters by field path or type. Used by the mapping view and the explorer.
 function newMappingState() { return { query: '', expanded: dict() }; }

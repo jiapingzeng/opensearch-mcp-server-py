@@ -1,3 +1,6 @@
+// Copyright OpenSearch Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 // Shared runtime for every OpenSearch view: host bridge, theme, sizing, header, notices,
 // presentation (intent and suggestions), view-initiated tool calls, clipboard and model context.
 var PROTOCOL_VERSION = '2026-01-26';

@@ -1,3 +1,6 @@
+// Copyright OpenSearch Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 // Results view for SearchIndexTool (search_hits) and PPLQueryTool (ppl_rows): table, chips,
 // bar or time-series chart, paging and refresh (search), edit and re-run (PPL), export.
 var resultsState = { table: newTableState(), chart: true, pageSize: 0, editorOpen: false };

@@ -1,3 +1,6 @@
+// Copyright OpenSearch Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 // Score explanation tree for ExplainTool: total score, top contributing clauses, and the
 // collapsible breakdown OpenSearch returned.
 var TOP_CONTRIBUTORS = 5;

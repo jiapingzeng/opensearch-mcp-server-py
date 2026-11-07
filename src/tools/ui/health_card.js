@@ -1,3 +1,6 @@
+// Copyright OpenSearch Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 // Cluster health status badge and metric cards, shared by the health and overview views.
 var HEALTH_METRICS = [
   ['number_of_nodes', 'Nodes'],
