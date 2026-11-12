@@ -164,6 +164,48 @@ def has_preconfigured_connection() -> bool:
     return False
 
 
+def _join_names(names: list[str]) -> str:
+    return names[0] if len(names) == 1 else f'{", ".join(names[:-1])} and {names[-1]}'
+
+
+def get_apps_instructions(
+    overview: str | None, explorer: str | None, view_tools: list[str], takes_intent: bool
+) -> str | None:
+    """Return the paragraph added to the instructions for a client that renders MCP Apps views.
+
+    Arguments are the display names of the listed tools; None or empty when not listed.
+    """
+    lines = []
+    if overview:
+        lines.append(
+            f'- When the user asks how the cluster is doing (health, status, unassigned shards, '
+            f'disk), call {overview}.'
+        )
+    if explorer:
+        lines.append(
+            f'- When the user wants to explore, browse or inspect an index or index pattern, '
+            f'call {explorer}.'
+        )
+    if view_tools:
+        lines.append(f'- Results of {_join_names(view_tools)} also render as interactive views.')
+    if not lines:
+        return None
+    parts = [
+        'This client shows interactive views for some tools. Prefer them when they fit the '
+        'request:\n' + '\n'.join(lines)
+    ]
+    if takes_intent:
+        parts.append(
+            'When a tool takes an intent argument, set it to one sentence on why you are calling '
+            'it; the view shows it to the user.'
+        )
+    parts.append(
+        'The user can see the view, so summarize what matters instead of repeating its rows or '
+        'fields.'
+    )
+    return '\n'.join(parts)
+
+
 def get_server_instructions() -> str | None:
     """Return server instructions based on current configuration.
 

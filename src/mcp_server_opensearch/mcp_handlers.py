@@ -3,6 +3,7 @@
 
 """MCP request handlers shared by the stdio and streaming transports."""
 
+import functools
 import logging
 from mcp.server import Server
 from mcp.server.apps import APP_MIME_TYPE, EXTENSION_ID, client_supports_apps
@@ -21,6 +22,7 @@ from mcp.types import (
     TextResourceContents,
     Tool,
 )
+from mcp_server_opensearch.server_instructions import get_apps_instructions
 from pydantic import BaseModel
 from tools.ui_resources import (
     UI_RESOURCES,
@@ -36,6 +38,7 @@ from tools.ui_resources import (
     takes_presentation_args,
     takes_suggestions,
     tool_ui_meta,
+    view_description,
     view_input_schema,
 )
 from typing import Any
@@ -63,8 +66,8 @@ def _advertises_apps(capabilities: Any) -> bool:
     return isinstance(mime_types, list) and APP_MIME_TYPE in mime_types
 
 
-async def _gate_handshake(ctx, call_next):
-    # A client known not to support Apps gets the flag-off capabilities in its handshake.
+async def _gate_handshake(ctx, call_next, apps_note: str | None = None):
+    # A client known not to support Apps gets the flag-off handshake; others get apps_note too.
     result = await call_next(ctx)
     if ctx.method not in ('initialize', 'server/discover'):
         return result
@@ -78,10 +81,14 @@ async def _gate_handshake(ctx, call_next):
         return result
     if ctx.method == 'initialize':
         capabilities = (ctx.params or {}).get('capabilities')
-        if not isinstance(capabilities, dict) or _advertises_apps(capabilities):
+        applies = not isinstance(capabilities, dict) or _advertises_apps(capabilities)
+    else:
+        applies = client_apps_support(ctx) is not False
+    if applies:
+        if not apps_note:
             return result
-    elif client_apps_support(ctx) is not False:
-        return result
+        base = result.get('instructions')
+        return {**result, 'instructions': f'{base}\n\n{apps_note}' if base else apps_note}
     server_caps = dict(result.get('capabilities') or {})
     # UI resources are the only resources this server serves, so the capability goes too.
     server_caps.pop('resources', None)
@@ -116,9 +123,6 @@ def _present_tools(enabled_tools: dict, apps: bool) -> tuple[dict, set, dict]:
     from tools.present_tools import resolve_present_tools
 
     plans = resolve_present_tools(enabled_tools)
-    for key, plan in plans.items():
-        if not plan['listed']:
-            logger.info(f'{key} is not listed: it needs {", ".join(plan["missing"])}')
     kept = {k: v for k, v in enabled_tools.items() if k not in plans or plans[k]['listed']}
     called = {dep for plan in plans.values() if plan['listed'] for dep in plan['calls']}
     return kept, called, plans
@@ -147,6 +151,9 @@ def build_handlers(enabled_tools: dict) -> dict:
     if apps:
         dashboards_base_url()  # fail at startup on a malformed URL
     enabled_tools, view_called, plans = _present_tools(enabled_tools, apps)
+    for key, plan in plans.items():
+        if not plan['listed']:
+            logger.info(f'{key} is not listed: it needs {", ".join(plan["missing"])}')
     logger.info(f'Enabled tools: {list(enabled_tools.keys())}')
 
     def active(ctx) -> bool:
@@ -168,7 +175,9 @@ def build_handlers(enabled_tools: dict) -> dict:
             tools.append(
                 Tool(
                     name=tool_info.get('display_name', tool_name),
-                    description=tool_info['description'],
+                    description=view_description(tool_info)
+                    if apps_active
+                    else tool_info['description'],
                     input_schema=input_schema,
                     annotations=tool_info.get('annotations'),
                     meta=meta or None,  # type: ignore[call-arg]
@@ -263,8 +272,33 @@ def build_handlers(enabled_tools: dict) -> dict:
     return handlers
 
 
-def configure_apps(server: Server) -> None:
-    """Advertise the MCP Apps extension when OPENSEARCH_MCP_APPS_ENABLED is on."""
+def apps_instructions(enabled_tools: dict) -> str | None:
+    """Return the instructions paragraph for clients that render views, from the listed tools."""
+    listed, _, _ = _present_tools(enabled_tools, True)
+
+    def name(kind: str) -> str | None:
+        for key, info in listed.items():
+            if info.get('ui_present') and info.get('ui_kind') == kind:
+                return info.get('display_name', key)
+        return None
+
+    view_tools = [
+        info.get('display_name', key)
+        for key, info in listed.items()
+        if is_view_bound(info) and not info.get('ui_present')
+    ]
+    return get_apps_instructions(
+        name('cluster_overview'),
+        name('index_explorer'),
+        view_tools,
+        any(takes_presentation_args(info) for info in listed.values()),
+    )
+
+
+def configure_apps(server: Server, enabled_tools: dict) -> None:
+    """Advertise the MCP Apps extension and its instructions when OPENSEARCH_MCP_APPS_ENABLED is on."""
     if apps_enabled():
         server.extensions[EXTENSION_ID] = {}
-        server.middleware.append(_gate_handshake)
+        server.middleware.append(
+            functools.partial(_gate_handshake, apps_note=apps_instructions(enabled_tools))
+        )

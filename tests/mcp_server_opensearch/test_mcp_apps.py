@@ -79,7 +79,7 @@ def _registry():
 
 def _server(tools):
     server = Server('opensearch-mcp-server', **build_handlers(tools))
-    configure_apps(server)
+    configure_apps(server, tools)
     return server
 
 
@@ -613,6 +613,108 @@ class TestFlagOnUnknownCapabilities:
         handlers = build_handlers(_registry())
         listed = await handlers['on_list_resources'](UNKNOWN, None)
         assert [str(r.uri) for r in listed.resources] == [RESULTS_VIEW_URI]
+
+
+BASE_INSTRUCTIONS = 'Base instructions.'
+APPS_NOTE = (
+    'This client shows interactive views for some tools. Prefer them when they fit the request:\n'
+    '- Results of SearchIndexTool also render as interactive views.\n'
+    'When a tool takes an intent argument, set it to one sentence on why you are calling it; the '
+    'view shows it to the user.\n'
+    'The user can see the view, so summarize what matters instead of repeating its rows or fields.'
+)
+SEARCH_VIEW_DESCRIPTION = (
+    'd. The user also sees the results in an interactive view with a table, chart and paging.'
+)
+
+
+class TestAppsGuidance:
+    """Instructions and descriptions steer the model to views only when Apps apply."""
+
+    def _server(self, tools=None, instructions=BASE_INSTRUCTIONS):
+        tools = tools or _registry()
+        server = Server(
+            'opensearch-mcp-server', instructions=instructions, **build_handlers(tools)
+        )
+        configure_apps(server, tools)
+        return server
+
+    async def _session(self, mode, ui, **kw):
+        async with Client(
+            self._server(**kw), extensions=UI_CLIENT if ui else None, mode=mode
+        ) as client:
+            tools = [t.model_dump() for t in (await client.list_tools()).tools]
+            return client.protocol_version, client.instructions, tools
+
+    def test_note_text(self, apps_on):
+        from mcp_server_opensearch.mcp_handlers import apps_instructions
+
+        assert apps_instructions(_registry()) == APPS_NOTE
+
+    def test_no_note_without_view_tools(self, apps_on):
+        from mcp_server_opensearch.mcp_handlers import apps_instructions
+
+        assert apps_instructions({'ListIndexTool': _registry()['ListIndexTool']}) is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('mode,protocol', [('legacy', '2025-11-25'), ('auto', '2026-07-28')])
+    async def test_flag_off_matches_upstream(self, apps_off, mode, protocol):
+        version, instructions, tools = await self._session(mode, ui=True)
+        assert version == protocol
+        assert instructions == BASE_INSTRUCTIONS
+        assert [t['description'] for t in tools] == ['d', 'd']
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('mode', ['legacy', 'auto'])
+    async def test_known_non_ui_client_matches_flag_off(self, monkeypatch, mode):
+        monkeypatch.setenv('OPENSEARCH_MCP_APPS_ENABLED', 'true')
+        on = await self._session(mode, ui=False)
+        monkeypatch.delenv('OPENSEARCH_MCP_APPS_ENABLED')
+        assert on == await self._session(mode, ui=False)
+        assert on[1] == BASE_INSTRUCTIONS
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('mode,protocol', [('legacy', '2025-11-25'), ('auto', '2026-07-28')])
+    async def test_ui_client_gets_note_and_view_descriptions(self, apps_on, mode, protocol):
+        version, instructions, tools = await self._session(mode, ui=True)
+        assert version == protocol
+        assert instructions == f'{BASE_INSTRUCTIONS}\n\n{APPS_NOTE}'
+        descriptions = {t['name']: t['description'] for t in tools}
+        assert descriptions == {'SearchIndexTool': SEARCH_VIEW_DESCRIPTION, 'ListIndexTool': 'd'}
+
+    @pytest.mark.asyncio
+    async def test_note_alone_without_base_instructions(self, apps_on):
+        _, instructions, _ = await self._session('legacy', ui=True, instructions=None)
+        assert instructions == APPS_NOTE
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        'method,params',
+        [('initialize', {}), ('initialize', {'capabilities': None}), ('server/discover', {})],
+    )
+    async def test_unknown_capabilities_get_the_note(self, method, params):
+        ctx = SimpleNamespace(
+            method=method, params=params, session=SimpleNamespace(client_capabilities=None)
+        )
+        call_next = AsyncMock(return_value={'instructions': BASE_INSTRUCTIONS})
+        result = await _gate_handshake(ctx, call_next, apps_note=APPS_NOTE)
+        assert result['instructions'] == f'{BASE_INSTRUCTIONS}\n\n{APPS_NOTE}'
+
+    @pytest.mark.asyncio
+    async def test_unknown_capabilities_get_view_descriptions(self, apps_on):
+        listed = await build_handlers(_registry())['on_list_tools'](UNKNOWN, None)
+        assert [t.description for t in listed.tools] == [SEARCH_VIEW_DESCRIPTION, 'd']
+
+    @pytest.mark.asyncio
+    async def test_known_non_ui_handshake_keeps_instructions(self):
+        ctx = SimpleNamespace(
+            method='server/discover',
+            params={},
+            session=SimpleNamespace(client_capabilities=ClientCapabilities()),
+        )
+        call_next = AsyncMock(return_value={'instructions': BASE_INSTRUCTIONS, 'capabilities': {}})
+        result = await _gate_handshake(ctx, call_next, apps_note=APPS_NOTE)
+        assert result == {'instructions': BASE_INSTRUCTIONS, 'capabilities': {}}
 
 
 class TestTransports:

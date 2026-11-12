@@ -64,7 +64,7 @@ async def create_mcp_server(
         instructions=get_server_instructions(),
         **build_handlers(enabled_tools),
     )
-    configure_apps(server)
+    configure_apps(server, enabled_tools)
 
     return server
 

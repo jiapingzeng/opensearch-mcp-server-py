@@ -415,3 +415,23 @@ class TestConditionalSchemaStripping:
         assert 'opensearch_url' not in props
         assert 'aws_region' not in props
         assert 'opensearch_cluster_name' not in props
+
+
+class TestGetAppsInstructions:
+    def test_none_without_any_view_tool(self):
+        from mcp_server_opensearch.server_instructions import get_apps_instructions
+
+        assert get_apps_instructions(None, None, [], True) is None
+
+    def test_lists_only_what_is_given(self):
+        from mcp_server_opensearch.server_instructions import get_apps_instructions
+
+        assert get_apps_instructions(None, 'Browse', ['A', 'B'], False) == (
+            'This client shows interactive views for some tools. Prefer them when they fit the '
+            'request:\n'
+            '- When the user wants to explore, browse or inspect an index or index pattern, call '
+            'Browse.\n'
+            '- Results of A and B also render as interactive views.\n'
+            'The user can see the view, so summarize what matters instead of repeating its rows '
+            'or fields.'
+        )

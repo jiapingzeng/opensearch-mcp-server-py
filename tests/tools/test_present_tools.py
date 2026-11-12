@@ -518,7 +518,7 @@ def _enabled(drop=(), renames=None, multi=False):
 
 def _server(tools):
     server = Server('opensearch-mcp-server', **build_handlers(tools))
-    configure_apps(server)
+    configure_apps(server, tools)
     return server
 
 
@@ -712,3 +712,96 @@ class TestListing:
         size = len(json.dumps(sc, ensure_ascii=False, separators=(',', ':')).encode())
         assert size <= STRUCTURED_CONTENT_MAX_BYTES and 'omitted' not in sc
         assert sc['list']['meta']['truncated'] is True and sc['list']['meta']['row_count'] == 500
+
+
+FULL_NOTE = (
+    'This client shows interactive views for some tools. Prefer them when they fit the request:\n'
+    '- When the user asks how the cluster is doing (health, status, unassigned shards, disk), '
+    'call ClusterOverviewTool.\n'
+    '- When the user wants to explore, browse or inspect an index or index pattern, call '
+    'IndexExplorerTool.\n'
+    '- Results of ListIndexTool, IndexMappingTool, SearchIndexTool, GetShardsTool, CatNodesTool, '
+    'GetAllocationTool and ClusterHealthTool also render as interactive views.\n'
+    'When a tool takes an intent argument, set it to one sentence on why you are calling it; the '
+    'view shows it to the user.\n'
+    'The user can see the view, so summarize what matters instead of repeating its rows or fields.'
+)
+
+
+async def _guidance(tools, ui=True):
+    async with Client(_server(tools), extensions=UI_CLIENT if ui else None) as c:
+        return c.instructions, {t.name: t.description for t in (await c.list_tools()).tools}
+
+
+class TestModelGuidance:
+    @pytest.mark.asyncio
+    async def test_ui_client_instructions_name_the_listed_tools(self, monkeypatch, client):
+        monkeypatch.setenv('OPENSEARCH_MCP_APPS_ENABLED', 'true')
+        instructions, _ = await _guidance(_enabled())
+        assert instructions == FULL_NOTE
+
+    @pytest.mark.asyncio
+    async def test_instructions_use_display_names_and_skip_unlisted_tools(
+        self, monkeypatch, client
+    ):
+        monkeypatch.setenv('OPENSEARCH_MCP_APPS_ENABLED', 'true')
+        tools = _enabled(drop=['GetShardsTool'], renames={'IndexMappingTool': 'Map_It'})
+        instructions, listed = await _guidance(tools)
+        assert 'ClusterOverviewTool' not in listed and 'IndexExplorerTool' not in listed
+        assert 'ClusterOverviewTool' not in instructions
+        assert 'IndexExplorerTool' not in instructions
+        assert (
+            '- Results of ListIndexTool, Map_It, SearchIndexTool, CatNodesTool, ' in instructions
+        )
+
+    @pytest.mark.asyncio
+    async def test_present_tool_descriptions_say_when_to_use_them(self, monkeypatch, client):
+        monkeypatch.setenv('OPENSEARCH_MCP_APPS_ENABLED', 'true')
+        _, listed = await _guidance(_enabled())
+        overview, explorer = listed['ClusterOverviewTool'], listed['IndexExplorerTool']
+        assert overview.startswith('Shows the user an interactive cluster overview')
+        for phrase in ('"how is my cluster"', '"is the cluster healthy"', 'unassigned shards'):
+            assert phrase in overview
+        assert explorer.startswith('Shows the user an interactive index explorer')
+        for phrase in ('explore, browse or inspect', '"show me what\'s in the orders index"'):
+            assert phrase in explorer
+        assert 'The user also sees' not in overview + explorer
+
+    @pytest.mark.asyncio
+    async def test_bound_tools_get_one_view_sentence(self, monkeypatch, client):
+        from tools.tools import TOOL_REGISTRY
+
+        monkeypatch.setenv('OPENSEARCH_MCP_APPS_ENABLED', 'true')
+        _, listed = await _guidance(_enabled())
+        base = TOOL_REGISTRY['IndexMappingTool']['description']
+        assert listed['IndexMappingTool'] == (
+            f'{base}. The user also sees the mapping as an interactive, searchable field tree.'
+        )
+        assert listed['ClusterHealthTool'] == (
+            'health. The user also sees the result as an interactive cluster health card.'
+        )
+        assert listed['ListIndexTool'].endswith(
+            'returns full metadata. The user also sees the result as an interactive, sortable '
+            'table.'
+        )
+        generic = TOOL_REGISTRY['GenericOpenSearchApiTool']['description']
+        assert listed['GenericOpenSearchApiTool'] == generic
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('enabled', [False, True])
+    async def test_without_apps_descriptions_match_the_registry(
+        self, monkeypatch, client, enabled
+    ):
+        if enabled:
+            monkeypatch.setenv('OPENSEARCH_MCP_APPS_ENABLED', 'true')
+        else:
+            monkeypatch.delenv('OPENSEARCH_MCP_APPS_ENABLED', raising=False)
+        tools = _enabled()
+        instructions, listed = await _guidance(tools, ui=not enabled)
+        expected = {
+            info['display_name']: info['description']
+            for info in tools.values()
+            if not info.get('ui_present')
+        }
+        assert instructions is None
+        assert listed == expected

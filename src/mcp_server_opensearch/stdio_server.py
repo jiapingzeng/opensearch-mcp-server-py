@@ -54,7 +54,7 @@ async def serve(
         instructions=get_server_instructions(),
         **build_handlers(enabled_tools),
     )
-    configure_apps(server)
+    configure_apps(server, enabled_tools)
 
     # Start stdio-based MCP server
     from mcp_server_opensearch.logging_config import start_memory_monitor

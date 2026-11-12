@@ -119,6 +119,27 @@ UI_RESOURCES: dict[str, dict[str, Any]] = {
 }
 
 
+# Appended to a bound tool's description when Apps apply; present tools describe their own view.
+VIEW_NOTES = {
+    RESULTS_VIEW_URI: 'The user also sees the results in an interactive view with a table, '
+    'chart and paging.',
+    TABLE_VIEW_URI: 'The user also sees the result as an interactive, sortable table.',
+    HEALTH_VIEW_URI: 'The user also sees the result as an interactive cluster health card.',
+    MAPPING_VIEW_URI: 'The user also sees the mapping as an interactive, searchable field tree.',
+    EXPLAIN_VIEW_URI: 'The user also sees the score breakdown as an interactive view.',
+}
+
+
+def view_description(tool_info: dict) -> str:
+    """Return the tool description for a client that renders views."""
+    description = tool_info['description']
+    note = VIEW_NOTES.get(tool_info.get('ui_resource_uri'))
+    if not note or not is_view_bound(tool_info) or tool_info.get('ui_present'):
+        return description
+    stripped = description.rstrip()
+    return f'{stripped} {note}' if stripped.endswith('.') else f'{stripped}. {note}'
+
+
 def resource_meta(uri: str) -> dict:
     """Return the _meta for a UI resource list entry and its read content item."""
     ui: dict[str, Any] = {'prefersBorder': True}
