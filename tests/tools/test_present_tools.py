@@ -722,7 +722,7 @@ FULL_NOTE = (
     'call ClusterOverviewTool.\n'
     '- When the user wants to explore or browse an index or index pattern, call '
     'IndexExplorerTool.\n'
-    '- To answer a question about fields or before writing a query, call IndexMappingTool.\n'
+    "- To answer a question about an index's fields or mapping, call IndexMappingTool.\n"
     '- Results of ListIndexTool, IndexMappingTool, SearchIndexTool, GetShardsTool, CatNodesTool, '
     'GetAllocationTool and ClusterHealthTool also render as interactive views.\n'
     'When a tool takes an intent argument, set it to one sentence on why you are calling it; the '
@@ -756,7 +756,7 @@ class TestModelGuidance:
         assert (
             '- Results of ListIndexTool, Map_It, SearchIndexTool, CatNodesTool, ' in instructions
         )
-        assert '- To answer a question about fields or before writing a query, call Map_It.' in (
+        assert "- To answer a question about an index's fields or mapping, call Map_It." in (
             instructions
         )
 
@@ -859,12 +859,22 @@ async def _stateless_http(server, monkeypatch):
     monkeypatch.setattr(AppStatus, 'enable_automatic_graceful_drain', False)
     task = asyncio.create_task(http.serve())
     try:
+        deadline = asyncio.get_running_loop().time() + 10
         while not http.started:
+            if task.done():
+                await task
+                pytest.fail('uvicorn exited before it started')
+            if asyncio.get_running_loop().time() > deadline:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+                pytest.fail('uvicorn did not start within 10 s')
             await asyncio.sleep(0.01)
         yield f'http://127.0.0.1:{http.servers[0].sockets[0].getsockname()[1]}/mcp'
     finally:
-        http.should_exit = True
-        await task
+        if not task.done():
+            http.should_exit = True
+            await task
 
 
 class TestStatelessHttpGuidance:

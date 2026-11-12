@@ -439,6 +439,6 @@ class TestGetAppsInstructions:
     def test_mapping_line_only_when_the_mapping_tool_is_listed(self):
         from mcp_server_opensearch.server_instructions import get_apps_instructions
 
-        line = '- To answer a question about fields or before writing a query, call Map.'
+        line = "- To answer a question about an index's fields or mapping, call Map."
         assert line in get_apps_instructions(None, None, ['Map'], False, 'Map')
-        assert 'fields or before' not in get_apps_instructions(None, None, ['A'], False)
+        assert 'fields or mapping' not in get_apps_instructions(None, None, ['A'], False)

@@ -191,9 +191,7 @@ def get_apps_instructions(
             f'{explorer}.'
         )
     if mapping:
-        lines.append(
-            f'- To answer a question about fields or before writing a query, call {mapping}.'
-        )
+        lines.append(f"- To answer a question about an index's fields or mapping, call {mapping}.")
     if view_tools:
         lines.append(f'- Results of {_join_names(view_tools)} also render as interactive views.')
     if not lines:
