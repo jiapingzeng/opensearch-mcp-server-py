@@ -701,9 +701,29 @@ class TestAppsGuidance:
         assert result['instructions'] == f'{BASE_INSTRUCTIONS}\n\n{APPS_NOTE}'
 
     @pytest.mark.asyncio
-    async def test_unknown_capabilities_get_view_descriptions(self, apps_on):
+    async def test_unknown_capabilities_get_registry_descriptions(self, apps_on):
         listed = await build_handlers(_registry())['on_list_tools'](UNKNOWN, None)
-        assert [t.description for t in listed.tools] == [SEARCH_VIEW_DESCRIPTION, 'd']
+        assert [t.description for t in listed.tools] == ['d', 'd']
+
+    @pytest.mark.parametrize(
+        'base,expected',
+        [
+            ('Runs it', 'Runs it. N'),
+            ('Runs it. ', 'Runs it. N'),
+            ('Runs it?', 'Runs it? N'),
+            ('Runs it!', 'Runs it! N'),
+            ('Runs it:', 'Runs it: N'),
+        ],
+    )
+    def test_view_note_punctuation(self, base, expected):
+        from tools.ui_resources import view_description
+
+        info = {**_tool(None), 'description': base}
+        with patch.dict('tools.ui_resources.VIEW_NOTES', {RESULTS_VIEW_URI: 'N'}):
+            assert view_description(info, known=True) == expected
+            assert view_description(info, known=False) == base
+            customized = {**info, 'description_customized': True}
+            assert view_description(customized, known=True) == base
 
     @pytest.mark.asyncio
     async def test_known_non_ui_handshake_keeps_instructions(self):

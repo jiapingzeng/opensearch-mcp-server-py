@@ -319,6 +319,7 @@ def test_apply_validated_configs():
         'NonExistentTool': {
             'display_name': 'Should be ignored',
         },
+        'SearchIndexTool': {'display_name': 'Renamed_Only'},
     }
 
     _apply_validated_configs(registry, configs)
@@ -326,6 +327,8 @@ def test_apply_validated_configs():
     # Valid changes should be applied
     assert registry['ListIndexTool']['display_name'] == 'New_Name'
     assert registry['ListIndexTool']['description'] == 'New Description'
+    assert registry['ListIndexTool']['description_customized'] is True
+    assert 'description_customized' not in registry['SearchIndexTool']
 
     # Non-existent tool should not be added
     assert 'NonExistentTool' not in registry

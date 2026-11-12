@@ -1,6 +1,8 @@
 # Copyright OpenSearch Contributors
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
+import contextlib
 import json
 import pytest
 from mcp.client.client import Client
@@ -718,8 +720,9 @@ FULL_NOTE = (
     'This client shows interactive views for some tools. Prefer them when they fit the request:\n'
     '- When the user asks how the cluster is doing (health, status, unassigned shards, disk), '
     'call ClusterOverviewTool.\n'
-    '- When the user wants to explore, browse or inspect an index or index pattern, call '
+    '- When the user wants to explore or browse an index or index pattern, call '
     'IndexExplorerTool.\n'
+    '- To answer a question about fields or before writing a query, call IndexMappingTool.\n'
     '- Results of ListIndexTool, IndexMappingTool, SearchIndexTool, GetShardsTool, CatNodesTool, '
     'GetAllocationTool and ClusterHealthTool also render as interactive views.\n'
     'When a tool takes an intent argument, set it to one sentence on why you are calling it; the '
@@ -753,19 +756,55 @@ class TestModelGuidance:
         assert (
             '- Results of ListIndexTool, Map_It, SearchIndexTool, CatNodesTool, ' in instructions
         )
+        assert '- To answer a question about fields or before writing a query, call Map_It.' in (
+            instructions
+        )
 
     @pytest.mark.asyncio
     async def test_present_tool_descriptions_say_when_to_use_them(self, monkeypatch, client):
+        from tools.tools import TOOL_REGISTRY
+
         monkeypatch.setenv('OPENSEARCH_MCP_APPS_ENABLED', 'true')
         _, listed = await _guidance(_enabled())
         overview, explorer = listed['ClusterOverviewTool'], listed['IndexExplorerTool']
-        assert overview.startswith('Shows the user an interactive cluster overview')
+        assert overview == (
+            f'{TOOL_REGISTRY["ClusterOverviewTool"]["description"]} The details are in the '
+            'view, so do not repeat them.'
+        )
         for phrase in ('"how is my cluster"', '"is the cluster healthy"', 'unassigned shards'):
             assert phrase in overview
-        assert explorer.startswith('Shows the user an interactive index explorer')
-        for phrase in ('explore, browse or inspect', '"show me what\'s in the orders index"'):
-            assert phrase in explorer
+        assert explorer == (
+            f'{TOOL_REGISTRY["IndexExplorerTool"]["description"]} For fields or mappings, use '
+            'IndexMappingTool. The details are in the view, so do not repeat them.'
+        )
+        assert 'explore or browse' in explorer and 'inspect' not in explorer
+        assert 'look like' not in explorer
         assert 'The user also sees' not in overview + explorer
+
+    @pytest.mark.asyncio
+    async def test_explorer_points_to_the_mapping_tool_display_name(self, monkeypatch, client):
+        monkeypatch.setenv('OPENSEARCH_MCP_APPS_ENABLED', 'true')
+        _, listed = await _guidance(_enabled(renames={'IndexMappingTool': 'Map_It'}))
+        assert 'For fields or mappings, use Map_It.' in listed['IndexExplorerTool']
+
+    @pytest.mark.asyncio
+    async def test_customized_descriptions_are_sent_as_written(self, monkeypatch, client):
+        from tools.config import _apply_validated_configs
+
+        monkeypatch.setenv('OPENSEARCH_MCP_APPS_ENABLED', 'true')
+        tools = _enabled()
+        _apply_validated_configs(
+            tools,
+            {
+                'IndexMappingTool': {'description': 'Custom mapping.'},
+                'IndexExplorerTool': {'description': 'Custom explorer.'},
+            },
+        )
+        instructions, listed = await _guidance(tools)
+        assert listed['IndexMappingTool'] == 'Custom mapping.'
+        assert listed['IndexExplorerTool'] == 'Custom explorer.'
+        assert listed['ListIndexTool'].endswith('as an interactive, sortable table.')
+        assert instructions == FULL_NOTE
 
     @pytest.mark.asyncio
     async def test_bound_tools_get_one_view_sentence(self, monkeypatch, client):
@@ -804,4 +843,53 @@ class TestModelGuidance:
             if not info.get('ui_present')
         }
         assert instructions is None
+        assert listed == expected
+
+
+@contextlib.asynccontextmanager
+async def _stateless_http(server, monkeypatch):
+    import uvicorn
+    from mcp_server_opensearch.streaming_server import MCPStarletteApp
+    from sse_starlette.sse import AppStatus
+
+    app = MCPStarletteApp(server, stateless=True).create_app()
+    http = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=0, log_level='warning'))
+    # sse_starlette's shutdown watcher outlives a server and would end this server's streams.
+    monkeypatch.setattr(AppStatus, 'should_exit', False)
+    monkeypatch.setattr(AppStatus, 'enable_automatic_graceful_drain', False)
+    task = asyncio.create_task(http.serve())
+    try:
+        while not http.started:
+            await asyncio.sleep(0.01)
+        yield f'http://127.0.0.1:{http.servers[0].sockets[0].getsockname()[1]}/mcp'
+    finally:
+        http.should_exit = True
+        await task
+
+
+class TestStatelessHttpGuidance:
+    """Stateless HTTP before 2026-07-28: tools/list cannot tell a UI client from a plain one."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('ui', [False, True])
+    async def test_tools_list_has_no_view_notes(self, monkeypatch, client, ui):
+        from tools.tools import TOOL_REGISTRY
+
+        monkeypatch.setenv('OPENSEARCH_MCP_APPS_ENABLED', 'true')
+        tools = _enabled()
+        async with _stateless_http(_server(tools), monkeypatch) as url:
+            async with Client(url, extensions=UI_CLIENT if ui else None, mode='legacy') as c:
+                assert c.protocol_version == '2025-11-25'
+                instructions = c.instructions
+                listed = {t.name: t.description for t in (await c.list_tools()).tools}
+        assert instructions == (FULL_NOTE if ui else None)
+        assert 'IndexExplorerTool' in listed and 'ClusterOverviewTool' in listed
+        for description in listed.values():
+            assert 'The user also sees' not in description
+            assert 'do not repeat' not in description
+        expected = {info['display_name']: info['description'] for info in tools.values()}
+        expected['IndexExplorerTool'] = (
+            f'{TOOL_REGISTRY["IndexExplorerTool"]["description"]} For fields or mappings, use '
+            'IndexMappingTool.'
+        )
         assert listed == expected

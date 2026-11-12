@@ -119,7 +119,7 @@ UI_RESOURCES: dict[str, dict[str, Any]] = {
 }
 
 
-# Appended to a bound tool's description when Apps apply; present tools describe their own view.
+# Appended to a bound tool's description for a client known to render views.
 VIEW_NOTES = {
     RESULTS_VIEW_URI: 'The user also sees the results in an interactive view with a table, '
     'chart and paging.',
@@ -128,16 +128,35 @@ VIEW_NOTES = {
     MAPPING_VIEW_URI: 'The user also sees the mapping as an interactive, searchable field tree.',
     EXPLAIN_VIEW_URI: 'The user also sees the score breakdown as an interactive view.',
 }
+PRESENT_VIEW_NOTE = 'The details are in the view, so do not repeat them.'
 
 
-def view_description(tool_info: dict) -> str:
-    """Return the tool description for a client that renders views."""
-    description = tool_info['description']
-    note = VIEW_NOTES.get(tool_info.get('ui_resource_uri'))
-    if not note or not is_view_bound(tool_info) or tool_info.get('ui_present'):
-        return description
+def _append_sentence(description: str, sentence: str) -> str:
     stripped = description.rstrip()
-    return f'{stripped} {note}' if stripped.endswith('.') else f'{stripped}. {note}'
+    separator = ' ' if stripped.endswith(('.', '?', '!', ':')) else '. '
+    return f'{stripped}{separator}{sentence}'
+
+
+def view_description(tool_info: dict, known: bool, mapping_tool: str | None = None) -> str:
+    """Return the description listed when Apps apply; known is True when the client renders views.
+
+    mapping_tool is the listed display name the index explorer points field questions to.
+    Descriptions customized through tool configuration are returned unchanged.
+    """
+    description = tool_info['description']
+    if tool_info.get('description_customized') or not is_view_bound(tool_info):
+        return description
+    sentences = []
+    if tool_info.get('ui_present'):
+        if tool_info.get('ui_kind') == 'index_explorer' and mapping_tool:
+            sentences.append(f'For fields or mappings, use {mapping_tool}.')
+        if known:
+            sentences.append(PRESENT_VIEW_NOTE)
+    elif known and tool_info.get('ui_resource_uri') in VIEW_NOTES:
+        sentences.append(VIEW_NOTES[tool_info['ui_resource_uri']])
+    for sentence in sentences:
+        description = _append_sentence(description, sentence)
+    return description
 
 
 def resource_meta(uri: str) -> dict:

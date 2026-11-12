@@ -232,6 +232,9 @@ def _apply_validated_configs(
                 tool_info['input_schema'] = input_schema
             else:
                 tool_info[field_name] = field_value
+                if field_name == DESCRIPTION_STRING:
+                    # MCP Apps leaves a customized description as written.
+                    tool_info['description_customized'] = True
 
 
 def _apply_memory_container_defaults(custom_registry: Dict[str, Any], container_id: str) -> None:

@@ -156,12 +156,16 @@ def build_handlers(enabled_tools: dict) -> dict:
             logger.info(f'{key} is not listed: it needs {", ".join(plan["missing"])}')
     logger.info(f'Enabled tools: {list(enabled_tools.keys())}')
 
+    mapping_names = {key: plan['names'].get('IndexMappingTool') for key, plan in plans.items()}
+
     def active(ctx) -> bool:
         # Hybrid gating: on unless the client is known not to support Apps.
         return apps and client_apps_support(ctx) is not False
 
     async def _list_tools(ctx, params) -> ListToolsResult:
         apps_active = active(ctx)
+        # View notes only for a client known to render views; unknown gets the registry text.
+        known = apps_active and client_apps_support(ctx) is True
         tools = []
         for tool_name, tool_info in enabled_tools.items():
             if tool_info.get('ui_present') and not apps_active:
@@ -175,7 +179,7 @@ def build_handlers(enabled_tools: dict) -> dict:
             tools.append(
                 Tool(
                     name=tool_info.get('display_name', tool_name),
-                    description=view_description(tool_info)
+                    description=view_description(tool_info, known, mapping_names.get(tool_name))
                     if apps_active
                     else tool_info['description'],
                     input_schema=input_schema,
@@ -276,9 +280,9 @@ def apps_instructions(enabled_tools: dict) -> str | None:
     """Return the instructions paragraph for clients that render views, from the listed tools."""
     listed, _, _ = _present_tools(enabled_tools, True)
 
-    def name(kind: str) -> str | None:
+    def name(kind: str, present: bool = True) -> str | None:
         for key, info in listed.items():
-            if info.get('ui_present') and info.get('ui_kind') == kind:
+            if bool(info.get('ui_present')) == present and info.get('ui_kind') == kind:
                 return info.get('display_name', key)
         return None
 
@@ -292,6 +296,7 @@ def apps_instructions(enabled_tools: dict) -> str | None:
         name('index_explorer'),
         view_tools,
         any(takes_presentation_args(info) for info in listed.values()),
+        name('index_mapping', present=False),
     )
 
 

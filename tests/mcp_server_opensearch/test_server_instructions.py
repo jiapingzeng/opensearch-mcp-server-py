@@ -429,9 +429,16 @@ class TestGetAppsInstructions:
         assert get_apps_instructions(None, 'Browse', ['A', 'B'], False) == (
             'This client shows interactive views for some tools. Prefer them when they fit the '
             'request:\n'
-            '- When the user wants to explore, browse or inspect an index or index pattern, call '
+            '- When the user wants to explore or browse an index or index pattern, call '
             'Browse.\n'
             '- Results of A and B also render as interactive views.\n'
             'The user can see the view, so summarize what matters instead of repeating its rows '
             'or fields.'
         )
+
+    def test_mapping_line_only_when_the_mapping_tool_is_listed(self):
+        from mcp_server_opensearch.server_instructions import get_apps_instructions
+
+        line = '- To answer a question about fields or before writing a query, call Map.'
+        assert line in get_apps_instructions(None, None, ['Map'], False, 'Map')
+        assert 'fields or before' not in get_apps_instructions(None, None, ['A'], False)

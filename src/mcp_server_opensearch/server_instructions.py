@@ -169,7 +169,11 @@ def _join_names(names: list[str]) -> str:
 
 
 def get_apps_instructions(
-    overview: str | None, explorer: str | None, view_tools: list[str], takes_intent: bool
+    overview: str | None,
+    explorer: str | None,
+    view_tools: list[str],
+    takes_intent: bool,
+    mapping: str | None = None,
 ) -> str | None:
     """Return the paragraph added to the instructions for a client that renders MCP Apps views.
 
@@ -183,8 +187,12 @@ def get_apps_instructions(
         )
     if explorer:
         lines.append(
-            f'- When the user wants to explore, browse or inspect an index or index pattern, '
-            f'call {explorer}.'
+            f'- When the user wants to explore or browse an index or index pattern, call '
+            f'{explorer}.'
+        )
+    if mapping:
+        lines.append(
+            f'- To answer a question about fields or before writing a query, call {mapping}.'
         )
     if view_tools:
         lines.append(f'- Results of {_join_names(view_tools)} also render as interactive views.')

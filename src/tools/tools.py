@@ -1452,8 +1452,8 @@ TOOL_REGISTRY = {
         'and disk use per node, each refreshable in the view. Use it first when the user asks '
         'how the cluster is doing, for example "how is my cluster", "is the cluster healthy", '
         '"why is my cluster yellow", unassigned shards or disk use. Returns a short text '
-        'summary; the details are in the view, so do not repeat them. Use the individual tools '
-        'only when you need raw data for further analysis.',
+        'summary. Use the individual tools only when you need raw data for further analysis, '
+        'or when the user asks for a specific one.',
         'input_schema': ClusterOverviewArgs.model_json_schema(),
         'function': cluster_overview_tool,
         'args_model': ClusterOverviewArgs,
@@ -1479,11 +1479,10 @@ TOOL_REGISTRY = {
         'description': 'Shows the user an interactive index explorer: a searchable list of '
         'indices (optionally matching an index name or pattern) and, for the selected index, its '
         'settings and aliases, mapping, shards and sample documents, loaded on demand in the '
-        'view. Use it when the user wants to explore, browse or inspect an index or index '
-        'pattern, for example "show me what\'s in the orders index", "explore logs-*" or "what '
-        'does this index look like"; pass the name or pattern as index. Returns a short text '
-        'summary; the details are in the view, so do not repeat them. To answer a specific '
-        'question about the documents, run a search instead.',
+        'view. Use it when the user wants to explore or browse an index or index pattern, for '
+        'example "show me what\'s in the orders index" or "explore logs-*"; pass the name or '
+        'pattern as index. Returns a short text summary. To answer a specific question about '
+        'the documents, run a search instead.',
         'input_schema': IndexExplorerArgs.model_json_schema(),
         'function': index_explorer_tool,
         'args_model': IndexExplorerArgs,
