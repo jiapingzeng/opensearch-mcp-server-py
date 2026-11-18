@@ -1743,6 +1743,68 @@ describe('design pass: shares, menus and theme', () => {
     assert.ok(paths.length > 0);
     assert.ok(paths.every((p) => !p.hasAttribute('stroke-width')));
   });
+
+  test('a single series is drawn in the accent; several use the palette', async () => {
+    const q = 'source=ts | stats count() by span(@timestamp, 1h)';
+    const one = await openView('results', {}, {}, pplResult(q, ['count()', 'span'], [[1, '2026-11-01 00:00:00'], [3, '2026-11-01 01:00:00']], ['bigint', 'timestamp']));
+    const line = one.doc.querySelector('svg.chart path.line');
+    assert.ok(line.classList.contains('series-accent'));
+    assert.ok(one.doc.querySelector('svg.chart path.area').classList.contains('series-accent'));
+    assert.ok(one.doc.querySelector('.legend .swatch').classList.contains('series-accent'));
+    assert.equal(one.doc.querySelectorAll('svg.chart [class*="series-0"]').length, 0);
+    const two = await openView('results', {}, {}, pplResult(q + ', host', ['count()', 'span', 'host'],
+      [[1, '2026-11-01 00:00:00', 'a'], [2, '2026-11-01 01:00:00', 'a'], [3, '2026-11-01 00:00:00', 'b'], [4, '2026-11-01 01:00:00', 'b']], ['bigint', 'timestamp', 'string']));
+    assert.deepEqual([...two.doc.querySelectorAll('svg.chart path.line')].map((p) => p.getAttribute('class')), ['line series-0', 'line series-1']);
+    const css = read('common.css');
+    assert.match(css, /\.series-accent \{ stroke: var\(--os-accent-fill\); fill: var\(--os-accent-fill\); color: var\(--os-accent-fill\); \}/);
+    assert.match(css, /svg\.chart \.bar \{ fill: var\(--os-accent-fill\);/);
+  });
+
+  test('every light series colour reaches 3:1 on the light background', () => {
+    const css = read('common.css');
+    const light = css.slice(css.indexOf(':root {'), css.indexOf(':root[data-theme="dark"]'));
+    const value = (name) => new RegExp('--_' + name + ':\\s*(#[0-9A-Fa-f]{6});').exec(light)[1];
+    const lum = (hex) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+        .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+    const bg = value('bg');
+    const names = [...light.matchAll(/--_(cat-[\w]+):/g)].map((m) => m[1]);
+    assert.equal(names.length, 11);
+    for (const n of names) assert.ok(ratio(value(n), bg) >= 3, `${n} ${value(n)} is ${ratio(value(n), bg).toFixed(2)}:1 on ${bg}`);
+    const dark = css.slice(css.indexOf(':root[data-theme="dark"] {'), css.indexOf('@media (prefers-color-scheme: dark)'));
+    assert.match(dark, /--_cat-0: #54B399;/, 'the dark set keeps the OUI vis palette');
+  });
+
+  test('the selected Chart/Table segment keeps the raised tab, not the inverse pressed style', async () => {
+    const v = await openView('results', {}, {}, bars('source=x | stats count() by service', ['count()', 'service']));
+    const pressed = v.doc.querySelector('.seg button[aria-pressed="true"]');
+    assert.ok(pressed);
+    const css = read('common.css');
+    const generic = /(button\[aria-pressed="true"\]:not\(\.chip\)[^{]*)\{([^}]*)\}/.exec(css);
+    assert.match(generic[2], /--os-bg-inverse/);
+    assert.equal(pressed.matches(generic[1].trim()), false);
+    const other = v.doc.createElement('button');
+    other.setAttribute('aria-pressed', 'true');
+    v.doc.body.appendChild(other);
+    assert.equal(other.matches(generic[1].trim()), true);
+    assert.match(css, /\.seg button\[aria-pressed="true"\] \{ background: var\(--os-bg\);/);
+  });
+
+  test('bars are ranked by value unless the query sorts them', async () => {
+    const labels = (v) => [...v.doc.querySelectorAll('.bar-chart text.bar-label')].map((t) => t.textContent);
+    const rows = [[20, 'payments'], [50, 'checkout'], [null, 'unknown'], [30, 'search']];
+    const ranked = await openView('results', {}, {}, pplResult('source=x | stats count() by service', ['count()', 'service'], rows, ['bigint', 'string']));
+    assert.deepEqual(labels(ranked), ['checkout', 'search', 'payments', 'unknown']);
+    const sorted = await openView('results', {}, {}, pplResult('source=x | stats count() by service | sort service', ['count()', 'service'], rows, ['bigint', 'string']));
+    assert.deepEqual(labels(sorted), ['payments', 'checkout', 'unknown', 'search']);
+    const { window: w } = load('results', { assembled: false });
+    assert.equal(w.explicitSort('source=x | sort a | stats count() by b'), false);
+    assert.equal(w.explicitSort('source=x | stats count() by b | sort - `count()`'), true);
+    assert.equal(w.explicitSort('source=x | sort a | head 5'), true);
+  });
 });
 
 describe('design pass: overview', () => {

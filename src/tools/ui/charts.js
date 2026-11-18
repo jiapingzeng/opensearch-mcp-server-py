@@ -196,9 +196,17 @@ function timeSeriesSpec(data, types) {
   return { time: time, values: values.slice(0, SERIES_MAX), category: category };
 }
 
+// True when the query orders the groups itself: a sort after stats, or anywhere without stats.
+function explicitSort(query) {
+  var commands = String(query || '').split('|').map(function (c) { return c.trim().split(/\s+/)[0].toLowerCase(); });
+  var stats = commands.indexOf('stats');
+  return commands.some(function (c, i) { return c === 'sort' && i > stats; });
+}
+
 // Ranked horizontal bars: label, a rounded bar on a track, the share of the total and the value.
-// The share appears only for summable values over every group (no head, top, rare or where after
-// stats, nothing truncated), and is labelled with the rows it is a share of.
+// Bars are ranked by value, largest first, unless the query sorts the rows itself. The share
+// appears only for summable values over every group (no head, top, rare or where after stats,
+// nothing truncated), and is labelled with the rows it is a share of.
 function buildBarChart(data, spec) {
   var card = el('div', null, 'panel chart-card');
   var wrap = el('div', null, 'chart-wrap bar-chart');
@@ -209,11 +217,14 @@ function buildBarChart(data, spec) {
   var m = data.meta || {};
   var query = m.query || '';
   var share = summableColumns(data.columns, query)[spec.value] && !partialGroups(query) && !m.truncated;
+  var ranked = !explicitSort(query);
   var current = [];
+  function valueOf(r) { return typeof r[spec.value] === 'number' ? r[spec.value] : -Infinity; }
   function render() {
     holder.textContent = '';
-    var shown = current.slice(0, CHART_MAX_BARS);
-    note.textContent = current.length > shown.length ? 'Showing the first ' + shown.length + ' of ' + current.length + ' bars; switch to the table for all rows.' : '';
+    var ordered = ranked ? current.slice().sort(function (a, b) { return valueOf(b) - valueOf(a) || 0; }) : current;
+    var shown = ordered.slice(0, CHART_MAX_BARS);
+    note.textContent = current.length > shown.length ? 'Showing the ' + (ranked ? 'largest ' : 'first ') + shown.length + ' of ' + current.length + ' bars; switch to the table for all rows.' : '';
     var max = 0, total = 0;
     current.forEach(function (r) { var v = r[spec.value]; if (typeof v === 'number' && v > 0) total += v; });
     shown.forEach(function (r) { if (typeof r[spec.value] === 'number' && r[spec.value] > max) max = r[spec.value]; });
@@ -312,6 +323,8 @@ function buildTimeSeries(data, spec) {
       }
     });
     series.forEach(function (s, n) { s.color = n; });
+    // One series has nothing to tell apart, so it takes the accent.
+    if (series.length === 1) series[0].color = 'accent';
     if (series.length <= SERIES_SHOWN) return { series: series, dropped: 0, of: series.length };
     var ranked = series.slice().sort(function (a, b) { return b.total - a.total || a.color - b.color; });
     // Only values that add up (count, sum) can be merged into Other.

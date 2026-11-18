@@ -8,7 +8,7 @@
 :root {
   color-scheme: light;
   --_bg: #FCFEFF; --_bg-subtle: #F0F2F4; --_bg-muted: #E3E5E8; --_bg-inverse: #2A3947;
-  --_fg: #2A3947; --_fg-muted: #5A6875; --_fg-subtle: #686C75; --_fg-inverse: #FCFEFF;
+  --_fg: #2A3947; --_fg-muted: #5A6875; --_fg-subtle: #62666F; --_fg-inverse: #FCFEFF;
   --_border: #D6D9DD; --_border-subtle: #E3E5E8;
   --_primary: #0268BC; --_primary-hover: #025EA9; --_on-primary: #FCFEFF; --_primary-soft: #E3EFF8;
   --_success: #0F7B68; --_success-soft: #E4F1F0;
@@ -67,19 +67,24 @@
   --os-shadow-1: var(--shadow-sm, var(--_shadow-1));
   --os-shadow-2: var(--shadow-md, var(--_shadow-2));
 
-  /* OUI vis palette, the same in light and dark. Ordered so the first six stay apart under
-     protanopia and deuteranopia (vis1 and vis3 nearly merge, so vis3 is last); the charts add a
-     legend, tooltips, series isolation and 1px separators. --os-cat-other is "Other", drawn dashed. */
-  --os-cat-0: #54B399; --os-cat-1: #6092C0; --os-cat-2: #AA6556; --os-cat-3: #E7664C; --os-cat-4: #D6BF57;
-  --os-cat-5: #B9A888; --os-cat-6: #DA8B45; --os-cat-7: #D36086; --os-cat-8: #CA8EAE; --os-cat-9: #9170B8;
-  --os-cat-other: #9C9DA0;
+  /* Series colours: the OUI vis palette in dark; in light, darker shades of the same hues so each
+     reaches 3:1 on the background. Ordered so the first six stay apart under protanopia,
+     deuteranopia and tritanopia (vis1 and vis3 nearly merge, so vis3 is last); the charts add a
+     legend, tooltips, series isolation and 1px separators. A single series uses the accent.
+     --os-cat-other is "Other", drawn dashed. */
+  --_cat-0: #418E79; --_cat-1: #6092C0; --_cat-2: #AA6556; --_cat-3: #E7664C; --_cat-4: #8E7E37;
+  --_cat-5: #9E9074; --_cat-6: #CA803F; --_cat-7: #D36086; --_cat-8: #B8819F; --_cat-9: #9170B8;
+  --_cat-other: #919194;
+  --os-cat-0: var(--_cat-0); --os-cat-1: var(--_cat-1); --os-cat-2: var(--_cat-2); --os-cat-3: var(--_cat-3);
+  --os-cat-4: var(--_cat-4); --os-cat-5: var(--_cat-5); --os-cat-6: var(--_cat-6); --os-cat-7: var(--_cat-7);
+  --os-cat-8: var(--_cat-8); --os-cat-9: var(--_cat-9); --os-cat-other: var(--_cat-other);
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
   --_bg: #0F171F; --_bg-subtle: #141C25; --_bg-muted: #19222B; --_bg-inverse: #E3E5E9;
   --_fg: #C6C9CE; --_fg-muted: #959BA2; --_fg-subtle: #959BA2; --_fg-inverse: #0F171F;
   --_border: #2A3540; --_border-subtle: #2A3540;
-  --_primary: #0097D1; --_primary-hover: #1AA1D6; --_on-primary: #02020E; --_primary-soft: #013652;
+  --_primary: #0097D1; --_primary-hover: #1AA1D6; --_on-primary: #02020E; --_primary-soft: #01263A;
   --_success: #6DCCB1; --_success-soft: #072D2E;
   --_warning: #F4AE27; --_warning-soft: #4B3616; --_warning-border: #F4AE27;
   --_danger: #FF7E62; --_danger-soft: #3F1D24; --_danger-border: #CD5D56;
@@ -87,6 +92,9 @@
   --_mark: #3D2C0D; --_code-keyword: #B174FC;
   --_shadow-1: 0 2px 2px -1px rgb(0 0 0 / .3), 0 1px 5px -2px rgb(0 0 0 / .3);
   --_shadow-2: 0 12px 24px rgb(0 0 0 / .3), 0 6px 12px rgb(0 0 0 / .3), 0 4px 4px rgb(0 0 0 / .3), 0 2px 2px rgb(0 0 0 / .3);
+  --_cat-0: #54B399; --_cat-1: #6092C0; --_cat-2: #AA6556; --_cat-3: #E7664C; --_cat-4: #D6BF57;
+  --_cat-5: #B9A888; --_cat-6: #DA8B45; --_cat-7: #D36086; --_cat-8: #CA8EAE; --_cat-9: #9170B8;
+  --_cat-other: #9C9DA0;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
@@ -94,7 +102,7 @@
     --_bg: #0F171F; --_bg-subtle: #141C25; --_bg-muted: #19222B; --_bg-inverse: #E3E5E9;
     --_fg: #C6C9CE; --_fg-muted: #959BA2; --_fg-subtle: #959BA2; --_fg-inverse: #0F171F;
     --_border: #2A3540; --_border-subtle: #2A3540;
-    --_primary: #0097D1; --_primary-hover: #1AA1D6; --_on-primary: #02020E; --_primary-soft: #013652;
+    --_primary: #0097D1; --_primary-hover: #1AA1D6; --_on-primary: #02020E; --_primary-soft: #01263A;
     --_success: #6DCCB1; --_success-soft: #072D2E;
     --_warning: #F4AE27; --_warning-soft: #4B3616; --_warning-border: #F4AE27;
     --_danger: #FF7E62; --_danger-soft: #3F1D24; --_danger-border: #CD5D56;
@@ -102,6 +110,9 @@
     --_mark: #3D2C0D; --_code-keyword: #B174FC;
     --_shadow-1: 0 2px 2px -1px rgb(0 0 0 / .3), 0 1px 5px -2px rgb(0 0 0 / .3);
     --_shadow-2: 0 12px 24px rgb(0 0 0 / .3), 0 6px 12px rgb(0 0 0 / .3), 0 4px 4px rgb(0 0 0 / .3), 0 2px 2px rgb(0 0 0 / .3);
+    --_cat-0: #54B399; --_cat-1: #6092C0; --_cat-2: #AA6556; --_cat-3: #E7664C; --_cat-4: #D6BF57;
+    --_cat-5: #B9A888; --_cat-6: #DA8B45; --_cat-7: #D36086; --_cat-8: #CA8EAE; --_cat-9: #9170B8;
+    --_cat-other: #9C9DA0;
   }
 }
 
@@ -175,7 +186,7 @@ button.link, button.deep-link { border-color: transparent; background: transpare
 button.link:hover:not(:disabled), button.deep-link:hover:not(:disabled) { background: var(--os-accent-soft); border-color: transparent; }
 td button.link, .kpi button.link { padding: 0; font-weight: var(--os-fw-normal); font-family: inherit; text-align: left; white-space: nowrap; line-height: inherit; }
 td button.link:hover:not(:disabled) { background: none; text-decoration: underline; }
-button[aria-pressed="true"]:not(.chip):not(.legend-item) { background: var(--os-bg-inverse); border-color: var(--os-bg-inverse); color: var(--os-fg-inverse); }
+button[aria-pressed="true"]:not(.chip):not(.legend-item):not(.seg > button) { background: var(--os-bg-inverse); border-color: var(--os-bg-inverse); color: var(--os-fg-inverse); }
 details summary { list-style: none; }
 details summary::-webkit-details-marker { display: none; }
 details:not(.menu) > summary::before { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 8px 2px 2px;
@@ -417,6 +428,7 @@ svg.chart.isolating .series:not(.focus) { opacity: .15; }
 .series-6 { stroke: var(--os-cat-6); fill: var(--os-cat-6); color: var(--os-cat-6); }
 .series-7 { stroke: var(--os-cat-7); fill: var(--os-cat-7); color: var(--os-cat-7); }
 .series-other { stroke: var(--os-cat-other); fill: var(--os-cat-other); color: var(--os-cat-other); }
+.series-accent { stroke: var(--os-accent-fill); fill: var(--os-accent-fill); color: var(--os-accent-fill); }
 .legend { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: var(--os-fs-sm); color: var(--os-fg-muted); }
 .legend-item { display: inline-flex; align-items: center; gap: 6px; padding: 1px 6px; border: var(--os-bw) solid transparent; background: transparent;
   font-weight: var(--os-fw-normal); color: var(--os-fg-muted); font-size: var(--os-fs-sm); }

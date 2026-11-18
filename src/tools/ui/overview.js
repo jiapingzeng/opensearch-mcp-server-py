@@ -339,7 +339,8 @@ function shardsSection(sec, body) {
     var reasons = Object.keys(sm.unassigned_by_reason || {}).map(function (k) { return k + ' ' + formatNumber(sm.unassigned_by_reason[k]); });
     if (reasons.length) body.appendChild(el('div', 'Reasons: ' + reasons.join(', ') + '. Select an index to filter by it.', 'muted'));
     var ut = sectionTable('unassigned');
-    ut.hidden = dict({ state: true, docs: true, store: true, node: true });
+    // unassigned.for would push the table past a half-width card.
+    ut.hidden = dict({ state: true, docs: true, store: true, node: true, 'unassigned.for': true });
     body.appendChild(buildTable(sec.columns, unassigned, types, ut, {
       rowAction: { column: 'index', label: function (r) { return 'Filter by index ' + cellText(r[indexCol]) + ', shard ' + cellText(r[colIndex(sec, 'shard')]); }, run: function (r) { setFilter('index', r[indexCol]); } }
     }).node);

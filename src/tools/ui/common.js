@@ -62,7 +62,8 @@ function button(text, onClick, cls) {
 }
 
 // 16px glyphs from OpenSearch UI (OUI) 1.26.0, opensearch-project/oui src/components/icon/assets,
-// Apache-2.0; OUI includes EUI code, Copyright Elasticsearch B.V. See NOTICE.txt. Each icon is a list of
+// Apache-2.0; OUI includes EUI code, Copyright Elasticsearch B.V. The health icon is OUI's pulse.svg,
+// Copyright (C) 2004 Remix Icon, Apache-2.0. See NOTICE.txt. Each icon is a list of
 // filled paths; every icon is decorative and its button carries the name.
 var ICONS = {
   refresh: [{ d: 'M11.23,2.94 C11.46,3.09 11.53,3.4 11.38,3.63 C11.23,3.86 10.92,3.93 10.69,3.78 C9.89,3.27 8.97,3 8,3 C5.24,3 3,5.24 3,8 C3,10.76 5.24,13 8,13 C10.76,13 13,10.76 13,8 C13,7.72 13.22,7.5 13.5,7.5 C13.78,7.5 14,7.72 14,8 C14,11.31 11.31,14 8,14 C4.69,14 2,11.31 2,8 C2,4.69 4.69,2 8,2 C9.16,2 10.27,2.33 11.23,2.94 Z M14,1.5 L14,4.5 C14,5.33 13.33,6 12.5,6 L9.5,6 C9.22,6 9,5.78 9,5.5 C9,5.22 9.22,5 9.5,5 L12.5,5 C12.78,5 13,4.78 13,4.5 L13,1.5 C13,1.22 13.22,1 13.5,1 C13.78,1 14,1.22 14,1.5 Z' }],
