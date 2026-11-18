@@ -196,11 +196,12 @@ function timeSeriesSpec(data, types) {
   return { time: time, values: values.slice(0, SERIES_MAX), category: category };
 }
 
-// True when the query orders the groups itself: a sort after stats, or anywhere without stats.
+// True when the query orders the groups itself: a sort, top or rare after stats, or anywhere
+// without stats. Rare lists the least frequent first, so ranking by value would reverse it.
 function explicitSort(query) {
   var commands = String(query || '').split('|').map(function (c) { return c.trim().split(/\s+/)[0].toLowerCase(); });
   var stats = commands.indexOf('stats');
-  return commands.some(function (c, i) { return c === 'sort' && i > stats; });
+  return commands.some(function (c, i) { return (c === 'sort' || c === 'top' || c === 'rare') && i > stats; });
 }
 
 // Ranked horizontal bars: label, a rounded bar on a track, the share of the total and the value.

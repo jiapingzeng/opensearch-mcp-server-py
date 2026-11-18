@@ -1804,6 +1804,19 @@ describe('design pass: shares, menus and theme', () => {
     assert.equal(w.explicitSort('source=x | sort a | stats count() by b'), false);
     assert.equal(w.explicitSort('source=x | stats count() by b | sort - `count()`'), true);
     assert.equal(w.explicitSort('source=x | sort a | head 5'), true);
+    assert.equal(w.explicitSort('source=x | top 3 service'), true);
+    assert.equal(w.explicitSort('source=x | rare service'), true);
+    assert.equal(w.explicitSort('source=x | rare service | stats count() by service'), false);
+  });
+
+  test('rare and top bars keep the order the query returns', async () => {
+    const labels = (v) => [...v.doc.querySelectorAll('.bar-chart text.bar-label')].map((t) => t.textContent);
+    const rare = await openView('results', {}, {}, pplResult('source=x | rare service', ['service', 'count'],
+      [['search', 1], ['payments', 4], ['checkout', 9]], ['string', 'bigint']));
+    assert.deepEqual(labels(rare), ['search', 'payments', 'checkout']);
+    const top = await openView('results', {}, {}, pplResult('source=x | top 3 service', ['service', 'count'],
+      [['checkout', 9], ['payments', 4], ['search', 1]], ['string', 'bigint']));
+    assert.deepEqual(labels(top), ['checkout', 'payments', 'search']);
   });
 });
 
