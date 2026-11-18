@@ -22,6 +22,7 @@ from mcp.types import (
     TextResourceContents,
     Tool,
 )
+from mcp_server_opensearch import global_state
 from mcp_server_opensearch.server_instructions import get_apps_instructions
 from pydantic import BaseModel
 from tools.ui_resources import (
@@ -149,7 +150,12 @@ def build_handlers(enabled_tools: dict) -> dict:
     """Return the on_* keyword arguments for Server(...) for the enabled tools."""
     apps = apps_enabled()
     if apps:
-        dashboards_draft_config()  # fail at startup on a malformed Dashboards setting
+        # Fails at startup on a malformed Dashboards setting; warns once outside single mode.
+        if dashboards_draft_config() and global_state.get_mode() != 'single':
+            logger.warning(
+                'Add to Dashboards is configured but works only in single mode; the results '
+                'view will not show it.'
+            )
     enabled_tools, view_called, plans = _present_tools(enabled_tools, apps)
     for key, plan in plans.items():
         if not plan['listed']:

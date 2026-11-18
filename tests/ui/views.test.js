@@ -1615,6 +1615,13 @@ describe('Add to Dashboards', () => {
     assert.equal(v.doc.querySelector('.draft-url'), null);
   });
 
+  test('notes signing in first only when the server marks the link', async () => {
+    const plain = await openView('results', { openLinks: {} }, { query: QUERY }, draft({ dashboards_draft_url: DRAFT }));
+    assert.equal(plain.doc.querySelector('.draft-signin'), null);
+    const marked = await openView('results', { openLinks: {} }, { query: QUERY }, draft({ dashboards_draft_url: DRAFT, dashboards_draft_requires_signin: true }));
+    assert.equal(marked.doc.querySelector('.draft-signin').textContent, 'Sign in to OpenSearch Dashboards first; the draft is lost if the link opens the sign-in page.');
+  });
+
   test('without openLinks, shows the URL with a copy button', async () => {
     const v = await openView('results', {}, { query: QUERY }, draft({ dashboards_draft_url: DRAFT }));
     assert.equal(v.doc.querySelector('button.deep-link'), null);

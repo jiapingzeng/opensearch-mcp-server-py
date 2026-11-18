@@ -1,0 +1,89 @@
+{
+  "_a": {
+    "layout": {
+      "items": [],
+      "type": "GridLayout"
+    },
+    "panels": [
+      {
+        "embeddableConfig": {
+          "attributes": {
+            "description": "",
+            "kibanaSavedObjectMeta": {
+              "searchSourceJSON": "{\"index\":\"ds-1_e2e-byvalue-web\",\"query\":{\"query\":\"source = e2e-byvalue-web | stats count() as requests by span(@timestamp, 1h) as ts\",\"language\":\"PPL\",\"dataset\":{\"id\":\"ds-1_e2e-byvalue-web\",\"title\":\"e2e-byvalue-web\",\"type\":\"INDEXES\",\"timeFieldName\":\"@timestamp\",\"dataSource\":{\"id\":\"ds-1\",\"title\":\"my-data-source\",\"type\":\"DATA_SOURCE\",\"version\":\"\"}}},\"filter\":[]}"
+            },
+            "title": "Requests over time",
+            "uiState": "{}",
+            "visualization": "{\"title\":\"\",\"chartType\":\"line\",\"params\":{},\"axesMapping\":{\"x\":\"ts\",\"y\":\"requests\"}}"
+          },
+          "references": []
+        },
+        "gridData": {
+          "h": 15,
+          "i": "p0",
+          "w": 24,
+          "x": 0,
+          "y": 0
+        },
+        "panelIndex": "p0",
+        "type": "explore",
+        "version": "3.8.0"
+      },
+      {
+        "embeddableConfig": {
+          "attributes": {
+            "description": "",
+            "kibanaSavedObjectMeta": {
+              "searchSourceJSON": "{\"index\":\"ds-1_e2e-byvalue-web\",\"query\":{\"query\":\"source = e2e-byvalue-web | stats sum(bytes) as total_bytes by service\",\"language\":\"PPL\",\"dataset\":{\"id\":\"ds-1_e2e-byvalue-web\",\"title\":\"e2e-byvalue-web\",\"type\":\"INDEXES\",\"timeFieldName\":\"@timestamp\",\"dataSource\":{\"id\":\"ds-1\",\"title\":\"my-data-source\",\"type\":\"DATA_SOURCE\",\"version\":\"\"}}},\"filter\":[]}"
+            },
+            "title": "Bytes by service",
+            "uiState": "{}",
+            "visualization": "{\"title\":\"\",\"chartType\":\"bar\",\"params\":{},\"axesMapping\":{\"x\":\"service\",\"y\":\"total_bytes\"}}"
+          },
+          "references": []
+        },
+        "gridData": {
+          "h": 15,
+          "i": "p1",
+          "w": 24,
+          "x": 24,
+          "y": 0
+        },
+        "panelIndex": "p1",
+        "type": "explore",
+        "version": "3.8.0"
+      },
+      {
+        "embeddableConfig": {
+          "attributes": {
+            "description": "",
+            "kibanaSavedObjectMeta": {
+              "searchSourceJSON": "{\"index\":\"ds-1_e2e-byvalue-web\",\"query\":{\"query\":\"source = e2e-byvalue-web | stats count() as requests by region\",\"language\":\"PPL\",\"dataset\":{\"id\":\"ds-1_e2e-byvalue-web\",\"title\":\"e2e-byvalue-web\",\"type\":\"INDEXES\",\"timeFieldName\":\"@timestamp\",\"dataSource\":{\"id\":\"ds-1\",\"title\":\"my-data-source\",\"type\":\"DATA_SOURCE\",\"version\":\"\"}}},\"filter\":[]}"
+            },
+            "title": "Requests by region",
+            "uiState": "{}",
+            "visualization": "{\"title\":\"\",\"chartType\":\"pie\",\"params\":{},\"axesMapping\":{\"size\":\"requests\",\"color\":\"region\"}}"
+          },
+          "references": []
+        },
+        "gridData": {
+          "h": 15,
+          "i": "p2",
+          "w": 24,
+          "x": 0,
+          "y": 15
+        },
+        "panelIndex": "p2",
+        "type": "explore",
+        "version": "3.8.0"
+      }
+    ],
+    "viewMode": "edit"
+  },
+  "_g": {
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    }
+  }
+}

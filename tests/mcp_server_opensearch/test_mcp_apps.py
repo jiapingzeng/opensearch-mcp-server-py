@@ -585,6 +585,27 @@ class TestFlagOnUiClient:
         with pytest.raises(ValueError, match='OPENSEARCH_DASHBOARDS_WORKSPACE_ID'):
             build_handlers(_registry())
 
+    @pytest.mark.parametrize('mode,warned', [('single', False), ('multi', True)])
+    def test_draft_dashboard_config_outside_single_mode_warns_once(
+        self, apps_on, monkeypatch, caplog, mode, warned
+    ):
+        from mcp_server_opensearch import global_state
+
+        monkeypatch.setattr(global_state, '_current_mode', mode)
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_URL', 'https://osd.example.com')
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_DATA_SOURCE_ID', 'ds-1')
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_DATA_SOURCE_TITLE', 'my-data-source')
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_WORKSPACE_ID', 'ws-1')
+        caplog.set_level(logging.WARNING, logger='mcp_server_opensearch.mcp_handlers')
+        build_handlers(_registry())
+        warnings = [r.getMessage() for r in caplog.records if 'single mode' in r.getMessage()]
+        assert len(warnings) == (1 if warned else 0)
+
+    def test_invalid_draft_link_format_fails_at_startup(self, apps_on, monkeypatch):
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_DRAFT_LINK_FORMAT', 'fragment')
+        with pytest.raises(ValueError, match='OPENSEARCH_DASHBOARDS_DRAFT_LINK_FORMAT'):
+            build_handlers(_registry())
+
 
 class TestFlagOnUnknownCapabilities:
     """Stateless streamable HTTP: capabilities unknown, so Apps behave as on."""

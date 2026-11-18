@@ -87,6 +87,9 @@ function draftDashboard(data) {
   if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return null;
   var block = el('div', null, 'draft-dashboard');
   block.appendChild(el('div', 'Opens a draft dashboard; save it in OpenSearch Dashboards.', 'muted draft-note'));
+  if (m.dashboards_draft_requires_signin === true) {
+    block.appendChild(el('div', 'Sign in to OpenSearch Dashboards first; the draft is lost if the link opens the sign-in page.', 'muted draft-signin'));
+  }
   function showUrl(reason) {
     if (block.querySelector('.draft-url')) return;
     var bar = el('div', null, 'toolbar draft-url');

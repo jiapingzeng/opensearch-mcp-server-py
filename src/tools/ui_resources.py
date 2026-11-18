@@ -3,15 +3,19 @@
 
 """MCP Apps (io.modelcontextprotocol/ui) views and structured result payloads."""
 
+import base64
+import calendar
 import copy
 import json
 import logging
 import os
 import re
 import unicodedata
+import zlib
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from importlib import resources
-from typing import Any
+from typing import Any, NamedTuple
 from urllib.parse import quote, urlsplit, urlunsplit
 
 
@@ -22,6 +26,7 @@ DASHBOARDS_URL_ENV = 'OPENSEARCH_DASHBOARDS_URL'
 DASHBOARDS_DATA_SOURCE_ID_ENV = 'OPENSEARCH_DASHBOARDS_DATA_SOURCE_ID'
 DASHBOARDS_DATA_SOURCE_TITLE_ENV = 'OPENSEARCH_DASHBOARDS_DATA_SOURCE_TITLE'
 DASHBOARDS_WORKSPACE_ID_ENV = 'OPENSEARCH_DASHBOARDS_WORKSPACE_ID'
+DASHBOARDS_DRAFT_LINK_FORMAT_ENV = 'OPENSEARCH_DASHBOARDS_DRAFT_LINK_FORMAT'
 RESULTS_VIEW_URI = 'ui://opensearch/results'
 TABLE_VIEW_URI = 'ui://opensearch/table'
 HEALTH_VIEW_URI = 'ui://opensearch/cluster-health'
@@ -532,7 +537,14 @@ OSD_AXIS_ROLES = frozenset(
 )
 DASHBOARD_MAX_PANELS = 10
 DASHBOARD_URL_MAX_CHARS = 16384
-DASHBOARD_DEFAULT_TIME = {'from': 'now-24h', 'to': 'now'}
+# OpenSearch Dashboards' MAX_DRAFT_PARAM_LENGTH and MAX_DRAFT_DECODED_BYTES for ?draft=.
+DASHBOARD_DRAFT_PARAM_MAX_CHARS = 3500
+DASHBOARD_DRAFT_DECODED_MAX_BYTES = 256 * 1024
+# PPL queries without a time filter cover all data; a wide range keeps every row in view.
+DASHBOARD_DEFAULT_TIME = {'from': 'now-15y', 'to': 'now'}
+DRAFT_LINK_HASH = 'hash'
+DRAFT_LINK_QUERY = 'query'
+DRAFT_LINK_FORMATS = (DRAFT_LINK_HASH, DRAFT_LINK_QUERY)
 DRAFT_NOT_CONFIGURED = 'not_configured'
 DRAFT_TOO_MANY_PANELS = 'too_many_panels'
 DRAFT_URL_TOO_LONG = 'url_too_long'
@@ -542,12 +554,25 @@ _DASHBOARDS_ID_RE = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
 _DATA_SOURCE_TITLE_MAX = 255
 
 
-def dashboards_draft_config() -> dict | None:
-    """Return the Dashboards URL, data source and workspace for draft dashboards, or None.
+def dashboards_draft_link_format() -> str:
+    """Return the draft dashboard link form: hash (stock Dashboards) or query (?draft=)."""
+    value = os.getenv(DASHBOARDS_DRAFT_LINK_FORMAT_ENV, '').strip().lower() or DRAFT_LINK_HASH
+    if value not in DRAFT_LINK_FORMATS:
+        raise ValueError(
+            f'{DASHBOARDS_DRAFT_LINK_FORMAT_ENV} must be "hash" or "query" (for OpenSearch '
+            f'Dashboards that accept ?draft= links); got {value!r}.'
+        )
+    return value
 
-    The data source id and title and the workspace id are set together or not at all.
+
+def dashboards_draft_config() -> dict | None:
+    """Return the Dashboards URL, data source, workspace and link form for draft dashboards.
+
+    Returns None when Add to Dashboards is off. The data source id and title and the
+    workspace id are set together or not at all.
     """
     base = dashboards_base_url()
+    link_format = dashboards_draft_link_format()
     names = (
         DASHBOARDS_DATA_SOURCE_ID_ENV,
         DASHBOARDS_DATA_SOURCE_TITLE_ENV,
@@ -577,6 +602,7 @@ def dashboards_draft_config() -> dict | None:
         'data_source_id': ds_id,
         'data_source_title': ds_title,
         'workspace': workspace,
+        'link_format': link_format,
     }
 
 
@@ -682,41 +708,93 @@ def _explore_panel(i: int, spec: dict, config: dict) -> dict:
     }
 
 
-def dashboards_draft_url(
-    panels: list[dict], time_range: dict | None = None
-) -> tuple[str | None, str | None]:
-    """Build an OpenSearch Dashboards link that opens an unsaved dashboard of PPL chart panels.
+class DraftLink(NamedTuple):
+    """A draft dashboard link, or why there is none."""
 
-    Each panel is a chart spec: title, PPL query, index, chartType, axesMapping and an optional
-    timeFieldName. Returns (url, None), or (None, reason) when Add to Dashboards is not
-    configured, in multi mode, or the panel count or URL length cap is exceeded.
-    """
+    url: str | None
+    omitted: str | None = None
+    # The link carries the draft in the URL fragment, which the sign-in redirect drops.
+    requires_signin: bool = False
+
+
+def dashboards_draft_state(panels: list[dict], time_range: dict | None = None) -> dict:
+    """Return the draft dashboard's {'_a': app state, '_g': global state} for chart specs."""
     config = dashboards_draft_config()
-    if not config or not _single_mode():
-        return None, DRAFT_NOT_CONFIGURED
+    if not config:
+        raise ValueError('Add to Dashboards is not configured.')
     if not panels:
         raise ValueError('A draft dashboard needs at least one panel.')
     for spec in panels:
         _check_panel(spec)
-    if len(panels) > DASHBOARD_MAX_PANELS:
-        return None, DRAFT_TOO_MANY_PANELS
     time = time_range or DASHBOARD_DEFAULT_TIME
     if not all(isinstance(time.get(k), str) and time[k] for k in ('from', 'to')):
         raise ValueError("time_range needs 'from' and 'to', such as now-24h and now.")
-    state = {
-        'panels': [_explore_panel(i, spec, config) for i, spec in enumerate(panels)],
-        'viewMode': 'edit',
-        'layout': {'type': 'GridLayout', 'items': []},
+    return {
+        '_a': {
+            'panels': [_explore_panel(i, spec, config) for i, spec in enumerate(panels)],
+            'viewMode': 'edit',
+            'layout': {'type': 'GridLayout', 'items': []},
+        },
+        # _g keeps the time range; without it the dashboard opens on the last 15 minutes.
+        '_g': {'time': {'from': time['from'], 'to': time['to']}},
     }
-    # _g keeps the time range; without it the dashboard opens on the last 15 minutes.
-    global_state = {'time': {'from': time['from'], 'to': time['to']}}
-    url = (
-        f'{config["base"]}/w/{config["workspace"]}/app/dashboards#/create'
-        f'?_a={_uri_component(_rison(state))}&_g={_uri_component(_rison(global_state))}'
+
+
+def _dashboards_app_url(config: dict) -> str:
+    return f'{config["base"]}/w/{config["workspace"]}/app/dashboards'
+
+
+def draft_hash_url(config: dict, state: dict) -> str:
+    """The `#/create?_a=..&_g=..` link that stock OpenSearch Dashboards opens."""
+    return (
+        f'{_dashboards_app_url(config)}#/create?_a={_uri_component(_rison(state["_a"]))}'
+        f'&_g={_uri_component(_rison(state["_g"]))}'
     )
+
+
+def draft_query_param(state: dict) -> str | None:
+    """The `?draft=` value: base64url, unpadded, of deflate-raw of the UTF-8 JSON state.
+
+    None when the JSON exceeds the size OpenSearch Dashboards inflates.
+    """
+    raw = json.dumps(state, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+    if len(raw) > DASHBOARD_DRAFT_DECODED_MAX_BYTES:
+        return None
+    deflate = zlib.compressobj(9, zlib.DEFLATED, -15)
+    packed = deflate.compress(raw) + deflate.flush()
+    return base64.urlsafe_b64encode(packed).rstrip(b'=').decode('ascii')
+
+
+def draft_query_url(config: dict, state: dict) -> str | None:
+    """The `?draft=` link, which survives the sign-in redirect; None over the param caps."""
+    value = draft_query_param(state)
+    if value is None or len(value) > DASHBOARD_DRAFT_PARAM_MAX_CHARS:
+        return None
+    return f'{_dashboards_app_url(config)}?draft={value}'
+
+
+def dashboards_draft_url(panels: list[dict], time_range: dict | None = None) -> DraftLink:
+    """Build an OpenSearch Dashboards link that opens an unsaved dashboard of PPL chart panels.
+
+    Each panel is a chart spec: title, PPL query, index, chartType, axesMapping and an optional
+    timeFieldName. With link format query, the link is `?draft=` and falls back to the hash
+    form, which needs the user signed in, when the param is over its cap. The link is omitted
+    when Add to Dashboards is not configured, in multi mode, or over the panel or length cap.
+    """
+    config = dashboards_draft_config()
+    if not config or not _single_mode():
+        return DraftLink(None, DRAFT_NOT_CONFIGURED)
+    state = dashboards_draft_state(panels, time_range)
+    if len(panels) > DASHBOARD_MAX_PANELS:
+        return DraftLink(None, DRAFT_TOO_MANY_PANELS)
+    if config['link_format'] == DRAFT_LINK_QUERY:
+        url = draft_query_url(config, state)
+        if url:
+            return DraftLink(url)
+    url = draft_hash_url(config, state)
     if len(url) > DASHBOARD_URL_MAX_CHARS:
-        return None, DRAFT_URL_TOO_LONG
-    return url, None
+        return DraftLink(None, DRAFT_URL_TOO_LONG)
+    return DraftLink(url, requires_signin=True)
 
 
 _PPL_TIME_TYPES = frozenset({'timestamp', 'date', 'datetime', 'time', 'date_nanos'})
@@ -741,15 +819,8 @@ _PPL_NUMERIC_TYPES = frozenset(
 )
 
 
-def ppl_chart_spec(columns: list, column_types: list, query: str) -> dict | None:
-    """Return the dashboard panel spec for a PPL result, or None without a source index.
-
-    Picks the chart as the results view does: time + number is a line (split by at most one
-    category), category + number is a bar, one number is a metric, anything else a table.
-    """
-    index = _ppl_source_index(query)
-    if not index or not columns or not all(isinstance(c, str) and c for c in columns):
-        return None
+def _ppl_columns(columns: list, column_types: list) -> tuple[str | None, list, list]:
+    """Split PPL columns into the first time column, numeric columns and the rest."""
     time, values, others = None, [], []
     for column, kind in zip(columns, column_types or []):
         kind = str(kind or '').lower()
@@ -760,6 +831,40 @@ def ppl_chart_spec(columns: list, column_types: list, query: str) -> dict | None
         else:
             others.append(column)
     others += columns[len(column_types or []) :]
+    return time, values, others
+
+
+# span(field, N unit) with a PPL time unit; numeric spans such as span(bytes, 100) have none.
+_PPL_TIME_SPAN_RE = re.compile(
+    r'\b(?i:span)\s*\(\s*`?([^\s,()`]+)`?\s*,\s*(\d+(?:\.\d+)?)\s*(ms|s|m|h|d|w|M|q|y)\s*\)'
+)
+_SPAN_DELTAS = {
+    'ms': timedelta(milliseconds=1),
+    's': timedelta(seconds=1),
+    'm': timedelta(minutes=1),
+    'h': timedelta(hours=1),
+    'd': timedelta(days=1),
+    'w': timedelta(weeks=1),
+}
+_SPAN_MONTHS = {'M': 1, 'q': 3, 'y': 12}
+
+
+def _ppl_time_span(query: str) -> re.Match | None:
+    return _PPL_TIME_SPAN_RE.search(query or '')
+
+
+def ppl_chart_spec(columns: list, column_types: list, query: str) -> dict | None:
+    """Return the dashboard panel spec for a PPL result, or None without a source index.
+
+    Picks the chart as the results view does, with one y since Explore maps a single y: time
+    and numbers is a line of the first number (split by at most one category, and then only
+    with one number), category and number is a bar, one number is a metric, anything else a
+    table. The time field is the span() field of a time-unit span over a time column.
+    """
+    index = _ppl_source_index(query)
+    if not index or not columns or not all(isinstance(c, str) and c for c in columns):
+        return None
+    time, values, others = _ppl_columns(columns, column_types)
     if time and values and (not others or (len(others) == 1 and len(values) == 1)):
         chart, axes, title = 'line', {'x': time, 'y': values[0]}, f'{values[0]} over {time}'
         if others:
@@ -770,7 +875,7 @@ def ppl_chart_spec(columns: list, column_types: list, query: str) -> dict | None
         chart, axes, title = 'metric', {'value': values[0]}, values[0]
     else:
         chart, axes, title = 'table', {}, index
-    span = re.search(r'\bspan\s*\(\s*`?([^\s,()`]+)`?\s*,', query, re.IGNORECASE)
+    span = _ppl_time_span(query) if time else None
     return {
         'title': title,
         'query': query,
@@ -779,6 +884,73 @@ def ppl_chart_spec(columns: list, column_types: list, query: str) -> dict | None
         'axesMapping': axes,
         'timeFieldName': span.group(1) if span else None,
     }
+
+
+_PPL_TIMESTAMP_RE = re.compile(
+    r'^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?)?Z?$'
+)
+
+
+def _parse_ppl_timestamp(value: Any) -> datetime | None:
+    # PPL returns UTC as YYYY-MM-DD HH:MM:SS[.fraction] without a zone.
+    match = _PPL_TIMESTAMP_RE.match(value.strip()) if isinstance(value, str) else None
+    if not match:
+        return None
+    y, mo, d, h, mi, s, frac = match.groups()
+    try:
+        return datetime(
+            int(y),
+            int(mo),
+            int(d),
+            int(h or 0),
+            int(mi or 0),
+            int(s or 0),
+            int((frac or '0')[:6].ljust(6, '0')),
+            tzinfo=timezone.utc,
+        )
+    except ValueError:
+        return None
+
+
+def _add_span(moment: datetime, span: re.Match | None) -> datetime:
+    if not span:
+        return moment
+    amount, unit = float(span.group(2)), span.group(3)
+    if unit in _SPAN_DELTAS:
+        try:
+            return moment + _SPAN_DELTAS[unit] * amount
+        except OverflowError:
+            return moment
+    months = moment.month - 1 + int(amount) * _SPAN_MONTHS[unit]
+    year, month = moment.year + months // 12, months % 12 + 1
+    if year > datetime.max.year:
+        return moment
+    day = min(moment.day, calendar.monthrange(year, month)[1])
+    return moment.replace(year=year, month=month, day=day)
+
+
+def _iso_utc(moment: datetime) -> str:
+    return moment.isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+
+
+def ppl_time_range(columns: list, column_types: list, rows: list, query: str) -> dict:
+    """The dashboard time range covering a PPL result's time column, end padded by one span.
+
+    Falls back to DASHBOARD_DEFAULT_TIME when the result has no parseable timestamps.
+    """
+    time = _ppl_columns(columns, column_types)[0]
+    if time is None:
+        return dict(DASHBOARD_DEFAULT_TIME)
+    i = columns.index(time)
+    moments = [
+        m
+        for m in (_parse_ppl_timestamp(r[i]) for r in rows if isinstance(r, list) and len(r) > i)
+        if m
+    ]
+    if not moments:
+        return dict(DASHBOARD_DEFAULT_TIME)
+    end = _add_span(max(moments), _ppl_time_span(query))
+    return {'from': _iso_utc(min(moments)), 'to': _iso_utc(end)}
 
 
 def _structured(kind: str, cluster: str, columns: list, rows: list, meta: dict) -> dict:
@@ -1155,12 +1327,20 @@ def ppl_rows_payload(response: Any, cluster: str, query: str) -> dict | None:
         meta['dashboards_url'] = link
     spec = ppl_chart_spec(columns, meta['column_types'], query)
     if spec:
-        meta['chart_spec'] = spec
-        draft, reason = dashboards_draft_url([spec])
-        if draft:
-            meta['dashboards_draft_url'] = draft
-        elif reason != DRAFT_NOT_CONFIGURED:
-            meta['dashboards_draft_omitted'] = reason
+        # One bad panel spec drops only Add to Dashboards, not the whole payload.
+        try:
+            time_range = ppl_time_range(columns, meta['column_types'], rows, query)
+            draft = dashboards_draft_url([spec], time_range)
+        except ValueError as e:
+            logger.warning(f'Skipping Add to Dashboards for this PPL result: {e}')
+            draft = DraftLink(None, DRAFT_NOT_CONFIGURED)
+        if draft.url:
+            meta['dashboards_draft_url'] = draft.url
+            meta['chart_spec'] = spec
+            if draft.requires_signin:
+                meta['dashboards_draft_requires_signin'] = True
+        elif draft.omitted != DRAFT_NOT_CONFIGURED:
+            meta['dashboards_draft_omitted'] = draft.omitted
     return _structured('ppl_rows', cluster, columns, rows, meta)
 
 
