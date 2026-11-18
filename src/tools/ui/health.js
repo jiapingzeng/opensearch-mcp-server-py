@@ -14,26 +14,37 @@ function renderHealth(data) {
     var rows = data.rows.slice().sort(function (a, b) {
       return ((STATUS_ORDER[a[1]] !== undefined ? STATUS_ORDER[a[1]] : 3) - (STATUS_ORDER[b[1]] !== undefined ? STATUS_ORDER[b[1]] : 3)) || compare(a[0], b[0]);
     });
-    app.appendChild(el('h3', 'Indices'));
+    var card = el('section', null, 'panel');
+    card.setAttribute('aria-labelledby', 'health-indices');
+    var head = el('div', null, 'card-head');
+    var title = el('h2', 'Indices');
+    title.id = 'health-indices';
+    head.appendChild(title);
+    head.appendChild(el('span', plural(rows.length, 'index', 'indices'), 'muted'));
+    card.appendChild(head);
     var scroll = el('div', null, 'scroll');
-    var table = el('table');
+    var table = el('table', null, 'plain');
     var hr = el('tr');
-    data.columns.forEach(function (c) { hr.appendChild(el('th', c)); });
+    data.columns.forEach(function (c) { hr.appendChild(el('th', c, c === 'unassigned_shards' ? 'num' : '')); });
     var thead = el('thead'); thead.appendChild(hr); table.appendChild(thead);
     var tbody = el('tbody');
     rows.forEach(function (r) {
       var tr = el('tr');
       r.forEach(function (v, i) {
-        tr.appendChild(el('td', cellText(v), data.columns[i] === 'status' && typeof v === 'string' ? 'status-' + v : ''));
+        var status = data.columns[i] === 'status' && typeof v === 'string';
+        var td = el('td', null, status ? 'status-' + v : typeof v === 'number' ? 'num' : '');
+        td.appendChild(el('span', cellText(v), 'cell'));
+        tr.appendChild(td);
       });
       tbody.appendChild(tr);
     });
-    table.appendChild(tbody); scroll.appendChild(table); app.appendChild(scroll);
+    table.appendChild(tbody); scroll.appendChild(table); card.appendChild(scroll); app.appendChild(card);
   }
 }
 
 startView({
   name: 'opensearch-cluster-health',
+  icon: 'health',
   unsupportedText: 'This response has no cluster health card; the text result is unchanged.',
   accepts: function (data) { return data.kind === 'cluster_health' && data.health && typeof data.health === 'object'; },
   render: renderHealth

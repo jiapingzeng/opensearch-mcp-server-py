@@ -102,23 +102,39 @@ function flattenColumns(columns, rows, types, maxColumns) {
 
 function newTableState() { return { sort: null, hidden: dict(), filters: dict(), stats: '' }; }
 
+// 0-100 utilisation columns from _cat (heap.percent, disk.percent, cpu): shown with a small bar.
+function isPercentColumn(name, type) {
+  return isNumericType(type) && /(^|[._])(percent|used_percent)$|^cpu$/.test(String(name));
+}
+function percentTone(v) { return v >= 90 ? 'high' : v >= 85 ? 'warn' : ''; }
+
+// opts.barColumns: names of numeric columns drawn with a bar relative to the column's largest value.
 function buildTable(columns, rows, types, state, opts) {
   opts = opts || {};
   var selected = new Set();
-  var wrap = el('div');
+  var wrap = el('div', null, 'table-wrap');
+  var picker = null;
   if (opts.picker && columns.length > 4) {
-    var picker = el('details', null, 'columns');
-    picker.appendChild(el('summary', 'Columns'));
+    picker = el('details', null, 'columns');
+    picker.appendChild(withIcon(el('summary', 'Columns', 'btn'), 'columns'));
+    var list = el('div', null, 'column-list');
     columns.forEach(function (c) {
       var label = el('label');
       var box = document.createElement('input');
       box.type = 'checkbox'; box.checked = !state.hidden[c];
       box.addEventListener('change', function () { if (box.checked) delete state.hidden[c]; else state.hidden[c] = true; draw(); });
       label.appendChild(box); label.appendChild(document.createTextNode(' ' + c));
-      picker.appendChild(label);
+      list.appendChild(label);
     });
+    picker.appendChild(list);
     wrap.appendChild(picker);
   }
+  var barMax = dict();
+  (opts.barColumns || []).forEach(function (name) {
+    var i = columns.indexOf(name);
+    if (i < 0) return;
+    barMax[name] = rows.reduce(function (m, r) { return typeof r[i] === 'number' && r[i] > m ? r[i] : m; }, 0);
+  });
   var scroll = el('div', null, 'scroll');
   var table = el('table');
   var thead = el('thead'), tbody = el('tbody');
@@ -168,7 +184,6 @@ function buildTable(columns, rows, types, state, opts) {
       entry.detail = dtr;
     }
     entry.toggle.setAttribute('aria-expanded', String(!!entry.detail));
-    entry.toggle.textContent = entry.detail ? '\u25BE' : '\u25B8';
   }
   function buildRow(row, vis) {
     var entry = { row: row, tr: el('tr', null, 'row'), box: null, toggle: null, detail: null };
@@ -177,7 +192,8 @@ function buildTable(columns, rows, types, state, opts) {
     if (lead) {
       var td0 = el('td', null, 'select');
       if (opts.detail) {
-        entry.toggle = button('\u25B8', function (ev) { ev.stopPropagation(); toggleDetail(entry); }, 'row-toggle');
+        entry.toggle = button(null, function (ev) { ev.stopPropagation(); toggleDetail(entry); }, 'row-toggle');
+        entry.toggle.appendChild(icon('chevron'));
         entry.toggle.setAttribute('aria-expanded', 'false');
         entry.toggle.setAttribute('aria-label', 'Details for ' + name);
         td0.appendChild(entry.toggle);
@@ -207,6 +223,8 @@ function buildTable(columns, rows, types, state, opts) {
         act.setAttribute('aria-label', action.label(row));
         td.appendChild(act);
       } else {
+        if (typeof v === 'number' && isPercentColumn(columns[i], types[i])) td.appendChild(inlineBar(v / 100, percentTone(v)));
+        else if (typeof v === 'number' && barMax[columns[i]] > 0) td.appendChild(inlineBar(v / barMax[columns[i]]));
         td.appendChild(el('span', formatCell(v, types[i]), 'cell'));
       }
       if (v !== null && v !== undefined) td.title = types[i] === 'bytes' && typeof v === 'number' ? plural(v, 'byte') : rawText(v);
@@ -275,6 +293,7 @@ function buildTable(columns, rows, types, state, opts) {
   draw();
   return {
     node: wrap,
+    picker: picker,
     setRows: function (next) {
       rows = next;
       var keep = new Set(next);
@@ -314,8 +333,8 @@ function chipColumns(columns, rows, exclude) {
 }
 
 function buildChips(groups, filters, onChange) {
-  var wrap = el('div');
-  var clear = button('Clear filters', function () { Object.keys(filters).forEach(function (k) { delete filters[k]; }); sync(); });
+  var wrap = el('div', null, 'chip-groups');
+  var clear = button('Clear filters', function () { Object.keys(filters).forEach(function (k) { delete filters[k]; }); sync(); }, 'link clear-chip-filters');
   function sync() {
     wrap.querySelectorAll('button.chip').forEach(function (b) {
       b.setAttribute('aria-pressed', filters[b.dataset.col] === b.dataset.key ? 'true' : 'false');
@@ -323,20 +342,23 @@ function buildChips(groups, filters, onChange) {
     clear.hidden = Object.keys(filters).length === 0;
     onChange();
   }
-  groups.forEach(function (g) {
+  groups.forEach(function (g, n) {
     var line = el('div', null, 'chips');
+    line.setAttribute('role', 'group');
+    line.setAttribute('aria-label', 'Filter by ' + g.name);
     line.appendChild(el('span', g.name, 'name'));
     g.keys.forEach(function (k) {
-      var chip = button(g.labels[k] + ' (' + g.counts[k] + ')', function () {
+      var chip = button(g.labels[k], function () {
         if (filters[g.name] === k) delete filters[g.name]; else filters[g.name] = k;
         sync();
       }, 'chip');
+      chip.appendChild(el('span', ' (' + g.counts[k] + ')', 'n'));
       chip.dataset.col = g.name; chip.dataset.key = k;
       line.appendChild(chip);
     });
+    if (n === groups.length - 1) line.appendChild(clear);
     wrap.appendChild(line);
   });
-  wrap.appendChild(clear);
   sync();
   return wrap;
 }
@@ -439,33 +461,31 @@ function csvFileName(data) {
   return 'opensearch-' + String(data.tool || 'results').replace(/[^A-Za-z0-9_-]/g, '_') + '.csv';
 }
 
+// Copy and download actions for the overflow menu, and the status line they report to.
 function exportControls(table, data) {
-  var wrap = el('span');
   var status = el('span', null, 'muted export-status');
+  status.setAttribute('role', 'status');
+  var items = [];
   function rowsOrSelected() { var s = table.selectedRows(); return s.length ? s : table.shownRows(); }
-  wrap.appendChild(button('Copy CSV', function () {
+  items.push(withIcon(button('Copy CSV', function () {
     var cols = table.shownColumns(); var rows = rowsOrSelected();
     copyText(toCsv(cols.names, cols.indexes, rows, cols.types), 'CSV of ' + plural(rows.length, 'row'), status);
-  }, 'copy-csv'));
-  wrap.appendChild(document.createTextNode(' '));
-  wrap.appendChild(button('Copy JSON', function () {
+  }, 'copy-csv'), 'copy'));
+  items.push(withIcon(button('Copy JSON', function () {
     var cols = table.shownColumns(); var rows = rowsOrSelected();
     copyText(toJsonRows(cols.names, cols.indexes, rows, cols.types), 'JSON of ' + plural(rows.length, 'row'), status);
-  }, 'copy-json'));
-  wrap.appendChild(document.createTextNode(' '));
+  }, 'copy-json'), 'copy'));
   if (hostCapabilities.downloadFile) {
     // Sandboxed views cannot download directly; the host saves the file, usually after a prompt.
-    wrap.appendChild(button('Download CSV', function () {
+    items.push(withIcon(button('Download CSV', function () {
       var cols = table.shownColumns(); var rows = rowsOrSelected();
       var resource = { uri: 'file:///' + csvFileName(data), mimeType: 'text/csv', text: toCsv(cols.names, cols.indexes, rows, cols.types) };
       request('ui/download-file', { contents: [{ type: 'resource', resource: resource }] }).then(function (r) {
         status.textContent = r && r.isError ? 'Host did not download the file.' : 'Sent CSV of ' + plural(rows.length, 'row') + ' to the host to download.';
       }, function () { status.textContent = 'Host could not download the file.'; });
-    }, 'download-csv'));
-    wrap.appendChild(document.createTextNode(' '));
+    }, 'download-csv'), 'download'));
   }
-  wrap.appendChild(status);
-  return wrap;
+  return { items: items, status: status };
 }
 
 // Header stat for the row count: "rows: 6", or "rows: 3 of 6 shown" while filters apply.
@@ -518,11 +538,19 @@ function buildDataSection(data, columns, rows, types, state, opts) {
     if (opts.onRows) opts.onRows(current);
   }
   section.chips = groups.length ? buildChips(groups, state.filters, function () { if (section.ready) apply(); }) : null;
+  // Toolbar: status messages, then the column picker, stats and the overflow menu on the right.
   var bar = el('div', null, 'toolbar data-tools');
-  bar.appendChild(exportControls(table, data));
-  bar.appendChild(stats.control);
+  var exports = exportControls(table, data);
   var ctx = contextControls(data, function () { return table.shownColumns(); }, function () { return table.selectedRows(); });
-  if (ctx) bar.appendChild(ctx);
+  var statusLine = el('span', null, 'status');
+  statusLine.appendChild(exports.status);
+  if (ctx) { statusLine.appendChild(document.createTextNode(' ')); statusLine.appendChild(ctx.status); }
+  bar.appendChild(statusLine);
+  if (table.picker) bar.appendChild(table.picker);
+  bar.appendChild(stats.control);
+  var items = exports.items.slice();
+  if (ctx) { items.push(el('hr')); items.push(ctx.add); items.push(ctx.clear); }
+  bar.appendChild(overflowMenu('More actions', items, 'more-actions'));
   section.toolbar = bar;
   section.stats = stats.panel;
   section.apply = apply;

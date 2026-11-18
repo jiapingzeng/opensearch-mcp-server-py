@@ -38,24 +38,25 @@ function renderExplain(data) {
   indexExplanation(e, 'r');
   var top = contributors(e);
   if (data.matched && top.length) {
-    app.appendChild(el('div', 'Top contributors', 'label'));
+    var card = el('div', null, 'panel');
+    card.appendChild(el('div', 'Top contributors', 'label'));
     var t = el('table', null, 'contributors');
     var total = typeof e.value === 'number' && e.value > 0 ? e.value : null;
     top.forEach(function (n) {
       var tr = el('tr');
       tr.appendChild(el('td', formatNumber(n.value), 'num'));
-      var bar = el('td');
+      var bar = el('td', null, 'share');
       if (total) {
-        var meter = el('span', null, 'meter');
-        meter.style.width = Math.max(2, Math.round(160 * Math.min(1, n.value / total))) + 'px';
-        bar.appendChild(meter);
-        bar.appendChild(document.createTextNode(' ' + formatPercent(100 * n.value / total)));
+        var frac = Math.min(1, n.value / total);
+        bar.appendChild(inlineBar(frac));
+        bar.appendChild(document.createTextNode(formatPercent(100 * n.value / total)));
       }
       tr.appendChild(bar);
       tr.appendChild(el('td', cellText(n.description), 'description'));
       t.appendChild(tr);
     });
-    app.appendChild(t);
+    card.appendChild(t);
+    app.appendChild(card);
   }
   var treeOpts = {
     id: function (n) { return n._id; }, children: explainChildren, expanded: explainState.expanded, defaultDepth: 2,
@@ -65,19 +66,23 @@ function renderExplain(data) {
       line.appendChild(d);
     }
   };
-  var bar = el('div', null, 'toolbar');
+  var panel = el('div', null, 'panel');
+  var bar = el('div', null, 'toolbar card-head');
   bar.appendChild(el('span', 'Breakdown', 'label'));
+  bar.appendChild(el('span', null, 'spacer'));
   bar.appendChild(button('Expand all', function () { setAllExpanded([e], treeOpts, true); draw(); }, 'expand-all'));
   bar.appendChild(button('Collapse all', function () { setAllExpanded([e], treeOpts, false); draw(); }, 'collapse-all'));
-  app.appendChild(bar);
+  panel.appendChild(bar);
   var holder = el('div', null, 'explain-tree');
-  app.appendChild(holder);
+  panel.appendChild(holder);
+  app.appendChild(panel);
   function draw() { holder.textContent = ''; holder.appendChild(buildTree([e], treeOpts)); }
   draw();
 }
 
 startView({
   name: 'opensearch-explain',
+  icon: 'explain',
   unsupportedText: 'This response has no score explanation; the text result is unchanged.',
   accepts: function (data) { return data.kind === 'explain'; },
   render: renderExplain

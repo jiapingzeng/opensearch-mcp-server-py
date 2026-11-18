@@ -24,6 +24,17 @@ function filterMapping(nodes, q) {
   });
   return out;
 }
+// Colour group for a field type chip.
+var NUMBER_FIELD_TYPES = ['long', 'integer', 'short', 'byte', 'double', 'float', 'half_float', 'scaled_float', 'unsigned_long'];
+function typeFamily(t) {
+  t = String(t || 'object');
+  if (t === 'text' || t === 'match_only_text') return 'text';
+  if (t === 'keyword' || t === 'constant_keyword' || t === 'wildcard') return 'keyword';
+  if (NUMBER_FIELD_TYPES.indexOf(t) >= 0) return 'number';
+  if (t === 'date' || t === 'date_nanos') return 'date';
+  if (t === 'object' || t === 'nested' || t === 'flat_object') return 'object';
+  return 'other';
+}
 function typeCounts(nodes, counts) {
   nodes.forEach(function (n) { counts[n.type] = (counts[n.type] || 0) + 1; typeCounts(mappingChildren(n), counts); });
   return counts;
@@ -40,7 +51,7 @@ function mappingPanel(data, state) {
   search.type = 'search'; search.placeholder = 'Filter by field path or type'; search.value = state.query;
   search.className = 'mapping-search';
   search.setAttribute('aria-label', 'Filter fields by path or type');
-  bar.appendChild(search);
+  bar.appendChild(searchBox(search));
   var treeOpts = { id: function (n) { return n.path; }, children: mappingChildren, expanded: state.expanded, defaultDepth: 1, render: renderField };
   bar.appendChild(button('Expand all', function () { data.indices.forEach(function (i) { setAllExpanded(i.fields, treeOpts, true); }); drawTrees(); }, 'expand-all'));
   bar.appendChild(button('Collapse all', function () { data.indices.forEach(function (i) { setAllExpanded(i.fields, treeOpts, false); }); drawTrees(); }, 'collapse-all'));
@@ -49,14 +60,14 @@ function mappingPanel(data, state) {
   wrap.appendChild(bar);
   var summary = el('div', null, 'muted type-summary');
   wrap.appendChild(summary);
-  var holder = el('div');
+  var holder = el('div', null, 'panel tree-panel');
   wrap.appendChild(holder);
 
   function renderField(n, line) {
     var q = state.query;
     line.appendChild(highlighted(n.name, n.filtered && q && n.name.toLowerCase().indexOf(q.toLowerCase()) >= 0 ? q : '', 'name'));
-    line.appendChild(highlighted(n.type || 'object', q && String(n.type || '').toLowerCase().indexOf(q.toLowerCase()) >= 0 ? q : '', 'type'));
-    if (n.multi) line.appendChild(el('span', 'multi-field', 'muted'));
+    line.appendChild(highlighted(n.type || 'object', q && String(n.type || '').toLowerCase().indexOf(q.toLowerCase()) >= 0 ? q : '', 'type t-' + typeFamily(n.type)));
+    if (n.multi) line.appendChild(el('span', 'multi-field', 'muted multi'));
     var d = n.details || {};
     var parts = Object.keys(d).map(function (k) { return k + '=' + rawText(d[k]); });
     if (parts.length) line.appendChild(el('span', parts.join(' '), 'muted details'));

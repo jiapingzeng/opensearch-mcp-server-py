@@ -11,7 +11,8 @@ function buildTree(nodes, opts) {
     var line = el('div', null, 'node');
     var open = id in opts.expanded ? opts.expanded[id] : depth < (opts.defaultDepth || 0);
     // Leaves get a spacer, not a button, so they add no empty tab stop.
-    var toggle = kids.length ? button(open ? '\u25BE' : '\u25B8', null, 'toggle') : el('span', null, 'toggle leaf');
+    var toggle = kids.length ? button(null, null, 'toggle') : el('span', null, 'toggle leaf');
+    if (kids.length) toggle.appendChild(icon('chevron'));
     if (kids.length) {
       toggle.setAttribute('aria-label', open ? 'Collapse' : 'Expand');
       toggle.setAttribute('aria-expanded', String(open));
@@ -30,7 +31,6 @@ function buildTree(nodes, opts) {
         var nowOpen = sub.hidden;
         sub.hidden = !nowOpen;
         opts.expanded[id] = nowOpen;
-        toggle.textContent = nowOpen ? '\u25BE' : '\u25B8';
         toggle.setAttribute('aria-expanded', String(nowOpen));
         toggle.setAttribute('aria-label', nowOpen ? 'Collapse' : 'Expand');
       });

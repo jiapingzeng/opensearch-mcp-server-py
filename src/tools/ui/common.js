@@ -61,6 +61,112 @@ function button(text, onClick, cls) {
   return b;
 }
 
+// Hand-drawn 16 px stroke icons; every icon is decorative and its button carries the name.
+var ICONS = {
+  refresh: 'M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3',
+  expand: 'M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10',
+  collapse: 'M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5',
+  more: 'M3.5 8h.01M8 8h.01M12.5 8h.01',
+  external: 'M9.5 2.5h4v4M13.5 2.5l-6 6M12 9.5v3a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3',
+  chevron: 'M6 3.5 10.5 8 6 12.5',
+  copy: 'M5.5 5.5h7v8h-7zM3.5 10.5v-8h7',
+  download: 'M8 2.5v8M4.5 7 8 10.5 11.5 7M2.5 13.5h11',
+  context: 'M2.5 3.5h11V11H7l-3 2.5V11H2.5zM8 5.5V9M6.25 7.25h3.5',
+  clear: 'M4 4l8 8M12 4l-8 8',
+  search: 'M7 12A5 5 0 1 0 7 2a5 5 0 0 0 0 10zM10.6 10.6l3 3',
+  columns: 'M2.5 3h11v10h-11zM6.5 3v10M10 3v10',
+  bars: 'M3 13.5V8M8 13.5V3M13 13.5V6',
+  line: 'M2.5 11.5 6 7.5l3 2.5 4.5-6M2.5 13.5h11',
+  table: 'M2.5 3h11v10h-11zM2.5 6.5h11M2.5 10h11M6.5 6.5V13',
+  cluster: 'M3 2.5h10v4H3zM3 9.5h10v4H3zM5.5 4.5h.01M5.5 11.5h.01',
+  health: 'M1.5 8.5h3L6 4.5l3 7 1.5-3h4',
+  tree: 'M2.5 2.5h4v3h-4zM9.5 7h4v3h-4zM9.5 11.5h4v3h-4zM4.5 5.5v7.5h5M4.5 8.5h5',
+  explain: 'M8 2.5v11M4.5 13.5h7M3.5 5h9M3.5 5 1.5 9.5h4zM12.5 5l-2 4.5h4z',
+  database: 'M8 2.5c3 0 5.5.9 5.5 2s-2.5 2-5.5 2-5.5-.9-5.5-2 2.5-2 5.5-2zM2.5 4.5v7c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2v-7M2.5 8c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2',
+  sparkle: 'M8 2l1.4 3.6L13 7l-3.6 1.4L8 12l-1.4-3.6L3 7l3.6-1.4z',
+  play: 'M5 3.5v9l7-4.5z',
+  prev: 'M10 3.5 5.5 8l4.5 4.5',
+  next: 'M6 3.5 10.5 8 6 12.5'
+};
+function icon(name) {
+  var s = svg('svg', { 'class': 'icon', viewBox: '0 0 16 16', 'aria-hidden': 'true', focusable: 'false' });
+  s.appendChild(svg('path', name === 'more' ? { d: ICONS.more, 'stroke-width': 2.6 } : { d: ICONS[name] || ICONS.table }));
+  return s;
+}
+// A button showing only an icon; `label` is its accessible name and tooltip.
+function iconButton(label, name, onClick, cls) {
+  var b = button(null, onClick, 'icon-btn' + (cls ? ' ' + cls : ''));
+  b.setAttribute('aria-label', label);
+  b.title = label;
+  b.appendChild(icon(name));
+  return b;
+}
+function withIcon(node, name) { node.insertBefore(icon(name), node.firstChild); return node; }
+// KPI tile: a label, a value (text or node), an optional sub line and tone ('alert' or 'warn').
+function kpiTile(label, value, sub, tone, cls) {
+  var box = el('div', null, 'kpi' + (tone ? ' ' + tone : '') + (cls ? ' ' + cls : ''));
+  box.appendChild(el('div', label, 'kpi-label'));
+  var v = el('div', null, 'kpi-value');
+  if (value !== null && typeof value === 'object') v.appendChild(value); else v.textContent = value === null || value === undefined ? '\u2014' : String(value);
+  box.appendChild(v);
+  if (sub) box.appendChild(typeof sub === 'string' ? el('div', sub, 'kpi-sub') : sub);
+  return box;
+}
+// A small decorative bar for a 0-1 fraction, beside the number it shows.
+function inlineBar(fraction, tone) {
+  var bar = el('span', null, 'inline-bar');
+  bar.setAttribute('aria-hidden', 'true');
+  var fill = el('span', null, tone || '');
+  fill.style.width = Math.round(Math.max(0, Math.min(1, fraction)) * 100) + '%';
+  bar.appendChild(fill);
+  return bar;
+}
+// A bar for a 0-100 percentage. `tone` is '', 'ok', 'warn' or 'high'; `marks` are percentages
+// drawn as ticks (disk watermarks). The label is the bar's accessible text.
+function usageBar(pct, label, tone, marks) {
+  var bar = el('div', null, 'usage');
+  bar.setAttribute('role', 'img');
+  bar.setAttribute('aria-label', label);
+  var fill = el('div', null, 'usage-fill' + (tone ? ' ' + tone : ''));
+  fill.style.width = Math.max(0, Math.min(100, Number(pct) || 0)) + '%';
+  bar.appendChild(fill);
+  (marks || []).forEach(function (m) { var t = el('div', null, 'usage-mark'); t.style.left = m + '%'; bar.appendChild(t); });
+  return bar;
+}
+// A disclosure holding less-used actions. Picking one closes it; Escape and outside clicks too.
+function overflowMenu(label, items, cls) {
+  var menu = el('details', null, 'menu' + (cls ? ' ' + cls : ''));
+  var summary = el('summary', null, 'icon-btn btn');
+  summary.setAttribute('aria-label', label);
+  summary.title = label;
+  summary.appendChild(icon('more'));
+  menu.appendChild(summary);
+  var list = el('div', null, 'menu-list');
+  items.forEach(function (item) { if (item) list.appendChild(item); });
+  menu.appendChild(list);
+  list.addEventListener('click', function (ev) { if (ev.target.closest && ev.target.closest('button')) menu.open = false; });
+  menu.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && menu.open) { menu.open = false; summary.focus(); } });
+  menu.addEventListener('toggle', function () { fitMenu(menu, list); });
+  return menu;
+}
+// The host sizes the frame from the body, so an open menu near the bottom grows the body to fit.
+function fitMenu(menu, list) {
+  document.body.style.minHeight = '';
+  if (!menu.open) return;
+  var need = list.getBoundingClientRect().bottom - document.body.getBoundingClientRect().top + 8;
+  if (need > document.body.getBoundingClientRect().height) document.body.style.minHeight = Math.ceil(need) + 'px';
+}
+function closeMenusOutside(ev) {
+  document.querySelectorAll('details.menu[open]').forEach(function (m) { if (!m.contains(ev.target)) m.open = false; });
+}
+// A search input with a leading icon.
+function searchBox(input) {
+  var wrap = el('span', null, 'search-box');
+  wrap.appendChild(icon('search'));
+  wrap.appendChild(input);
+  return wrap;
+}
+
 function rawText(v) {
   if (v === null || v === undefined) return '';
   return typeof v === 'object' ? JSON.stringify(v) : String(v);
@@ -301,15 +407,21 @@ function applyHostContext(ctx) {
 
 function syncFullscreenButton(btn) {
   var modes = hostContext.availableDisplayModes || [];
+  var full = hostContext.displayMode === 'fullscreen';
+  var label = full ? 'Exit fullscreen' : 'Fullscreen';
   btn.hidden = modes.indexOf('fullscreen') < 0;
-  btn.textContent = hostContext.displayMode === 'fullscreen' ? 'Exit fullscreen' : 'Fullscreen';
+  if (btn.getAttribute('aria-label') === label) return;
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
+  btn.textContent = '';
+  btn.appendChild(icon(full ? 'collapse' : 'expand'));
 }
 function fullscreenButton() {
   var btn = button(null, function () {
     var full = hostContext.displayMode === 'fullscreen';
     request('ui/request-display-mode', { mode: full ? 'inline' : 'fullscreen' })
       .then(function (r) { if (r && r.mode) applyHostContext({ displayMode: r.mode }); }, function () {});
-  }, 'fullscreen');
+  }, 'icon-btn fullscreen');
   syncFullscreenButton(btn);
   return btn;
 }
@@ -386,8 +498,8 @@ function callBack(data, overrides, label) {
 }
 function refreshButton(data) {
   if (!canCallBack(data)) return null;
-  var b = button('Refresh', function () { callBack(data, {}, 'Refreshing\u2026'); }, 'callback refresh');
-  b.title = 'Runs ' + data.tool + ' again with the same arguments.';
+  var b = iconButton('Refresh', 'refresh', function () { callBack(data, {}, 'Refreshing\u2026'); }, 'callback refresh');
+  b.title = 'Refresh: runs ' + data.tool + ' again with the same arguments.';
   return b;
 }
 
@@ -423,19 +535,36 @@ function sendUserMessage(text) {
     function (r) { return !(r && r.isError); }, function () { return false; });
 }
 
-function header(data, title, stats, actions) {
+// View header: icon, title with status badges, a meta line (tool, cluster, stats, refresh time,
+// call status) and compact actions. opts: { icon, badges: [nodes], after: node under the meta line }.
+function header(data, title, stats, actions, opts) {
+  opts = opts || {};
   var h = el('header');
-  if (data.tool) h.appendChild(el('span', data.tool, 'badge'));
-  if (title) h.appendChild(el('span', title, 'title'));
-  if (data.cluster) h.appendChild(el('span', 'cluster: ' + data.cluster, 'stat'));
-  (stats || []).forEach(function (s) { if (s) h.appendChild(typeof s === 'string' ? el('span', s, 'stat') : s); });
-  if (refreshedAt) h.appendChild(el('span', 'refreshed ' + refreshedAt.toISOString().slice(11, 19) + ' UTC', 'stat refreshed'));
-  h.appendChild(el('span', null, 'call-status muted'));
-  h.appendChild(el('span', null, 'spacer'));
-  (actions || []).forEach(function (a) { if (a) h.appendChild(a); });
+  var lead = el('span', null, 'vh-icon');
+  lead.setAttribute('aria-hidden', 'true');
+  lead.appendChild(icon(opts.icon || (currentView && currentView.icon) || 'table'));
+  h.appendChild(lead);
+  var text = el('div', null, 'vh-text');
+  var row = el('div', null, 'vh-title-row');
+  row.appendChild(el('h1', title || document.title, 'title'));
+  (opts.badges || []).forEach(function (b) { if (b) row.appendChild(b); });
+  text.appendChild(row);
+  var meta = el('div', null, 'vh-meta');
+  if (data.tool) meta.appendChild(el('span', data.tool, 'badge'));
+  if (data.cluster) meta.appendChild(el('span', 'cluster: ' + data.cluster, 'stat'));
+  (stats || []).forEach(function (s) { if (s) meta.appendChild(typeof s === 'string' ? el('span', s, 'stat') : s); });
+  if (refreshedAt) meta.appendChild(el('span', 'refreshed ' + refreshedAt.toISOString().slice(11, 19) + ' UTC', 'stat refreshed'));
+  var status = el('span', null, 'call-status');
+  status.setAttribute('role', 'status');
+  meta.appendChild(status);
+  text.appendChild(meta);
+  h.appendChild(text);
+  var acts = el('div', null, 'vh-actions');
+  (actions || []).forEach(function (a) { if (a) acts.appendChild(a); });
   var refresh = refreshButton(data);
-  if (refresh) h.appendChild(refresh);
-  h.appendChild(fullscreenButton());
+  if (refresh) acts.appendChild(refresh);
+  acts.appendChild(fullscreenButton());
+  h.appendChild(acts);
   return h;
 }
 
@@ -468,17 +597,20 @@ function truncationNotice(data) {
 }
 
 function presentation(data) {
-  var frag = document.createDocumentFragment();
+  var box = el('aside', null, 'assist');
+  box.setAttribute('aria-label', 'Assistant notes');
+  var label = function (text) { return withIcon(el('div', text, 'label'), 'sparkle'); };
   if (typeof data.intent === 'string' && data.intent) {
-    frag.appendChild(el('div', 'Why this query (written by the assistant)', 'label'));
-    frag.appendChild(el('div', data.intent, 'intent'));
+    box.appendChild(label('Why this query (written by the assistant)'));
+    box.appendChild(el('div', data.intent, 'intent'));
   }
   var items = Array.isArray(data.suggestions) ? data.suggestions.filter(function (s) { return typeof s === 'string' && s; }).slice(0, 3) : [];
   // Pills send ui/message, so they appear only when the host accepts it.
   if (items.length && hostCapabilities.message && hostCapabilities.message.text) {
-    frag.appendChild(el('div', 'Planned next steps (suggested by the assistant)', 'label'));
+    box.appendChild(label('Planned next steps (suggested by the assistant)'));
     var pills = el('div', null, 'pills');
     var status = el('span', null, 'muted');
+    status.setAttribute('role', 'status');
     items.forEach(function (s) {
       pills.appendChild(button(s, function () {
         pills.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
@@ -488,9 +620,9 @@ function presentation(data) {
       }, 'pill'));
     });
     pills.appendChild(status);
-    frag.appendChild(pills);
+    box.appendChild(pills);
   }
-  return frag;
+  return box.childNodes.length ? box : document.createDocumentFragment();
 }
 
 // Clipboard: hosts grant clipboard-write only when they honour the resource's permission
@@ -575,12 +707,13 @@ function contextText(data, cols, rows) {
 }
 
 // Only on an explicit click: pushes a small, prefixed slice of rows into the host's model context.
+// Returns { add, clear, status } for the caller to place, or null without the capability.
 function contextControls(data, getColumns, getRows) {
   var cap = hostCapabilities.updateModelContext;
   if (!cap || !cap.text) return null;
-  var wrap = el('span');
   var status = el('span', null, 'muted context-status');
-  var add = button('Add selected rows to model context', function () {
+  status.setAttribute('role', 'status');
+  var add = withIcon(button('Add selected rows to model context', function () {
     var rows = getRows();
     if (!rows.length) { status.textContent = 'Select rows first.'; return; }
     var ctx = contextText(data, getColumns(), rows);
@@ -590,16 +723,13 @@ function contextControls(data, getColumns, getRows) {
         status.textContent = 'Added ' + formatNumber(ctx.rows) + ' of ' + plural(rows.length, 'selected row') + ' (' + plural(ctx.bytes, 'byte') + ') to the model context.';
         clear.hidden = false;
       }, function () { status.textContent = 'Host did not accept the context update.'; });
-  }, 'add-context');
-  var clear = button('Clear model context', function () {
+  }, 'add-context'), 'context');
+  var clear = withIcon(button('Clear model context', function () {
     request('ui/update-model-context', { content: [] }).then(function () { status.textContent = 'Cleared.'; clear.hidden = true; },
       function () { status.textContent = 'Host did not clear the context.'; });
-  }, 'clear-context');
+  }, 'clear-context'), 'clear');
   clear.hidden = true;
-  wrap.appendChild(add); wrap.appendChild(document.createTextNode(' '));
-  wrap.appendChild(clear); wrap.appendChild(document.createTextNode(' '));
-  wrap.appendChild(status);
-  return wrap;
+  return { add: add, clear: clear, status: status };
 }
 
 function show(result) {
@@ -666,6 +796,7 @@ function startView(viewImpl) {
     }
   });
   new ResizeObserver(reportSize).observe(document.body);
+  document.addEventListener('click', closeMenusOutside);
   request('ui/initialize', {
     appInfo: { name: viewImpl.name, version: '3' },
     appCapabilities: { availableDisplayModes: ['inline', 'fullscreen'] },

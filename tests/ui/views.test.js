@@ -156,7 +156,8 @@ describe('pure functions', () => {
     const split = [[3, '2026-11-01 00:00:00', 'a'], [5, '2026-11-01 01:00:00', 'b']];
     assert.equal(w.timeSeriesSpec(ppl(['c', 't', 'svc'], split), ['bigint', 'timestamp', 'string']).category, 2);
     const nine = Array.from({ length: 9 }, (_, i) => [i, '2026-11-01 0' + i + ':00:00', 's' + i]);
-    assert.equal(w.timeSeriesSpec(ppl(['c', 't', 'svc'], nine), ['bigint', 'timestamp', 'string']), null);
+    assert.deepEqual(plain(w.timeSeriesSpec(ppl(['c', 't', 'svc'], nine), ['bigint', 'timestamp', 'string'])), { time: 1, values: [0], category: 2 });
+    assert.equal(w.timeSeriesSpec(ppl(['a', 'b', 't', 'svc'], [[1, 2, '2026-11-01 00:00:00', 'x'], [1, 2, '2026-11-01 01:00:00', 'y']]), ['bigint', 'bigint', 'timestamp', 'string']), null);
     assert.equal(w.timeSeriesSpec(ppl(['c', 't'], [[1, 'not a time'], [2, 'x']]), ['bigint', 'timestamp']), null);
     assert.equal(w.timeSeriesSpec({ ...ppl(['count()', 'span'], rows), kind: 'search_hits' }, ['bigint', 'timestamp']), null);
     assert.equal(w.timeSeriesSpec(ppl(['count()', 'span'], rows.slice(0, 1)), ['bigint', 'timestamp']), null);
@@ -558,6 +559,26 @@ describe('time buckets', () => {
     assert.equal(v.doc.querySelector('.chart-note').textContent, '3 empty buckets shown as 0 (PPL omits empty buckets).');
     assert.deepEqual([...v.doc.querySelectorAll('.y-tick')].map((t) => t.textContent), ['0', '1', '2', '3']);
     assert.equal(v.doc.querySelector('.y-label').textContent, 'count()');
+  });
+
+  test('more than 7 count series draw the 6 largest plus Other, which sums the rest', async () => {
+    const q = 'source=ts | stats count() by span(@timestamp, 1h), service';
+    const rows = [];
+    for (let s = 0; s < 10; s++) for (const h of [0, 1]) rows.push([s + 1, span(h), 'svc' + s]);
+    const v = await openView('results', {}, {}, pplResult(q, ['count()', 'span(@timestamp,1h)', 'service'], rows, ['bigint', 'timestamp', 'string']));
+    const legend = [...v.doc.querySelectorAll('.legend > span')].map((s) => s.textContent);
+    assert.deepEqual(legend, ['svc9', 'svc8', 'svc7', 'svc6', 'svc5', 'svc4', 'Other (4 series)']);
+    assert.equal(v.doc.querySelectorAll('.time-series path.line').length, 7);
+    assert.equal(v.doc.querySelector('.series-note').textContent, 'The 6 largest of 10 series are drawn; the rest are summed as Other.');
+  });
+
+  test('more than 7 non-count series draw the 7 largest and say the rest are in the table', async () => {
+    const q = 'source=ts | stats avg(b) by span(@timestamp, 1h), service';
+    const rows = [];
+    for (let s = 0; s < 9; s++) for (const h of [0, 1]) rows.push([s + 0.5, span(h), 'svc' + s]);
+    const v = await openView('results', {}, {}, pplResult(q, ['avg(b)', 'span', 'service'], rows, ['double', 'timestamp', 'string']));
+    assert.equal(v.doc.querySelectorAll('.time-series path.line').length, 7);
+    assert.equal(v.doc.querySelector('.series-note').textContent, 'The 7 largest of 9 series are drawn; see the table for the rest.');
   });
 
   test('non-count series break at missing buckets instead of bridging them', async () => {

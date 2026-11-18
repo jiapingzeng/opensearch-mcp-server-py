@@ -42,7 +42,7 @@ function renderCatTable(data) {
   if (trunc) app.appendChild(trunc);
   var unassigned = data.columns.indexOf('state') >= 0 ? data.rows.filter(function (r) { return r[data.columns.indexOf('state')] === 'UNASSIGNED'; }).length : 0;
   if (unassigned) app.appendChild(el('div', plural(unassigned, 'unassigned shard') + '.', 'notice warning unassigned'));
-  if (data.rows.length === 0) { if (!trunc) app.appendChild(el('div', 'No rows.', 'notice')); return; }
+  if (data.rows.length === 0) { if (!trunc) app.appendChild(el('div', 'No rows.', 'notice empty')); return; }
   var section = buildDataSection(data, data.columns, data.rows, types, catState, { chipSkipNumeric: true, rowsStat: rowsStat });
   if (section.chips) app.appendChild(section.chips);
   app.appendChild(section.toolbar);
@@ -52,6 +52,7 @@ function renderCatTable(data) {
 
 startView({
   name: 'opensearch-table',
+  icon: 'table',
   unsupportedText: 'This result is not a table (for example, details for one index); the text result is unchanged.',
   accepts: function (data) { return (data.kind === 'cat_table' && Array.isArray(data.columns) && Array.isArray(data.rows)) || data.kind === 'index_detail'; },
   render: renderCatTable

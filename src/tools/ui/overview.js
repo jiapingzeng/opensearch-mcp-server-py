@@ -10,6 +10,8 @@ var SECTION_TITLES = { health: 'Health', nodes: 'Nodes', indices: 'Indices', sha
 var SECTION_TOOLS = { health: 'ClusterHealthTool', nodes: 'CatNodesTool', indices: 'ListIndexTool', shards: 'GetShardsTool', allocation: 'GetAllocationTool' };
 var OVERVIEW_METRICS = HEALTH_METRICS.filter(function (m) { return ['number_of_in_flight_fetch', 'task_max_waiting_in_queue_millis', 'delayed_unassigned_shards'].indexOf(m[0]) < 0; });
 var LARGEST_SHOWN = 10;
+// OpenSearch default disk watermarks (low, high, flood stage); the cluster may override them.
+var DISK_WATERMARKS = [85, 90, 95];
 var overviewState = { filter: { node: null, index: null }, tables: dict(), allIndices: false, allShards: false, busy: dict(), errors: dict(), refreshed: dict() };
 var overview = null;
 var sectionNodes = dict();
@@ -129,8 +131,7 @@ function sectionShell(name) {
   head.appendChild(status);
   head.appendChild(el('span', null, 'spacer'));
   if (canCallBack(overview)) {
-    var b = button('Refresh', function () { refreshSection(name); }, 'callback section-refresh');
-    b.setAttribute('aria-label', 'Refresh ' + SECTION_TITLES[name].toLowerCase());
+    var b = iconButton('Refresh ' + SECTION_TITLES[name].toLowerCase(), 'refresh', function () { refreshSection(name); }, 'callback section-refresh');
     b.disabled = !!overviewState.busy[name] || callPending;
     head.appendChild(b);
   }
@@ -168,11 +169,58 @@ function drawSection(name) {
   node.appendChild(body);
   if (sectionNodes[name] && sectionNodes[name].parentNode) sectionNodes[name].parentNode.replaceChild(node, sectionNodes[name]);
   sectionNodes[name] = node;
+  // The health tiles summarise indices and disk use, so they follow those sections.
+  if ((name === 'indices' || name === 'allocation') && sectionNodes.health && sectionNodes.health.parentNode) drawSection('health');
   return node;
 }
 
+// Disk totals across data nodes from the allocation section, or null when it is not loaded.
+function diskTotals() {
+  var sec = overview.sections.allocation;
+  if (!sec || sec.status !== 'ok' || !Array.isArray(sec.columns)) return null;
+  var used = colIndex(sec, 'disk.used'), total = colIndex(sec, 'disk.total');
+  if (used < 0 || total < 0) return null;
+  var u = 0, t = 0;
+  sec.rows.forEach(function (r) { if (typeof r[used] === 'number' && typeof r[total] === 'number') { u += r[used]; t += r[total]; } });
+  return t > 0 ? { used: u, total: t, pct: 100 * u / t } : null;
+}
+function diskTone(pct) { return pct >= DISK_WATERMARKS[1] ? 'high' : pct >= DISK_WATERMARKS[0] ? 'warn' : ''; }
+
+// KPI row: status, nodes, indices, shards, unassigned and disk used, then the smaller counters.
 function healthSection(sec, body) {
-  body.appendChild(healthCard(sec.data || {}, OVERVIEW_METRICS));
+  var h = sec.data || {};
+  var main = el('div', null, 'card kpis');
+  main.appendChild(statusTile(h));
+  var tile = function (key, label, sub) {
+    if (!(key in h)) return null;
+    var spec = HEALTH_METRICS.filter(function (m) { return m[0] === key; })[0];
+    var t = metricTile(h, [key, label, spec && spec[2]]);
+    if (sub) t.appendChild(el('div', sub, 'kpi-sub'));
+    return t;
+  };
+  var add = function (n) { if (n) main.appendChild(n); };
+  add(tile('number_of_nodes', 'Nodes', typeof h.number_of_data_nodes === 'number' ? plural(h.number_of_data_nodes, 'data node') : null));
+  var idx = overview.sections.indices;
+  if (idx && idx.status === 'ok' && idx.summary) {
+    var by = idx.summary.by_health || {};
+    var parts = ['green', 'yellow', 'red'].filter(function (k) { return by[k]; }).map(function (k) { return formatNumber(by[k]) + ' ' + k; });
+    add(kpiTile('Indices', formatNumber(idx.summary.count || 0), parts.join(' \u00b7 ') || null, null, 'kpi-indices'));
+  }
+  add(tile('active_shards', 'Active shards', typeof h.active_primary_shards === 'number' ? plural(h.active_primary_shards, 'primary', 'primaries') : null));
+  add(tile('unassigned_shards', 'Unassigned shards', h.unassigned_shards > 0 && typeof h.delayed_unassigned_shards === 'number' && h.delayed_unassigned_shards ? formatNumber(h.delayed_unassigned_shards) + ' delayed' : null));
+  var disk = diskTotals();
+  if (disk) {
+    var value = el('span', formatPercent(disk.pct));
+    var t = kpiTile('Disk used', value, formatBytes(disk.used) + ' of ' + formatBytes(disk.total), diskTone(disk.pct) === 'high' ? 'alert' : diskTone(disk.pct) ? 'warn' : null, 'kpi-disk');
+    t.appendChild(usageBar(disk.pct, formatPercent(disk.pct) + ' of disk used across data nodes', diskTone(disk.pct), DISK_WATERMARKS));
+    add(t);
+  }
+  body.appendChild(main);
+  var rest = el('div', null, 'card secondary');
+  OVERVIEW_METRICS.forEach(function (spec) {
+    if (spec[0] in h && ['number_of_nodes', 'number_of_data_nodes', 'active_primary_shards', 'active_shards', 'unassigned_shards'].indexOf(spec[0]) < 0) rest.appendChild(metricTile(h, spec));
+  });
+  if (rest.childNodes.length) body.appendChild(rest);
 }
 
 function nodesSection(sec, body) {
@@ -205,32 +253,34 @@ function indicesSection(sec, body) {
   body.appendChild(head);
   var note = cutNote(sec, sec.rows.length);
   if (note) body.appendChild(note);
-  var types = sectionTypes(sec);
-  var keep = ['index', 'health', 'status', 'docs.count', 'store.size', 'pri', 'rep'];
+  // Name, health and size first, so the size bars stay in view in a half-width card.
+  var t = leading(sec, ['index', 'health', 'store.size', 'docs.count', 'pri', 'rep']);
+  var keep = ['index', 'health', 'docs.count', 'store.size', 'pri', 'rep'];
   var hidden = dict();
-  sec.columns.forEach(function (c) { if (keep.indexOf(c) < 0) hidden[c] = true; });
-  var action = { column: 'index', label: function (r) { return 'Open the index explorer for ' + cellText(r[colIndex(sec, 'index')]); }, run: function (r) { openExplorer(r[colIndex(sec, 'index')]); } };
+  t.columns.forEach(function (c) { if (keep.indexOf(c) < 0) hidden[c] = true; });
+  var idx = t.columns.indexOf('index');
+  var action = { column: 'index', label: function (r) { return 'Open the index explorer for ' + cellText(r[idx]); }, run: function (r) { openExplorer(r[idx]); } };
   var f = overviewState.filter.index;
   if (f !== null) {
     body.appendChild(el('div', 'Index ' + cellText(f), 'label'));
     var st = sectionTable('indices-filtered'); st.hidden = hidden;
-    body.appendChild(buildTable(sec.columns, rowsWhere(sec, 'index', f), types, st, { rowAction: action }).node);
+    body.appendChild(buildTable(t.columns, t.rows.filter(function (r) { return r[idx] === f; }), t.types, st, { rowAction: action }).node);
     return;
   }
   body.appendChild(el('div', 'Largest indices', 'label'));
   var lt = sectionTable('indices-largest'); lt.hidden = hidden;
-  body.appendChild(buildTable(sec.columns, sec.rows.slice(0, LARGEST_SHOWN), types, lt, { rowAction: action }).node);
-  if (sec.rows.length > LARGEST_SHOWN) {
+  body.appendChild(buildTable(t.columns, t.rows.slice(0, LARGEST_SHOWN), t.types, lt, { rowAction: action, barColumns: ['store.size'] }).node);
+  if (t.rows.length > LARGEST_SHOWN) {
     var all = el('details', null, 'all-indices');
     all.open = overviewState.allIndices;
-    all.appendChild(el('summary', 'All ' + plural(sec.rows.length, 'index', 'indices')));
+    all.appendChild(el('summary', 'All ' + plural(t.rows.length, 'index', 'indices')));
     var built = false;
     var build = function () {
       if (built || !all.open) return;
       built = true;
       var at = sectionTable('indices-all');
       if (!at.init) { at.hidden = dict(hidden); at.init = true; }
-      all.appendChild(buildTable(sec.columns, sec.rows, types, at, { picker: true, rowAction: action }).node);
+      all.appendChild(buildTable(t.columns, t.rows, t.types, at, { picker: true, rowAction: action }).node);
     };
     all.addEventListener('toggle', function () { overviewState.allIndices = all.open; build(); });
     body.appendChild(all);
@@ -319,14 +369,60 @@ function explanations(sec, unassigned) {
 function allocationSection(sec, body) {
   var f = overviewState.filter.node;
   var pct = colIndex(sec, 'disk.percent'), node = colIndex(sec, 'node');
-  var high = sec.rows.filter(function (r) { return typeof r[pct] === 'number' && r[pct] >= 85; });
+  var high = sec.rows.filter(function (r) { return typeof r[pct] === 'number' && r[pct] >= DISK_WATERMARKS[0]; });
   if (high.length) body.appendChild(el('div', plural(high.length, 'node') + ' at or above 85% disk use (the default low watermark): ' + high.map(function (r) { return cellText(r[node]); }).join(', ') + '.', 'notice warning'));
   var t = leading(sec, ['node', 'disk.percent', 'shards']);
   var rows = f !== null ? t.rows.filter(function (r) { return r[0] === f; }) : t.rows;
-  body.appendChild(buildTable(t.columns, rows, t.types, sectionTable('allocation', ['host', 'ip']), {
+  body.appendChild(diskBars(sec, rows.map(function (r) { return sec.rows[t.rows.indexOf(r)]; })));
+  var details = el('details', null, 'disk-table');
+  details.open = !!overviewState.diskTable;
+  details.addEventListener('toggle', function () { overviewState.diskTable = details.open; });
+  details.appendChild(el('summary', 'Disk allocation table'));
+  details.appendChild(buildTable(t.columns, rows, t.types, sectionTable('allocation', ['host', 'ip']), {
     picker: true,
     rowAction: { column: 'node', when: function (r) { return r[0] !== 'UNASSIGNED'; }, label: function (r) { return 'Filter by node ' + cellText(r[0]); }, run: function (r) { setFilter('node', r[0]); } }
   }).node);
+  body.appendChild(details);
+}
+
+// One usage bar per data node with ticks at the default watermarks; unassigned shards below.
+function diskBars(sec, rows) {
+  var c = function (n) { return colIndex(sec, n); };
+  var wrap = el('div', null, 'disk-list');
+  var unassigned = 0;
+  rows.forEach(function (r) {
+    var name = r[c('node')];
+    if (name === 'UNASSIGNED') { if (typeof r[c('shards')] === 'number') unassigned += r[c('shards')]; return; }
+    var pct = r[c('disk.percent')];
+    var row = el('div', null, 'disk-row');
+    var who = el('div', null, 'who');
+    var link = button(cellText(name), function () { setFilter('node', name); }, 'link disk-node');
+    link.setAttribute('aria-label', 'Filter by node ' + cellText(name));
+    who.appendChild(link);
+    row.appendChild(who);
+    row.appendChild(usageBar(pct, cellText(name) + ': ' + (typeof pct === 'number' ? pct + '% disk used' : 'disk use unknown'), typeof pct === 'number' ? diskTone(pct) : '', DISK_WATERMARKS));
+    var figs = el('div', null, 'figs');
+    figs.appendChild(el('strong', typeof pct === 'number' ? pct + '%' : '\u2014'));
+    var used = r[c('disk.used')], total = r[c('disk.total')], shards = r[c('shards')];
+    var extra = [];
+    if (typeof used === 'number' && typeof total === 'number') extra.push(formatBytes(used) + ' of ' + formatBytes(total));
+    if (typeof shards === 'number') extra.push(plural(shards, 'shard'));
+    if (extra.length) figs.appendChild(document.createTextNode(' \u00b7 ' + extra.join(' \u00b7 ')));
+    row.appendChild(figs);
+    wrap.appendChild(row);
+  });
+  if (!wrap.childNodes.length) wrap.appendChild(el('div', 'No data nodes report disk use.', 'notice empty'));
+  var legend = el('div', null, 'legend-line');
+  [['low', 0], ['high', 1], ['flood stage', 2]].forEach(function (w) {
+    var item = el('span');
+    item.appendChild(el('span', null, 'tick'));
+    item.appendChild(document.createTextNode(w[0] + ' ' + DISK_WATERMARKS[w[1]] + '%'));
+    legend.appendChild(item);
+  });
+  legend.appendChild(el('span', 'OpenSearch default watermarks'));
+  if (unassigned) legend.appendChild(el('span', plural(unassigned, 'shard') + ' unassigned', 'status-text-unassigned'));
+  wrap.appendChild(legend);
+  return wrap;
 }
 
 var SECTION_RENDERERS = { health: healthSection, nodes: nodesSection, indices: indicesSection, shards: shardsSection, allocation: allocationSection };
@@ -340,9 +436,9 @@ function renderOverview(data) {
   var h = data.sections.health && data.sections.health.status === 'ok' ? data.sections.health.data || {} : {};
   var name = h.cluster_name || '';
   // The header's own Refresh would say less; this one names what it refreshes.
-  app.appendChild(header(Object.assign({}, data, { refreshable: false }), 'Cluster overview' + (name ? ': ' + name : ''), [h.status ? statusBadge(healthStatus(h)) : null], [
-    canCallBack(data) ? button('Refresh all', function () { callBack(data, {}, 'Refreshing all sections\u2026'); }, 'callback refresh refresh-all') : null
-  ]));
+  app.appendChild(header(Object.assign({}, data, { refreshable: false }), 'Cluster overview' + (name ? ': ' + name : ''), [], [
+    canCallBack(data) ? withIcon(button('Refresh all', function () { callBack(data, {}, 'Refreshing all sections\u2026'); }, 'callback refresh refresh-all'), 'refresh') : null
+  ], { badges: [h.status ? statusBadge(healthStatus(h)) : null] }));
   if (!canCallBack(data)) app.appendChild(el('div', 'This host does not let views call tools, so sections cannot be refreshed here. Ask the assistant to run ' + (data.tool || 'ClusterOverviewTool') + ' again.', 'notice degraded'));
   var status = el('div', null, 'muted handoff-status');
   status.setAttribute('role', 'status');
@@ -358,6 +454,7 @@ function renderOverview(data) {
 
 startView({
   name: 'opensearch-cluster-overview',
+  icon: 'cluster',
   unsupportedText: 'This response has no cluster overview; the text result is unchanged.',
   accepts: function (data) { return data.kind === 'cluster_overview' && !!data.sections && typeof data.sections === 'object' && Array.isArray(data.requested); },
   render: renderOverview

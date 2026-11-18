@@ -27,20 +27,70 @@ function pagingControls(data) {
   var bar = el('span', null, 'paging');
   var label = n === 1 ? 'hit ' + formatNumber(from + 1) : n ? 'hits ' + formatNumber(from + 1) + '\u2013' + formatNumber(from + n) : from ? 'No hits after hit ' + formatNumber(from) : 'No hits';
   if (typeof m.total === 'number' && (n || m.total)) label += ' of ' + formatNumber(m.total) + (m.total_relation === 'gte' ? '+' : '');
-  var prev = button('Previous page', function () {
+  var prev = iconButton('Previous page', 'prev', function () {
     var q = withFrom(toolInput.query_dsl, Math.max(0, from - size));
     if (q !== null) callBack(data, { query_dsl: q }, 'Loading page\u2026');
   }, 'callback page-prev');
   prev.disabled = from === 0;
-  var next = button('Next page', function () {
+  var next = iconButton('Next page', 'next', function () {
     var q = withFrom(toolInput.query_dsl, from + n);
     if (q !== null) callBack(data, { query_dsl: q }, 'Loading page\u2026');
   }, 'callback page-next');
   next.disabled = n === 0 || (exact && from + n >= m.total);
-  bar.appendChild(prev); bar.appendChild(document.createTextNode(' '));
-  bar.appendChild(el('span', label, 'stat page-label')); bar.appendChild(document.createTextNode(' '));
+  bar.appendChild(el('span', label, 'stat page-label'));
+  bar.appendChild(prev);
   bar.appendChild(next);
   return bar;
+}
+
+// The PPL query as code, with commands and pipes set off.
+var PPL_KEYWORDS = /^(source|search|where|fields|stats|sort|head|tail|eval|dedup|rename|top|rare|parse|grok|patterns|lookup|join|fillnull|trendline|eventstats|timechart|bin|by|as|span|and|or|not|in|like)$/i;
+function pplQueryBlock(query) {
+  var pre = el('pre', null, 'query');
+  pre.setAttribute('aria-label', 'PPL query');
+  String(query).split(/(\||\b[A-Za-z_]+\b)/).forEach(function (part) {
+    if (!part) return;
+    if (part === '|') pre.appendChild(el('span', part, 'pipe'));
+    else if (PPL_KEYWORDS.test(part)) pre.appendChild(el('span', part, 'kw'));
+    else pre.appendChild(document.createTextNode(part));
+  });
+  return pre;
+}
+// One line for the search DSL: the main clause, then size, sort and aggregations.
+function dslSummary(dsl) {
+  if (typeof dsl === 'string') { try { dsl = JSON.parse(dsl); } catch (e) { return clip(dsl, 240); } }
+  if (!dsl || typeof dsl !== 'object' || Array.isArray(dsl)) return '';
+  var q = dsl.query && typeof dsl.query === 'object' ? dsl.query : (dsl.size === undefined && !dsl.aggs && !dsl.sort ? dsl : null);
+  var parts = [];
+  var keys = q ? Object.keys(q) : [];
+  if (keys.length === 1 && q[keys[0]] && typeof q[keys[0]] === 'object') {
+    var k = keys[0], v = q[keys[0]];
+    if (k === 'match_all') parts.push('match_all');
+    else if (typeof v.query === 'string') parts.push(k + ' "' + v.query + '"' + (Array.isArray(v.fields) ? ' in ' + v.fields.join(', ') : ''));
+    else if (k === 'bool') parts.push('bool: ' + ['must', 'filter', 'should', 'must_not'].filter(function (c) { return v[c]; }).map(function (c) { return c + ' ' + (Array.isArray(v[c]) ? v[c].length : 1); }).join(', '));
+    else {
+      var f = Object.keys(v)[0];
+      var val = f && v[f] && typeof v[f] === 'object' ? (v[f].query !== undefined ? v[f].query : v[f].value) : f && v[f];
+      parts.push(k + (f ? ' ' + f + (val !== undefined && typeof val !== 'object' ? ' = ' + JSON.stringify(val) : '') : ''));
+    }
+  } else if (q) parts.push(JSON.stringify(q));
+  if (typeof dsl.size === 'number') parts.push('size ' + dsl.size);
+  if (dsl.sort) parts.push('sort ' + JSON.stringify(dsl.sort));
+  if (dsl.aggs || dsl.aggregations) parts.push('aggregations: ' + Object.keys(dsl.aggs || dsl.aggregations).join(', '));
+  return clip(parts.join(' \u00b7 '), 240);
+}
+function searchQueryBlock() {
+  if (!toolInput || toolInput.query_dsl === undefined) return null;
+  var text = dslSummary(toolInput.query_dsl);
+  if (!text) return null;
+  var pre = el('pre', text, 'query');
+  pre.setAttribute('aria-label', 'Query');
+  pre.title = typeof toolInput.query_dsl === 'string' ? toolInput.query_dsl : JSON.stringify(toolInput.query_dsl, null, 2);
+  return pre;
+}
+function pplSource(query) {
+  var m = /\bsource\s*=\s*([^\s|]+)/i.exec(query || '');
+  return m ? m[1].replace(/`/g, '') : null;
 }
 
 function pplEditor(data) {
@@ -55,10 +105,12 @@ function pplEditor(data) {
   box.appendChild(area);
   var bar = el('div', null, 'toolbar');
   // The assistant's intent and suggestions described its own query, not the edited one.
-  bar.appendChild(button('Run', function () {
+  var run = function () {
     if (area.value.trim()) callBack(data, { query: area.value, intent: undefined, suggestions: undefined }, 'Running\u2026');
-  }, 'callback ppl-run'));
-  bar.appendChild(el('span', 'Runs any PPL you enter through ' + data.tool + ' with the same connection and other arguments; the assistant sees only its own calls.', 'muted'));
+  };
+  area.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); run(); } });
+  bar.appendChild(withIcon(button('Run', run, 'primary callback ppl-run'), 'play'));
+  bar.appendChild(el('span', 'Runs any PPL you enter through ' + data.tool + ' with the same connection and other arguments; the assistant sees only its own calls. Ctrl+Enter runs it.', 'muted'));
   box.appendChild(bar);
   return box;
 }
@@ -68,6 +120,7 @@ function deepLink(data) {
   if (!hostCapabilities.openLinks) return null;
   if (typeof m.dashboards_url !== 'string' || !/^https?:\/\//i.test(m.dashboards_url)) return null;
   var link = button('View in OpenSearch Dashboards', null, 'deep-link');
+  link.appendChild(icon('external'));
   link.title = data.kind === 'search_hits' ? 'Opens the index in Discover; the query DSL is not carried over.' : 'Opens this PPL query in Discover.';
   link.addEventListener('click', function () {
     request('ui/open-link', { url: m.dashboards_url }).then(function (r) {
@@ -79,7 +132,8 @@ function deepLink(data) {
 
 function renderResults(data) {
   var m = data.meta || {};
-  var title = data.kind === 'ppl_rows' ? 'PPL' : 'Search ' + (m.index || '');
+  var ppl = data.kind === 'ppl_rows';
+  var title = ppl ? (pplSource(m.query) || 'PPL query') : 'Search ' + (m.index || '');
   var stats = [];
   if (m.total !== undefined && m.total !== null) {
     stats.push('total: ' + formatNumber(m.total) + (data.kind === 'search_hits' && m.total_relation === 'gte' ? '+' : ''));
@@ -89,34 +143,42 @@ function renderResults(data) {
   if (m.took !== undefined && m.took !== null) stats.push('took: ' + formatNumber(m.took) + ' ms');
   if (m._shards) stats.push('shards: ' + m._shards.successful + '/' + m._shards.total);
   if (m.timed_out) stats.push('timed out');
-  app.appendChild(header(data, title, stats, [deepLink(data)]));
-  var paging = pagingControls(data);
-  if (paging) { var pbar = el('div', null, 'toolbar paging-bar'); pbar.appendChild(paging); app.appendChild(pbar); }
+  // Display shape: one level of nested objects becomes dotted columns. Copy and download
+  // follow the displayed columns; the text result keeps the original documents.
+  var flat = data.rows.length ? flattenColumns(data.columns, data.rows, m.column_types, VIEW_MAX_COLUMNS) : null;
+  var view = flat ? Object.assign({}, data, { columns: flat.columns, rows: flat.rows }) : data;
+  var types = columnTypes(view.columns, view.rows, flat ? flat.types : m.column_types, m.integer_strings);
+  var ts = data.rows.length ? timeSeriesSpec(view, types) : null;
+  var bars = ts || !data.rows.length ? null : barSpec(view, types);
+  app.appendChild(header(data, title, stats, [deepLink(data)], { icon: ts ? 'line' : bars ? 'bars' : ppl ? 'table' : 'search' }));
+  var queryBlock = ppl ? (typeof m.query === 'string' && m.query ? pplQueryBlock(m.query) : null) : searchQueryBlock();
+  if (queryBlock) app.appendChild(queryBlock);
   var editor = pplEditor(data);
   if (editor) app.appendChild(editor);
   var trunc = truncationNotice(data);
   if (trunc) app.appendChild(trunc);
-  if (data.rows.length === 0) { if (!trunc) app.appendChild(el('div', 'No rows.', 'notice')); appendAggregations(m); return; }
-  // Display shape: one level of nested objects becomes dotted columns. Copy and download
-  // follow the displayed columns; the text result keeps the original documents.
-  var flat = flattenColumns(data.columns, data.rows, m.column_types, VIEW_MAX_COLUMNS);
-  var view = flat ? Object.assign({}, data, { columns: flat.columns, rows: flat.rows }) : data;
-  var types = columnTypes(view.columns, view.rows, flat ? flat.types : m.column_types, m.integer_strings);
-  var ts = timeSeriesSpec(view, types);
-  var bars = ts ? null : barSpec(view, types);
+  var paging = pagingControls(data);
+  var pbar = null;
+  if (paging) { pbar = el('div', null, 'toolbar paging-bar'); pbar.appendChild(paging); }
+  if (data.rows.length === 0) {
+    if (!trunc) app.appendChild(el('div', 'No rows.', 'notice empty'));
+    if (pbar) app.appendChild(pbar);
+    appendAggregations(m);
+    return;
+  }
   var chart = ts ? buildTimeSeries(view, ts, types) : bars ? buildBarChart(view, bars) : null;
   var section = buildDataSection(view, view.columns, view.rows, types, resultsState.table, {
     chipExclude: ['_id', '_score'],
-    chipSkipNumeric: data.kind === 'ppl_rows',
+    chipSkipNumeric: ppl,
     rowsStat: rowsStat,
     onRows: function (rows) { if (chart) chart.setRows(rows); }
   });
   if (section.chips) app.appendChild(section.chips);
-  app.appendChild(section.toolbar);
-  app.appendChild(section.stats);
   if (chart) {
-    var bar = el('div', null, 'toolbar');
-    var showChart = button('Chart'), showTable = button('Table');
+    var seg = el('div', null, 'seg');
+    seg.setAttribute('role', 'group');
+    seg.setAttribute('aria-label', 'Show as');
+    var showChart = withIcon(button('Chart'), ts ? 'line' : 'bars'), showTable = withIcon(button('Table'), 'table');
     var mode = function (useChart) {
       resultsState.chart = useChart;
       showChart.setAttribute('aria-pressed', String(useChart));
@@ -125,13 +187,18 @@ function renderResults(data) {
     };
     showChart.addEventListener('click', function () { mode(true); });
     showTable.addEventListener('click', function () { mode(false); });
-    bar.appendChild(showChart); bar.appendChild(showTable);
-    app.appendChild(bar);
+    seg.appendChild(showChart); seg.appendChild(showTable);
+    section.toolbar.insertBefore(seg, section.toolbar.firstChild);
+  }
+  app.appendChild(section.toolbar);
+  app.appendChild(section.stats);
+  if (chart) {
     app.appendChild(chart.node);
     chart.setRows(section.filtered());
     mode(resultsState.chart);
   }
   app.appendChild(section.table.node);
+  if (pbar) app.appendChild(pbar);
   appendAggregations(m);
 }
 
@@ -149,6 +216,7 @@ function appendAggregations(m) {
 
 startView({
   name: 'opensearch-results',
+  icon: 'search',
   unsupportedText: 'This output format has no table view. Use the jdbc (PPL) or json (search) format to see a table; the text result is unchanged.',
   accepts: function (data) { return (data.kind === 'search_hits' || data.kind === 'ppl_rows') && Array.isArray(data.columns) && Array.isArray(data.rows); },
   render: renderResults

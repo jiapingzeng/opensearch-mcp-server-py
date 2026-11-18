@@ -13,6 +13,7 @@ function renderMapping(data) {
 
 startView({
   name: 'opensearch-mapping',
+  icon: 'tree',
   unsupportedText: 'This response has no mapping tree; the text result is unchanged.',
   accepts: function (data) { return data.kind === 'index_mapping' && Array.isArray(data.indices); },
   render: renderMapping

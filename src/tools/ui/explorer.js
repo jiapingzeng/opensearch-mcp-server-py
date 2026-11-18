@@ -151,7 +151,7 @@ function drawDetail() {
   if (row && h >= 0 && row[h]) head.appendChild(statusLabel(row[h]));
   var title = el('h2', cellText(index));
   title.id = 'detail-title';
-  head.appendChild(title);
+  head.insertBefore(title, head.firstChild);
   pane.appendChild(head);
   var tabs = el('div', null, 'tabs');
   tabs.setAttribute('role', 'tablist');
@@ -282,7 +282,7 @@ function tableState(name) {
 function dataTab(panel, data, columns, rows, types, key, opts) {
   var trunc = truncationNotice(Object.assign({}, data, { columns: columns, rows: rows }));
   if (trunc) panel.appendChild(trunc);
-  if (!rows.length) { panel.appendChild(el('div', 'No rows.', 'notice')); return; }
+  if (!rows.length) { panel.appendChild(el('div', 'No rows.', 'notice empty')); return; }
   var section = buildDataSection(data, columns, rows, types, tableState(key), opts);
   if (section.chips) panel.appendChild(section.chips);
   panel.appendChild(section.toolbar);
@@ -336,7 +336,7 @@ function renderExplorer(data) {
   search.value = explorerState.query;
   search.setAttribute('aria-label', 'Filter indices by name');
   search.addEventListener('input', function () { explorerState.query = search.value; drawList(); });
-  left.appendChild(search);
+  left.appendChild(searchBox(search));
   var count = el('div', null, 'muted list-count');
   count.setAttribute('aria-live', 'polite');
   left.appendChild(count);
@@ -354,6 +354,7 @@ function renderExplorer(data) {
 
 startView({
   name: 'opensearch-index-explorer',
+  icon: 'database',
   unsupportedText: 'This response has no index explorer; the text result is unchanged.',
   accepts: function (data) { return data.kind === 'index_explorer' && !!data.list && typeof data.list === 'object'; },
   render: renderExplorer
