@@ -566,7 +566,7 @@ describe('time buckets', () => {
     const rows = [];
     for (let s = 0; s < 10; s++) for (const h of [0, 1]) rows.push([s + 1, span(h), 'svc' + s]);
     const v = await openView('results', {}, {}, pplResult(q, ['count()', 'span(@timestamp,1h)', 'service'], rows, ['bigint', 'timestamp', 'string']));
-    const legend = [...v.doc.querySelectorAll('.legend > span')].map((s) => s.textContent);
+    const legend = [...v.doc.querySelectorAll('.legend > .legend-item')].map((s) => s.textContent);
     assert.deepEqual(legend, ['svc9', 'svc8', 'svc7', 'svc6', 'svc5', 'svc4', 'Other (4 series)']);
     assert.equal(v.doc.querySelectorAll('.time-series path.line').length, 7);
     assert.equal(v.doc.querySelector('.series-note').textContent, 'The 6 largest of 10 series are drawn; the rest are summed as Other.');
@@ -653,7 +653,7 @@ describe('filters and stats', () => {
     const v = await openView('results', {}, SEARCH_INPUT, result());
     assert.equal(v.doc.querySelector('.rows-stat').textContent, 'rows: 6');
     [...v.doc.querySelectorAll('button.chip')].find((b) => b.textContent === 'checkout (3)').click();
-    assert.equal(v.doc.querySelector('.rows-stat').textContent, 'rows: 3 of 6 shown');
+    assert.equal(v.doc.querySelector('.rows-stat').textContent, '3 of 6 rows match the filters');
     const select = v.doc.querySelector('select.stats-column');
     select.value = 'service'; select.dispatchEvent(new v.window.Event('change'));
     assert.equal(v.doc.querySelector('.stats-scope').textContent, 'service over 6 rows; its own filter (service = checkout) is not applied (computed in the view, not by OpenSearch)');
@@ -726,7 +726,7 @@ describe('keys that shadow Object.prototype', () => {
     const v = await openView('results', {}, SEARCH_INPUT, searchResult({ columns: ['_index', 'constructor', '__proto__'], rows }));
     assert.deepEqual(headerNames(v.doc), ['_index', 'constructor', '__proto__']);
     [...v.doc.querySelectorAll('button.chip')].find((b) => b.textContent === 'a (2)').click();
-    assert.equal(v.doc.querySelector('.rows-stat').textContent, 'rows: 2 of 3 shown');
+    assert.equal(v.doc.querySelector('.rows-stat').textContent, '2 of 3 rows match the filters');
     const select = v.doc.querySelector('select.stats-column');
     select.value = 'constructor'; select.dispatchEvent(new v.window.Event('change'));
     assert.match(v.doc.querySelector('.stats-scope').textContent, /its own filter \(constructor = a\) is not applied/);
@@ -753,7 +753,8 @@ describe('keys that shadow Object.prototype', () => {
     });
     const sub = mapping.doc.querySelectorAll('ul.tree ul.tree')[1];
     assert.equal(sub.hidden, true, 'depth-1 node collapsed by default, not opened by an inherited key');
-    assert.equal(mapping.doc.querySelector('.type-summary').textContent, 'types: keyword 1, object 2');
+    assert.deepEqual([...mapping.doc.querySelectorAll('.type-summary .type')].map((t) => [t.className, t.textContent]),
+      [['type t-keyword', 'keyword1'], ['type t-object', 'object2']]);
   });
 });
 
@@ -1614,5 +1615,172 @@ describe('index explorer', () => {
     const list = { ...sc.list, meta: { ...sc.list.meta, truncated: true, row_count: 900 } };
     const v = await openView('explorer', OV_CAPS, EX_INPUT, ok({ ...sc, list }));
     assert.equal(v.doc.querySelector('.list-count').textContent, '3 indices (first 3 of 900)');
+  });
+});
+
+describe('design pass: shares, menus and theme', () => {
+  const barRows = [[50, 'checkout'], [30, 'search'], [20, 'payments']];
+  const bars = (q, columns, extra) => pplResult(q, columns, barRows, ['bigint', 'string'], extra);
+  const pcts = (v) => [...v.doc.querySelectorAll('.bar-chart text.bar-pct')].map((t) => t.textContent);
+
+  test('bar shares appear for count and sum over every group, with one decimal and a labelled column', async () => {
+    const v = await openView('results', {}, {}, bars('source=x | stats count() by service', ['count()', 'service']));
+    assert.deepEqual(pcts(v), ['50.0%', '30.0%', '20.0%']);
+    assert.equal(v.doc.querySelector('.bar-chart text.share-head').textContent, '% of total');
+    const sum = await openView('results', {}, {}, bars('source=x | stats sum(bytes) as total by service', ['total', 'service']));
+    assert.equal(pcts(sum).length, 3);
+  });
+
+  test('distinct counts and averages get no share', async () => {
+    for (const [q, col] of [['source=x | stats dc(user) by service', 'dc(user)'], ['source=x | stats distinct_count(user) as users by service', 'users'],
+      ['source=x | stats avg(latency) by service', 'avg(latency)']]) {
+      const v = await openView('results', {}, {}, bars(q, [col, 'service']));
+      assert.deepEqual(pcts(v), [], q);
+      assert.equal(v.doc.querySelector('.bar-chart text.share-head'), null, q);
+    }
+  });
+
+  test('distinct-count series are not summed into Other', async () => {
+    const q = 'source=ts | stats dc(user) by span(@timestamp, 1h), service';
+    const span = (h) => `2026-11-01 0${h}:00:00`;
+    const rows = [];
+    for (let s = 0; s < 9; s++) for (const h of [0, 1]) rows.push([s + 1, span(h), 'svc' + s]);
+    const v = await openView('results', {}, {}, pplResult(q, ['dc(user)', 'span', 'service'], rows, ['bigint', 'timestamp', 'string']));
+    assert.equal(v.doc.querySelector('.series-note').textContent, 'The 7 largest of 9 series are drawn; see the table for the rest.');
+    assert.ok(![...v.doc.querySelectorAll('.legend-item')].some((b) => /Other/.test(b.textContent)));
+  });
+
+  test('no share when only some groups are returned or the result is truncated', async () => {
+    for (const q of ['source=x | stats count() by service | sort - `count()` | head 2', 'source=x | top 3 service',
+      'source=x | stats count() by service | where `count()` > 10']) {
+      const v = await openView('results', {}, {}, bars(q, ['count()', 'service']));
+      assert.deepEqual(pcts(v), [], q);
+    }
+    const cut = await openView('results', {}, {}, bars('source=x | stats count() by service', ['count()', 'service'],
+      { meta: { query: 'source=x | stats count() by service', column_types: ['bigint', 'string'], truncated: true, row_count: 9 } }));
+    assert.deepEqual(pcts(cut), []);
+  });
+
+  test('a split with too many values is not charted and says why', async () => {
+    const q = 'source=ts | stats count() by span(@timestamp, 1h), host';
+    const rows = [];
+    for (let s = 0; s < 51; s++) rows.push([1, '2026-11-01 00:00:00', 'h' + s], [2, '2026-11-01 01:00:00', 'h' + s]);
+    const v = await openView('results', {}, {}, pplResult(q, ['count()', 'span', 'host'], rows, ['bigint', 'timestamp', 'string']));
+    assert.equal(v.doc.querySelector('.chart-card'), null);
+    assert.match(v.doc.querySelector('.notice.chart-skipped').textContent, /^Not charted: host has 51 distinct values, more than the 50/);
+  });
+
+  test('PPL titles describe the result, not the source', async () => {
+    const v = await openView('results', {}, {}, bars('source=web-logs | stats count() by service', ['count()', 'service']));
+    assert.equal(v.doc.querySelector('header .title').textContent, 'count() by service');
+    const rows = await openView('results', {}, {}, pplResult('source=web-logs | fields a', ['a'], [['x'], ['y']], ['string']));
+    assert.equal(rows.doc.querySelector('header .title').textContent, 'Rows from web-logs');
+  });
+
+  test('selected rows are counted inline with a shortcut to add them to the context', async () => {
+    const v = await openView('results', { updateModelContext: { text: {} } }, SEARCH_INPUT, searchResult());
+    const sel = v.doc.querySelector('.selection');
+    assert.equal(sel.hidden, true);
+    v.doc.querySelector('tbody td.select input').click();
+    assert.equal(sel.hidden, false);
+    assert.equal(sel.querySelector('.n').textContent, '1 selected');
+    sel.querySelector('button.add-context-inline').click();
+    await flush();
+    assert.equal(v.request('ui/update-model-context').method, 'ui/update-model-context');
+    v.doc.querySelector('tbody td.select input').click();
+    assert.equal(sel.hidden, true);
+  });
+
+  test('choosing a menu item returns focus to the menu button; focus leaving the menu closes it', async () => {
+    const v = await openView('results', {}, SEARCH_INPUT, searchResult());
+    Object.defineProperty(v.window.navigator, 'clipboard', { value: { writeText: () => Promise.resolve() }, configurable: true });
+    const menu = v.doc.querySelector('details.more-actions');
+    const summary = menu.querySelector('summary');
+    menu.open = true;
+    const item = menu.querySelector('button.copy-csv');
+    item.focus();
+    item.click();
+    assert.equal(menu.open, false);
+    assert.equal(v.doc.activeElement, summary);
+    menu.open = true;
+    item.focus();
+    const outside = v.doc.querySelector('th button.sort');
+    item.dispatchEvent(new v.window.FocusEvent('focusout', { bubbles: true, relatedTarget: outside }));
+    assert.equal(menu.open, false);
+    menu.open = true;
+    item.dispatchEvent(new v.window.FocusEvent('focusout', { bubbles: true, relatedTarget: menu.querySelector('button.copy-json') }));
+    assert.equal(menu.open, true);
+  });
+
+  test('data-theme follows the host theme and is removed when the host sends none', async () => {
+    const v = load('results');
+    await v.reply('ui/initialize', { protocolVersion: '2026-01-26', hostCapabilities: {}, hostContext: {} });
+    const root = v.doc.documentElement;
+    assert.equal('theme' in root.dataset, false);
+    v.deliver({ method: 'ui/notifications/host-context-changed', params: { theme: 'dark' } });
+    assert.equal(root.dataset.theme, 'dark');
+    assert.equal(root.style.colorScheme, 'dark');
+    v.deliver({ method: 'ui/notifications/host-context-changed', params: { theme: 'sepia' } });
+    assert.equal('theme' in root.dataset, false);
+    assert.equal(root.style.colorScheme, '');
+  });
+
+  test('every token has a plain fallback: no light-dark(), dark values keyed on data-theme and the system preference', () => {
+    const css = read('common.css');
+    assert.doesNotMatch(css, /light-dark\(/);
+    const tokens = (block) => new Set([...block.matchAll(/(--_[\w-]+)\s*:/g)].map((m) => m[1]));
+    const light = tokens(css.slice(css.indexOf(':root {'), css.indexOf(':root[data-theme="dark"]')));
+    const dark = css.slice(css.indexOf(':root[data-theme="dark"] {'), css.indexOf('@media (prefers-color-scheme: dark)'));
+    const system = css.slice(css.indexOf(':root:not([data-theme]) {'), css.indexOf('html, body'));
+    assert.deepEqual([...tokens(dark)].sort(), [...tokens(system)].sort());
+    for (const t of tokens(dark)) assert.ok(light.has(t), t + ' has no light value');
+    for (const m of css.matchAll(/--os-[\w-]+:\s*var\(--[\w-]+,\s*([^;]+);/g)) assert.doesNotMatch(m[1], /light-dark/);
+  });
+
+  test('icons are filled OUI paths and the overflow menu icon has no stroke width', async () => {
+    const v = await openView('results', {}, SEARCH_INPUT, searchResult());
+    const paths = [...v.doc.querySelectorAll('svg.icon path')];
+    assert.ok(paths.length > 0);
+    assert.ok(paths.every((p) => !p.hasAttribute('stroke-width')));
+  });
+});
+
+describe('design pass: overview', () => {
+  test('filtering leaves the health section and its focus alone; an indices refresh updates only its tiles', async () => {
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult());
+    const health = v.doc.querySelector('.section-health');
+    const refresh = health.querySelector('button.section-refresh');
+    refresh.focus();
+    v.doc.querySelector('.section-nodes button.row-action').click();
+    assert.equal(v.doc.querySelector('.section-health'), health);
+    assert.equal(v.doc.activeElement, refresh);
+    assert.equal(v.doc.querySelector('.kpi-indices .kpi-value').textContent, '2');
+    v.doc.querySelector('.section-indices button.section-refresh').click();
+    await flush();
+    const fresh = overviewResult({ requested: ['indices'], sections: { indices: table(['health', 'index', 'docs.count', 'store.size'], [['green', 'a', 1, 10], ['green', 'b', 1, 10], ['green', 'c', 1, 10]],
+      ['string', 'string', 'number', 'bytes'], { summary: { count: 3, by_health: { green: 3 }, docs: 3, store_bytes: 30, largest: [] } }) } });
+    v.deliver({ id: lastCall(v).id, result: fresh });
+    await flush();
+    assert.equal(v.doc.querySelector('.section-health'), health);
+    assert.equal(v.doc.querySelector('.section-health .section-refresh'), refresh);
+    assert.equal(v.doc.querySelector('.kpi-indices .kpi-value').textContent, '3');
+  });
+
+  test('no header status badge; zero secondary counters hidden; disk bars mark only the high watermark', async () => {
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult({ sections: {
+      health: { status: 'ok', data: { cluster_name: 'demo', status: 'yellow', number_of_nodes: 2, unassigned_shards: 0, relocating_shards: 0, number_of_pending_tasks: 3, active_shards_percent_as_number: 75 } } } }));
+    assert.equal(v.doc.querySelector('header .status-badge'), null);
+    assert.ok(v.doc.querySelector('.section-health .metric.number_of_pending_tasks'));
+    assert.equal(v.doc.querySelector('.section-health .metric.relocating_shards'), null);
+    assert.equal(v.doc.querySelector('.section-health .metric.unassigned_shards .value').textContent, '0', 'primary tiles show zero');
+    const marks = [...v.doc.querySelectorAll('.section-allocation .usage-mark')];
+    assert.ok(marks.length > 0 && marks.every((m) => m.style.left === '90%'));
+    assert.match(marks[0].title, /High disk watermark, 90%/);
+  });
+
+  test('nodes show name, roles, heap, cpu and disk by default', async () => {
+    const cols = ['name', 'ip', 'node.role', 'cluster_manager', 'heap.percent', 'ram.percent', 'cpu', 'load_1m', 'load_5m', 'load_15m', 'disk.used_percent'];
+    const v = await openView('overview', OV_CAPS, OV_INPUT, overviewResult({ sections: { nodes: table(cols, [['n1', '10.0.0.1', 'dimr', '*', 40, 70, 5, 0.1, 0.1, 0.1, 20]], cols.map((c, i) => (i < 4 ? 'string' : 'number'))) } }));
+    assert.deepEqual([...v.doc.querySelectorAll('.section-nodes th button.sort')].map((b) => b.textContent), ['name', 'node.role', 'heap.percent', 'cpu', 'disk.used_percent']);
   });
 });

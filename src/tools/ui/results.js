@@ -92,6 +92,17 @@ function pplSource(query) {
   var m = /\bsource\s*=\s*([^\s|]+)/i.exec(query || '');
   return m ? m[1].replace(/`/g, '') : null;
 }
+// A PPL title that says what the rows are, such as "count() by service"; the query block below
+// already names the source. Charts name their axes; otherwise the last stats clause is used.
+function pplTitle(view, ts, bars, query) {
+  var col = function (i) { return cellText(view.columns[i], 60); };
+  if (ts) return ts.values.map(col).join(', ') + (ts.category >= 0 ? ' by ' + col(ts.category) : '') + ' over time';
+  if (bars) return col(bars.value) + ' by ' + col(bars.label);
+  var stats = String(query || '').split('|').map(function (c) { return c.trim(); }).filter(function (c) { return /^stats\s/i.test(c); }).pop();
+  if (stats) return clip(stats.replace(/^stats\s+/i, ''), 80);
+  var source = pplSource(query);
+  return source ? 'Rows from ' + source : 'PPL query';
+}
 
 function pplEditor(data) {
   if (data.kind !== 'ppl_rows' || !canCallBack(data) || typeof toolInput.query !== 'string') return null;
@@ -133,12 +144,12 @@ function deepLink(data) {
 function renderResults(data) {
   var m = data.meta || {};
   var ppl = data.kind === 'ppl_rows';
-  var title = ppl ? (pplSource(m.query) || 'PPL query') : 'Search ' + (m.index || '');
   var stats = [];
   if (m.total !== undefined && m.total !== null) {
     stats.push('total: ' + formatNumber(m.total) + (data.kind === 'search_hits' && m.total_relation === 'gte' ? '+' : ''));
   }
-  var rowsStat = rowCountStat(data.rows.length);
+  var paging = pagingControls(data);
+  var rowsStat = rowCountStat(data.rows.length, !!paging);
   stats.push(rowsStat.node);
   if (m.took !== undefined && m.took !== null) stats.push('took: ' + formatNumber(m.took) + ' ms');
   if (m._shards) stats.push('shards: ' + m._shards.successful + '/' + m._shards.total);
@@ -149,7 +160,13 @@ function renderResults(data) {
   var view = flat ? Object.assign({}, data, { columns: flat.columns, rows: flat.rows }) : data;
   var types = columnTypes(view.columns, view.rows, flat ? flat.types : m.column_types, m.integer_strings);
   var ts = data.rows.length ? timeSeriesSpec(view, types) : null;
-  var bars = ts || !data.rows.length ? null : barSpec(view, types);
+  var skipped = null;
+  if (ts && ts.tooMany) {
+    skipped = el('div', 'Not charted: ' + cellText(view.columns[ts.category]) + ' has ' + formatNumber(ts.tooMany) + ' distinct values, more than the ' + SERIES_SPLIT_MAX + ' a chart can tell apart. Filter the query, or use top or head to keep fewer.', 'notice chart-skipped');
+    ts = null;
+  }
+  var bars = ts || skipped || !data.rows.length ? null : barSpec(view, types);
+  var title = ppl ? pplTitle(view, ts, bars, m.query) : 'Search ' + (m.index || '');
   app.appendChild(header(data, title, stats, [deepLink(data)], { icon: ts ? 'line' : bars ? 'bars' : ppl ? 'table' : 'search' }));
   var queryBlock = ppl ? (typeof m.query === 'string' && m.query ? pplQueryBlock(m.query) : null) : searchQueryBlock();
   if (queryBlock) app.appendChild(queryBlock);
@@ -157,7 +174,7 @@ function renderResults(data) {
   if (editor) app.appendChild(editor);
   var trunc = truncationNotice(data);
   if (trunc) app.appendChild(trunc);
-  var paging = pagingControls(data);
+  if (skipped) app.appendChild(skipped);
   var pbar = null;
   if (paging) { pbar = el('div', null, 'toolbar paging-bar'); pbar.appendChild(paging); }
   if (data.rows.length === 0) {

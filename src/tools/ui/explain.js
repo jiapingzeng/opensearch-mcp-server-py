@@ -40,21 +40,24 @@ function renderExplain(data) {
   if (data.matched && top.length) {
     var card = el('div', null, 'panel');
     card.appendChild(el('div', 'Top contributors', 'label'));
-    var t = el('table', null, 'contributors');
+    // Each clause as a percentage of the document score, without bars: clauses inside max or
+    // dis_max can each approach the whole score, so their percentages need not add up to 100.
+    var t = el('table', null, 'contributors plain');
     var total = typeof e.value === 'number' && e.value > 0 ? e.value : null;
+    var hr = el('tr');
+    hr.appendChild(el('th', 'Score', 'num'));
+    if (total) hr.appendChild(el('th', '% of score', 'num'));
+    hr.appendChild(el('th', 'Clause'));
+    var thead = el('thead'); thead.appendChild(hr); t.appendChild(thead);
+    var tbody = el('tbody');
     top.forEach(function (n) {
       var tr = el('tr');
       tr.appendChild(el('td', formatNumber(n.value), 'num'));
-      var bar = el('td', null, 'share');
-      if (total) {
-        var frac = Math.min(1, n.value / total);
-        bar.appendChild(inlineBar(frac));
-        bar.appendChild(document.createTextNode(formatPercent(100 * n.value / total)));
-      }
-      tr.appendChild(bar);
+      if (total) tr.appendChild(el('td', (100 * n.value / total).toFixed(1) + '%', 'num share'));
       tr.appendChild(el('td', cellText(n.description), 'description'));
-      t.appendChild(tr);
+      tbody.appendChild(tr);
     });
+    t.appendChild(tbody);
     card.appendChild(t);
     app.appendChild(card);
   }

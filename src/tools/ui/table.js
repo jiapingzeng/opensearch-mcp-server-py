@@ -9,6 +9,8 @@ var STATS_TOP_VALUES = 5;
 var NUMERIC_TYPES = ['byte', 'short', 'integer', 'int', 'long', 'bigint', 'float', 'double', 'half_float',
   'scaled_float', 'decimal', 'unsigned_long', 'number', 'bytes'];
 var STATUS_COLUMNS = ['health', 'status', 'state'];
+// Values shown OuiHealth style, with a coloured dot before the word.
+var HEALTH_VALUES = ['green', 'yellow', 'red', 'started', 'unassigned', 'initializing', 'relocating', 'open', 'close'];
 
 function isNumericType(t) { return NUMERIC_TYPES.indexOf(String(t || '').toLowerCase()) >= 0; }
 
@@ -203,7 +205,7 @@ function buildTable(columns, rows, types, state, opts) {
         box.type = 'checkbox';
         box.setAttribute('aria-label', 'Select ' + name);
         box.addEventListener('click', function (ev) { ev.stopPropagation(); });
-        box.addEventListener('change', function () { if (box.checked) selected.add(row); else selected.delete(row); });
+        box.addEventListener('change', function () { if (box.checked) selected.add(row); else selected.delete(row); selectionChanged(); });
         td0.appendChild(box);
         entry.box = box;
       }
@@ -214,7 +216,10 @@ function buildTable(columns, rows, types, state, opts) {
       var cls = [];
       if (v === null || v === undefined) cls.push('null');
       if (isNumericType(types[i])) cls.push('num');
-      if (STATUS_COLUMNS.indexOf(columns[i]) >= 0 && typeof v === 'string' && /^[a-z_]+$/i.test(v)) cls.push('status-' + v.toLowerCase());
+      if (STATUS_COLUMNS.indexOf(columns[i]) >= 0 && typeof v === 'string' && /^[a-z_]+$/i.test(v)) {
+        cls.push('status-' + v.toLowerCase());
+        if (HEALTH_VALUES.indexOf(v.toLowerCase()) >= 0) cls.push('health-cell', 'status-text-' + v.toLowerCase());
+      }
       var td = el('td', null, cls.join(' '));
       var action = opts.rowAction;
       if (action && columns[i] === action.column && v !== null && v !== undefined && (!action.when || action.when(row))) {
@@ -246,6 +251,7 @@ function buildTable(columns, rows, types, state, opts) {
         all.addEventListener('change', function () {
           rows.forEach(function (r) { if (all.checked) selected.add(r); else selected.delete(r); });
           syncChecks();
+          selectionChanged();
         });
         th0.appendChild(all);
       }
@@ -263,6 +269,7 @@ function buildTable(columns, rows, types, state, opts) {
     });
     thead.appendChild(hr);
   }
+  function selectionChanged() { if (opts.onSelect) opts.onSelect(selected.size); }
   function syncChecks() {
     built.forEach(function (entry) { if (entry.box) entry.box.checked = selected.has(entry.row); });
     var all = thead.querySelector('input.select-all');
@@ -299,6 +306,7 @@ function buildTable(columns, rows, types, state, opts) {
       var keep = new Set(next);
       selected.forEach(function (r) { if (!keep.has(r)) selected.delete(r); });
       draw();
+      selectionChanged();
     },
     shownColumns: function () { var v = visible(); return { indexes: v, names: v.map(function (i) { return columns[i]; }), types: v.map(function (i) { return types[i]; }) }; },
     shownRows: function () { return order().map(function (i) { return rows[i]; }); },
@@ -488,11 +496,15 @@ function exportControls(table, data) {
   return { items: items, status: status };
 }
 
-// Header stat for the row count: "rows: 6", or "rows: 3 of 6 shown" while filters apply.
-function rowCountStat(total) {
+// Header stat for the row count: "rows: 6", or "3 of 6 rows match the filters" while chip filters
+// apply. With `onPage` (search hits, whose paging label already counts them) it is empty until a
+// filter applies, and then counts hits on this page.
+function rowCountStat(total, onPage) {
   var node = el('span', null, 'stat rows-stat');
+  var noun = onPage ? 'hit' : 'row';
   var update = function (shown) {
-    node.textContent = 'rows: ' + (shown === total ? formatNumber(total) : formatNumber(shown) + ' of ' + formatNumber(total) + ' shown');
+    if (shown === total) node.textContent = onPage ? '' : 'rows: ' + formatNumber(total);
+    else node.textContent = formatNumber(shown) + ' of ' + plural(total, noun) + (onPage ? ' on this page' : '') + ' match the filters';
   };
   update(total);
   return { node: node, update: update };
@@ -520,7 +532,12 @@ function buildDataSection(data, columns, rows, types, state, opts) {
     var g = groups.filter(function (x) { return x.name === name; })[0];
     return name + ' = ' + (g ? g.labels[state.filters[name]] : '?');
   }
-  var table = buildTable(columns, filtered(), types, state, { picker: true, detail: true, selectable: true });
+  var selection = el('span', null, 'selection');
+  selection.hidden = true;
+  var table = buildTable(columns, filtered(), types, state, { picker: true, detail: true, selectable: true, onSelect: function (n) {
+    selection.hidden = n === 0;
+    selectionCount.textContent = formatNumber(n) + ' selected';
+  } });
   var stats = statsPanel(columns, types, state, function (name) {
     return {
       rows: filtered(name),
@@ -542,7 +559,15 @@ function buildDataSection(data, columns, rows, types, state, opts) {
   var bar = el('div', null, 'toolbar data-tools');
   var exports = exportControls(table, data);
   var ctx = contextControls(data, function () { return table.shownColumns(); }, function () { return table.selectedRows(); });
+  // "3 selected · Add to context": copy and download also use the selection.
+  var selectionCount = el('span', null, 'n');
+  selection.appendChild(selectionCount);
+  if (ctx) {
+    selection.appendChild(document.createTextNode('\u00b7'));
+    selection.appendChild(button('Add to context', function () { ctx.add.click(); }, 'link add-context-inline'));
+  }
   var statusLine = el('span', null, 'status');
+  statusLine.appendChild(selection);
   statusLine.appendChild(exports.status);
   if (ctx) { statusLine.appendChild(document.createTextNode(' ')); statusLine.appendChild(ctx.status); }
   bar.appendChild(statusLine);

@@ -9,6 +9,8 @@ var SERIES_MAX = 8;
 // More series than this become the largest SERIES_SHOWN - 1 plus "Other" (or the largest
 // SERIES_SHOWN when values cannot be summed).
 var SERIES_SHOWN = 7;
+// A split with more distinct values than this is not charted: the table is more useful.
+var SERIES_SPLIT_MAX = 50;
 var FILL_MAX_BUCKETS = 2000;
 var CHART_DEFAULT_WIDTH = 720;
 var CHAR_PX = 6.6;  // 11-12px UI font advance with tabular figures, for label layout
@@ -54,6 +56,25 @@ function countLikeColumns(columns, query) {
   var re = /\b(?:count|dc|distinct_count)\s*\([^)]*\)\s+as\s+`?([\w.@]+)`?/gi, m;
   while ((m = re.exec(query || ''))) aliases[m[1]] = true;
   return columns.map(function (c) { return /^(count|dc|distinct_count)\s*\(/i.test(String(c)) || c === 'count' || !!aliases[c]; });
+}
+
+// Column names whose values add up across rows: count() and sum(), and their `as` aliases. Distinct
+// counts (dc, distinct_count) count zero-filled buckets but do not add up, so they are left out.
+function summableColumns(columns, query) {
+  var aliases = dict();
+  var re = /\b(?:count|sum)\s*\([^)]*\)\s+as\s+`?([\w.@]+)`?/gi, m;
+  while ((m = re.exec(query || ''))) aliases[m[1]] = true;
+  return columns.map(function (c) { return /^(count|sum)\s*\(/i.test(String(c)) || c === 'count' || !!aliases[c]; });
+}
+
+// True when the rows are only some of the groups: a head, top, rare or where after stats, or a
+// top or rare query. A share of their total would then not be a share of the whole.
+function partialGroups(query) {
+  var commands = String(query || '').split('|').map(function (c) { return c.trim().split(/\s+/)[0].toLowerCase(); });
+  var stats = commands.indexOf('stats');
+  return commands.some(function (c, i) {
+    return c === 'top' || c === 'rare' || (stats >= 0 && i > stats && (c === 'head' || c === 'where'));
+  });
 }
 
 // Fills missing buckets with 0 when the series is count-like and the grid is regular; returns
@@ -167,11 +188,17 @@ function timeSeriesSpec(data, types) {
   });
   if (time < 0 || !values.length || others > 1) return null;
   if (category >= 0 && values.length > 1) return null;
+  if (category >= 0) {
+    var distinct = dict(), n = 0;
+    data.rows.forEach(function (r) { var k = valueKey(r[category]); if (!(k in distinct)) { distinct[k] = 1; n++; } });
+    if (n > SERIES_SPLIT_MAX) return { tooMany: n, category: category };
+  }
   return { time: time, values: values.slice(0, SERIES_MAX), category: category };
 }
 
-// Ranked horizontal bars: label, a rounded bar on a track, the share of the total (count-like
-// values only, where a total means something) and the value.
+// Ranked horizontal bars: label, a rounded bar on a track, the share of the total and the value.
+// The share appears only for summable values over every group (no head, top, rare or where after
+// stats, nothing truncated), and is labelled with the rows it is a share of.
 function buildBarChart(data, spec) {
   var card = el('div', null, 'panel chart-card');
   var wrap = el('div', null, 'chart-wrap bar-chart');
@@ -179,8 +206,9 @@ function buildBarChart(data, spec) {
   var note = el('div', null, 'muted chart-note');
   wrap.appendChild(holder);
   card.appendChild(wrap); card.appendChild(note);
-  var query = (data.meta && data.meta.query) || '';
-  var share = countLikeColumns(data.columns, query)[spec.value];
+  var m = data.meta || {};
+  var query = m.query || '';
+  var share = summableColumns(data.columns, query)[spec.value] && !partialGroups(query) && !m.truncated;
   var current = [];
   function render() {
     holder.textContent = '';
@@ -192,18 +220,22 @@ function buildBarChart(data, spec) {
     var width = chartWidth(wrap);
     var labels = shown.map(function (r) { return r[spec.label] === null || r[spec.label] === undefined ? '(null)' : cellText(r[spec.label]); });
     var values = shown.map(function (r) { return formatNumber(r[spec.value]); });
-    var rowH = 28, barH = 10;
-    var valueW = Math.ceil(Math.max.apply(null, values.map(function (s) { return s.length; }).concat(1)) * CHAR_PX * 1.1) + 4;
-    var pctW = share && total > 0 ? 48 : 0;
+    var rowH = 28, barH = 10, headH = 20;
+    var valueName = cellText(data.columns[spec.value]);
+    var valueW = Math.ceil(Math.max.apply(null, values.map(function (s) { return s.length; }).concat(valueName.length * 0.9, 1)) * CHAR_PX * 1.1) + 4;
+    var pctW = share && total > 0 ? 56 : 0;
     var longest = Math.max.apply(null, labels.map(function (s) { return s.length; }).concat(4));
     var labelW = Math.min(Math.max(80, Math.ceil(longest * CHAR_PX * 1.1) + 14), Math.round(width * (width < 480 ? 0.4 : 0.32)));
     var barW = Math.max(40, width - labelW - pctW - valueW - 16);
-    var chart = svg('svg', { 'class': 'chart', width: '100%', viewBox: '0 0 ' + width + ' ' + Math.max(rowH, shown.length * rowH), role: 'img' });
+    var chart = svg('svg', { 'class': 'chart', width: '100%', viewBox: '0 0 ' + width + ' ' + (headH + Math.max(rowH, shown.length * rowH)), role: 'img' });
     chart.appendChild(svg('title', {}, data.columns[spec.value] + ' by ' + data.columns[spec.label]));
     var labelChars = Math.max(4, Math.floor((labelW - 14) / (CHAR_PX * 1.1)));
+    chart.appendChild(svg('text', { 'class': 'bar-head', x: 0, y: 12 }, clip(cellText(data.columns[spec.label]), labelChars)));
+    if (pctW) chart.appendChild(svg('text', { 'class': 'bar-head share-head', x: labelW + barW + 8 + pctW - 6, y: 12, 'text-anchor': 'end' }, '% of total'));
+    chart.appendChild(svg('text', { 'class': 'bar-head', x: width, y: 12, 'text-anchor': 'end' }, valueName));
     shown.forEach(function (r, i) {
       var v = typeof r[spec.value] === 'number' ? r[spec.value] : 0;
-      var mid = i * rowH + rowH / 2;
+      var mid = headH + i * rowH + rowH / 2;
       chart.appendChild(svg('text', { 'class': 'bar-label', x: 0, y: mid + 4 }, clip(labels[i], labelChars)));
       chart.appendChild(svg('rect', { 'class': 'track', x: labelW, y: mid - barH / 2, width: barW, height: barH, rx: barH / 2 }));
       var w = max > 0 && v > 0 ? Math.max(4, (v / max) * barW) : 0;
@@ -212,13 +244,23 @@ function buildBarChart(data, spec) {
         bar.appendChild(svg('title', {}, labels[i] + ': ' + values[i]));
         chart.appendChild(bar);
       }
-      if (pctW) chart.appendChild(svg('text', { 'class': 'bar-pct', x: labelW + barW + 8 + pctW - 6, y: mid + 4, 'text-anchor': 'end' }, formatPercent(100 * Math.max(0, v) / total)));
+      if (pctW) chart.appendChild(svg('text', { 'class': 'bar-pct', x: labelW + barW + 8 + pctW - 6, y: mid + 4, 'text-anchor': 'end' }, sharePercent(Math.max(0, v), total)));
       chart.appendChild(svg('text', { 'class': 'bar-value', x: width, y: mid + 4, 'text-anchor': 'end' }, values[i]));
     });
     holder.appendChild(chart);
+    // Chip filters narrow the rows, so say what the share is of.
+    if (pctW && current.length !== data.rows.length) note.textContent = (note.textContent ? note.textContent + ' ' : '') + 'Shares are of the ' + plural(current.length, 'row') + ' matching the filters.';
   }
   onWidthChange(wrap, render);
   return { node: card, setRows: function (rows) { current = rows; render(); } };
+}
+
+// A share as a percentage with one decimal, so a column of them lines up.
+function sharePercent(part, total) {
+  if (!(total > 0)) return '';
+  var pct = 100 * part / total;
+  if (pct > 0 && pct < 0.05) return '<0.1%';
+  return pct.toFixed(1) + '%';
 }
 
 function durationLabel(ms) {
@@ -231,9 +273,12 @@ function buildTimeSeries(data, spec) {
   var H = 256, R = 12, T = 28, B = 30;
   var query = (data.meta && data.meta.query) || '';
   var countLike = countLikeColumns(data.columns, query);
+  var summable = summableColumns(data.columns, query);
   var card = el('div', null, 'panel chart-card');
   var head = el('div', null, 'chart-head');
   var legend = el('div', null, 'legend');
+  legend.setAttribute('role', 'group');
+  legend.setAttribute('aria-label', 'Series; choose one to highlight it');
   var meta = el('div', null, 'muted chart-meta');
   head.appendChild(legend); head.appendChild(meta);
   var wrap = el('div', null, 'chart-wrap time-series');
@@ -245,12 +290,14 @@ function buildTimeSeries(data, spec) {
   var seriesNote = el('div', null, 'muted series-note');
   card.appendChild(head); card.appendChild(wrap); card.appendChild(note); card.appendChild(seriesNote);
   var valueName = spec.values.map(function (i) { return data.columns[i]; }).join(', ');
+  // Series highlighted from the legend: pinned by a click, previewed on hover or focus.
+  var pinned = null;
 
   // Every series, then the largest by total when there are too many to tell apart.
   function seriesOf(rows) {
     var series = [], byKey = dict();
     function get(key, name, column) {
-      if (!(key in byKey)) { byKey[key] = series.length; series.push({ name: name, column: column, points: {}, total: 0 }); }
+      if (!(key in byKey)) { byKey[key] = series.length; series.push({ key: key, name: name, column: column, points: {}, total: 0 }); }
       return series[byKey[key]];
     }
     rows.forEach(function (r) {
@@ -267,12 +314,13 @@ function buildTimeSeries(data, spec) {
     series.forEach(function (s, n) { s.color = n; });
     if (series.length <= SERIES_SHOWN) return { series: series, dropped: 0, of: series.length };
     var ranked = series.slice().sort(function (a, b) { return b.total - a.total || a.color - b.color; });
-    var summable = spec.category >= 0 && countLike[spec.values[0]];
-    var keep = ranked.slice(0, summable ? SERIES_SHOWN - 1 : SERIES_SHOWN);
+    // Only values that add up (count, sum) can be merged into Other.
+    var merge = spec.category >= 0 && summable[spec.values[0]];
+    var keep = ranked.slice(0, merge ? SERIES_SHOWN - 1 : SERIES_SHOWN);
     keep.forEach(function (s, n) { s.color = n; });
-    if (summable) {
+    if (merge) {
       var rest = ranked.slice(SERIES_SHOWN - 1);
-      var other = { name: 'Other (' + rest.length + ' series)', column: spec.values[0], points: {}, total: 0, color: 7, other: true };
+      var other = { key: 'other:', name: 'Other (' + rest.length + ' series)', column: spec.values[0], points: {}, total: 0, color: 'other', other: true };
       rest.forEach(function (s) { Object.keys(s.points).forEach(function (t) { other.points[t] = (other.points[t] || 0) + s.points[t]; }); });
       keep.push(other);
       return { series: keep, dropped: 0, merged: rest.length, of: series.length };
@@ -294,6 +342,7 @@ function buildTimeSeries(data, spec) {
     var gaps = !filled && series.some(function (s) { return segments(s.points, ts, interval).length > 1; });
     var integer = series.every(function (s) { return Object.keys(s.points).every(function (t) { return Number.isInteger(s.points[t]); }); });
     model = { series: series, ts: ts, interval: interval, filled: filled, gaps: gaps, integer: integer, picked: picked };
+    if (pinned !== null && !series.some(function (s) { return s.key === pinned; })) pinned = null;
   }
 
   function render() {
@@ -332,28 +381,50 @@ function buildTimeSeries(data, spec) {
       var anchor = px - half < L - 8 ? 'start' : px + half > W ? 'end' : 'middle';
       chart.appendChild(svg('text', { 'class': 'x-tick', x: px, y: H - B + 20, 'text-anchor': anchor }, tickLabel(t, xt.step, oneDay)));
     });
-    meta.textContent = data.columns[spec.time] + ' \u00b7 UTC' + (oneDay ? ' \u00b7 ' + new Date(t0).toISOString().slice(0, 10) : '') +
-      (interval ? ' \u00b7 ' + durationLabel(interval.ms) + ' buckets' : '');
+    // The bucket size is in the query (span), so the meta line names only the axis and its zone.
+    meta.textContent = data.columns[spec.time] + ' \u00b7 UTC' + (oneDay ? ' \u00b7 ' + new Date(t0).toISOString().slice(0, 10) : '');
     var base = y(Math.min(Math.max(0, yMin), yMax)).toFixed(1);
     var fill = series.length <= 3;
+    var groups = [];
     series.forEach(function (s) {
-      var cls = 'series-' + s.color;
+      var cls = 'series-' + s.color + (s.other ? ' other' : '');
+      var g = svg('g', { 'class': 'series' });
       var segs = segments(s.points, ts, interval);
       var line = '', area = '';
       segs.forEach(function (seg) {
         var d = seg.map(function (t, i) { return (i ? 'L' : 'M') + x(t).toFixed(1) + ' ' + y(s.points[t]).toFixed(1); }).join(' ');
         line += (line ? ' ' : '') + d;
         if (seg.length > 1) area += (area ? ' ' : '') + d + ' L' + x(seg[seg.length - 1]).toFixed(1) + ' ' + base + ' L' + x(seg[0]).toFixed(1) + ' ' + base + ' Z';
-        if (seg.length === 1) chart.appendChild(svg('circle', { 'class': 'point ' + cls, cx: x(seg[0]).toFixed(1), cy: y(s.points[seg[0]]).toFixed(1), r: 3.5 }));
+        if (seg.length === 1) g.appendChild(svg('circle', { 'class': 'point ' + cls, cx: x(seg[0]).toFixed(1), cy: y(s.points[seg[0]]).toFixed(1), r: 3.5 }));
       });
-      if (fill && area) chart.appendChild(svg('path', { 'class': 'area ' + cls, d: area }));
-      chart.appendChild(svg('path', { 'class': 'line ' + cls, d: line }));
-      var item = el('span');
-      var sw = svg('svg', { width: 10, height: 10, 'class': 'swatch ' + cls, 'aria-hidden': 'true' });
-      sw.appendChild(svg('rect', { width: 10, height: 10, rx: 3 }));
+      if (fill && area) g.appendChild(svg('path', { 'class': 'area ' + cls, d: area }));
+      if (series.length > 1) g.appendChild(svg('path', { 'class': 'halo', d: line }));
+      g.appendChild(svg('path', { 'class': 'line ' + cls, d: line }));
+      chart.appendChild(g);
+      groups.push(g);
+      var item = series.length > 1 ? button(null, null, 'legend-item') : el('span', null, 'legend-item');
+      var sw = svg('svg', { width: 12, height: 8, viewBox: '0 0 12 8', 'class': 'swatch ' + cls, 'aria-hidden': 'true' });
+      sw.appendChild(s.other ? svg('line', { x1: 0, y1: 4, x2: 12, y2: 4 }) : svg('rect', { width: 12, height: 8, rx: 2 }));
       item.appendChild(sw); item.appendChild(document.createTextNode(s.name));
+      if (series.length > 1) {
+        item.setAttribute('aria-pressed', String(pinned === s.key));
+        item.addEventListener('mouseenter', function () { isolate(s.key); });
+        item.addEventListener('focus', function () { isolate(s.key); });
+        item.addEventListener('mouseleave', function () { isolate(pinned); });
+        item.addEventListener('blur', function () { isolate(pinned); });
+        item.addEventListener('click', function () {
+          pinned = pinned === s.key ? null : s.key;
+          legend.querySelectorAll('button.legend-item').forEach(function (b, n) { b.setAttribute('aria-pressed', String(series[n].key === pinned)); });
+          isolate(pinned);
+        });
+      }
       legend.appendChild(item);
     });
+    function isolate(key) {
+      chart.classList.toggle('isolating', key !== null);
+      groups.forEach(function (g, n) { g.classList.toggle('focus', series[n].key === key); });
+    }
+    isolate(pinned);
     var guide = svg('line', { 'class': 'guide', x1: 0, y1: T, x2: 0, y2: H - B, visibility: 'hidden' });
     chart.appendChild(guide);
     var dots = series.map(function (s) { var c = svg('circle', { r: 4, 'class': 'hover-dot series-' + s.color, visibility: 'hidden' }); chart.appendChild(c); return c; });
@@ -362,37 +433,69 @@ function buildTimeSeries(data, spec) {
     function hide() { tip.hidden = true; guide.setAttribute('visibility', 'hidden'); dots.forEach(function (d) { d.setAttribute('visibility', 'hidden'); }); }
     overlay.addEventListener('mousemove', function (ev) {
       var box = chart.getBoundingClientRect();
-      var px = (ev.clientX - box.left) * W / box.width;
+      var scale = box.width / W;
+      var px = (ev.clientX - box.left) / scale;
       var target = t0 + (px - L) / plotW * (t1 - t0);
       var best = ts[0];
       ts.forEach(function (t) { if (Math.abs(t - target) < Math.abs(best - target)) best = t; });
       guide.setAttribute('x1', x(best)); guide.setAttribute('x2', x(best)); guide.setAttribute('visibility', 'visible');
       tip.textContent = '';
-      tip.appendChild(el('div', timeLabel(best) + ' UTC', 'tt-head'));
+      // The date is in the meta line for a one-day chart, so the tooltip shows only the time.
+      tip.appendChild(el('div', oneDay ? timeLabel(best).slice(11) + ' UTC' : timeLabel(best) + ' UTC', 'tt-head'));
+      var rows = [];
       series.forEach(function (s, n) {
         var has = best in s.points;
         dots[n].setAttribute('visibility', has ? 'visible' : 'hidden');
         if (has) { dots[n].setAttribute('cx', x(best)); dots[n].setAttribute('cy', y(s.points[best])); }
-        var row = el('div', null, 'tt-row series-' + s.color);
+        rows.push({ s: s, v: has ? s.points[best] : null });
+      });
+      // Largest first; Other and missing values last.
+      rows.sort(function (a, b) { return (!!a.s.other - !!b.s.other) || ((a.v === null) - (b.v === null)) || (b.v - a.v) || 0; });
+      rows.forEach(function (r) {
+        var row = el('div', null, 'tt-row series-' + r.s.color);
         row.appendChild(el('span', null, 'swatch'));
-        row.appendChild(el('span', s.name + ':', 'tt-name'));
+        row.appendChild(el('span', r.s.name + ':', 'tt-name'));
         row.appendChild(document.createTextNode(' '));
-        row.appendChild(el('span', has ? formatNumber(s.points[best]) : '\u2014', 'tt-val'));
+        row.appendChild(el('span', r.v !== null ? formatNumber(r.v) : '\u2014', 'tt-val'));
         tip.appendChild(row);
       });
       tip.hidden = false;
-      // Flip to the other side of the cursor near the right and top edges.
-      var wrapBox = wrap.getBoundingClientRect();
-      var cx = ev.clientX - wrapBox.left, cy = ev.clientY - wrapBox.top;
-      var left = cx + 14;
-      if (left + tip.offsetWidth > wrapBox.width) left = cx - tip.offsetWidth - 14;
-      var top = cy - tip.offsetHeight - 10;
-      if (top < 0) top = cy + 16;
-      tip.style.left = Math.max(0, Math.min(left, wrapBox.width - tip.offsetWidth)) + 'px';
-      tip.style.top = Math.max(0, Math.min(top, wrapBox.height - tip.offsetHeight)) + 'px';
+      placeTip(x(best) * scale + (box.left - wrap.getBoundingClientRect().left), function (left, right) {
+        // Line positions the box would cover: each series sampled every 6px under it.
+        var lo = left / scale, hi = right / scale;
+        var ys = [];
+        series.forEach(function (s) {
+          var pts = ts.filter(function (t) { return t in s.points; }).map(function (t) { return [x(t), y(s.points[t])]; });
+          for (var i = 1; i < pts.length; i++) {
+            var a = pts[i - 1], b = pts[i];
+            if (b[0] < lo || a[0] > hi) continue;
+            for (var px = Math.max(lo, a[0]); px <= Math.min(hi, b[0]); px += 6) ys.push((a[1] + (b[1] - a[1]) * (px - a[0]) / ((b[0] - a[0]) || 1)) * scale);
+          }
+        });
+        return ys;
+      });
     });
     overlay.addEventListener('mouseleave', hide);
     holder.appendChild(chart);
+  }
+  // Beside the guide line, on whichever side and at the top or bottom of the plot covers the
+  // fewest data points; ties keep it right of the cursor and at the top.
+  function placeTip(gx, pointsUnder) {
+    var ww = wrap.clientWidth, wh = wrap.clientHeight;
+    var tw = tip.offsetWidth, th = tip.offsetHeight;
+    var gap = 12, top = T, bottom = Math.max(T, H - B - th);
+    var best = null;
+    [gx + gap, gx - gap - tw].forEach(function (left) {
+      if (left < 0 || left + tw > ww) return;
+      var ys = pointsUnder(left, left + tw);
+      [top, bottom].forEach(function (t) {
+        var covered = ys.filter(function (py) { return py >= t - 4 && py <= t + th + 4; }).length;
+        if (!best || covered < best.covered) best = { left: left, top: t, covered: covered };
+      });
+    });
+    if (!best) best = { left: Math.max(0, Math.min(gx + gap, ww - tw)), top: top };
+    tip.style.left = best.left + 'px';
+    tip.style.top = Math.max(0, Math.min(best.top, wh - th)) + 'px';
   }
   onWidthChange(wrap, function () { if (model) render(); });
   return { node: card, setRows: function (rows) { prepare(rows); render(); } };

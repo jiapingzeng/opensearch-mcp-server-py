@@ -12,6 +12,10 @@ var OVERVIEW_METRICS = HEALTH_METRICS.filter(function (m) { return ['number_of_i
 var LARGEST_SHOWN = 10;
 // OpenSearch default disk watermarks (low, high, flood stage); the cluster may override them.
 var DISK_WATERMARKS = [85, 90, 95];
+// Bars mark only the high watermark: three ticks in the last 15% crowd together.
+var HIGH_WATERMARK_MARK = [{ at: DISK_WATERMARKS[1], label: 'High disk watermark, ' + DISK_WATERMARKS[1] + '% (OpenSearch default)' }];
+// Node columns shown by default; the column picker has the rest.
+var NODE_COLUMNS_SHOWN = ['name', 'node.role', 'heap.percent', 'cpu', 'disk.used_percent'];
 var overviewState = { filter: { node: null, index: null }, tables: dict(), allIndices: false, allShards: false, busy: dict(), errors: dict(), refreshed: dict() };
 var overview = null;
 var sectionNodes = dict();
@@ -47,10 +51,14 @@ function cutNote(sec, shown) {
   return el('div', (parts.length ? 'Showing ' + parts.join(' and ') : 'Shortened to fit the view') + '; the text tools (' + SECTION_TOOLS[sec.name] + ') return everything.', 'notice truncated');
 }
 
+// Health ignores the filters, so it is not redrawn: a redraw would drop focus inside it.
+function drawFiltered() {
+  overview.requested.forEach(function (n) { if (n !== 'health') drawSection(n); });
+}
 function setFilter(kind, value) {
   overviewState.filter[kind] = value;
   drawFilterBar();
-  overview.requested.forEach(drawSection);
+  drawFiltered();
 }
 function drawFilterBar() {
   var bar = app.querySelector('.filter-bar');
@@ -66,7 +74,7 @@ function drawFilterBar() {
     chip.setAttribute('aria-label', 'Remove filter ' + k + ' ' + cellText(f[k]));
     bar.appendChild(chip);
   });
-  bar.appendChild(button('Clear filters', function () { overviewState.filter = { node: null, index: null }; drawFilterBar(); overview.requested.forEach(drawSection); }, 'clear-filters'));
+  bar.appendChild(button('Clear filters', function () { overviewState.filter = { node: null, index: null }; drawFilterBar(); drawFiltered(); }, 'clear-filters'));
 }
 
 // Names that would read differently in the message than on screen: hidden, control, format
@@ -114,6 +122,8 @@ function refreshSection(name) {
     else if (!sc || sc.kind !== 'cluster_overview' || sc.version !== PAYLOAD_VERSION || !sc.sections || !sc.sections[name]) overviewState.errors[name] = 'The tool returned no data for this section.';
     else { overview.sections[name] = sc.sections[name]; overviewState.refreshed[name] = new Date(); }
     drawSection(name);
+    // The health tiles summarise indices and disk use; only the tiles are redrawn.
+    if (!r.error && (name === 'indices' || name === 'allocation')) redrawHealthTiles();
   });
 }
 
@@ -169,9 +179,17 @@ function drawSection(name) {
   node.appendChild(body);
   if (sectionNodes[name] && sectionNodes[name].parentNode) sectionNodes[name].parentNode.replaceChild(node, sectionNodes[name]);
   sectionNodes[name] = node;
-  // The health tiles summarise indices and disk use, so they follow those sections.
-  if ((name === 'indices' || name === 'allocation') && sectionNodes.health && sectionNodes.health.parentNode) drawSection('health');
   return node;
+}
+// Replaces the health section's tiles in place, leaving its heading and buttons (and focus) alone.
+function redrawHealthTiles() {
+  var sec = overview.sections.health;
+  var node = sectionNodes.health;
+  if (!sec || sec.status !== 'ok' || !node || overviewState.busy.health) return;
+  var old = node.querySelector('.health-tiles');
+  if (!old) return;
+  var fresh = healthTiles(sec);
+  old.parentNode.replaceChild(fresh, old);
 }
 
 // Disk totals across data nodes from the allocation section, or null when it is not loaded.
@@ -186,9 +204,11 @@ function diskTotals() {
 }
 function diskTone(pct) { return pct >= DISK_WATERMARKS[1] ? 'high' : pct >= DISK_WATERMARKS[0] ? 'warn' : ''; }
 
-// KPI row: status, nodes, indices, shards, unassigned and disk used, then the smaller counters.
-function healthSection(sec, body) {
+// KPI row: status, nodes, indices, shards, unassigned and disk used, then the non-zero smaller counters.
+function healthSection(sec, body) { body.appendChild(healthTiles(sec)); }
+function healthTiles(sec) {
   var h = sec.data || {};
+  var wrap = el('div', null, 'health-tiles section-body');
   var main = el('div', null, 'card kpis');
   main.appendChild(statusTile(h));
   var tile = function (key, label, sub) {
@@ -207,20 +227,21 @@ function healthSection(sec, body) {
     add(kpiTile('Indices', formatNumber(idx.summary.count || 0), parts.join(' \u00b7 ') || null, null, 'kpi-indices'));
   }
   add(tile('active_shards', 'Active shards', typeof h.active_primary_shards === 'number' ? plural(h.active_primary_shards, 'primary', 'primaries') : null));
-  add(tile('unassigned_shards', 'Unassigned shards', h.unassigned_shards > 0 && typeof h.delayed_unassigned_shards === 'number' && h.delayed_unassigned_shards ? formatNumber(h.delayed_unassigned_shards) + ' delayed' : null));
+  add(tile('unassigned_shards', 'Unassigned', h.unassigned_shards > 0 && typeof h.delayed_unassigned_shards === 'number' && h.delayed_unassigned_shards ? formatNumber(h.delayed_unassigned_shards) + ' delayed' : null));
   var disk = diskTotals();
   if (disk) {
     var value = el('span', formatPercent(disk.pct));
     var t = kpiTile('Disk used', value, formatBytes(disk.used) + ' of ' + formatBytes(disk.total), diskTone(disk.pct) === 'high' ? 'alert' : diskTone(disk.pct) ? 'warn' : null, 'kpi-disk');
-    t.appendChild(usageBar(disk.pct, formatPercent(disk.pct) + ' of disk used across data nodes', diskTone(disk.pct), DISK_WATERMARKS));
+    t.appendChild(usageBar(disk.pct, formatPercent(disk.pct) + ' of disk used across data nodes', diskTone(disk.pct), HIGH_WATERMARK_MARK));
     add(t);
   }
-  body.appendChild(main);
+  wrap.appendChild(main);
   var rest = el('div', null, 'card secondary');
   OVERVIEW_METRICS.forEach(function (spec) {
-    if (spec[0] in h && ['number_of_nodes', 'number_of_data_nodes', 'active_primary_shards', 'active_shards', 'unassigned_shards'].indexOf(spec[0]) < 0) rest.appendChild(metricTile(h, spec));
+    if (shownSecondary(h, spec[0]) && PRIMARY_METRICS.indexOf(spec[0]) < 0) rest.appendChild(metricTile(h, spec));
   });
-  if (rest.childNodes.length) body.appendChild(rest);
+  if (rest.childNodes.length) wrap.appendChild(rest);
+  return wrap;
 }
 
 function nodesSection(sec, body) {
@@ -229,7 +250,7 @@ function nodesSection(sec, body) {
   var note = cutNote(sec, sec.rows.length);
   if (note) body.appendChild(note);
   var nameCol = colIndex(sec, 'name');
-  body.appendChild(buildTable(sec.columns, rows, sectionTypes(sec), sectionTable('nodes', ['ip', 'load_5m', 'load_15m']), {
+  body.appendChild(buildTable(sec.columns, rows, sectionTypes(sec), sectionTable('nodes', sec.columns.filter(function (c) { return NODE_COLUMNS_SHOWN.indexOf(c) < 0; })), {
     picker: true,
     rowAction: { column: 'name', label: function (r) { return 'Filter by node ' + cellText(r[nameCol]); }, run: function (r) { setFilter('node', r[nameCol]); } }
   }).node);
@@ -253,9 +274,10 @@ function indicesSection(sec, body) {
   body.appendChild(head);
   var note = cutNote(sec, sec.rows.length);
   if (note) body.appendChild(note);
-  // Name, health and size first, so the size bars stay in view in a half-width card.
-  var t = leading(sec, ['index', 'health', 'store.size', 'docs.count', 'pri', 'rep']);
-  var keep = ['index', 'health', 'docs.count', 'store.size', 'pri', 'rep'];
+  // Name and size first, so the size stays in view in a half-width card and at 360px.
+  var t = leading(sec, ['index', 'store.size', 'health', 'docs.count', 'pri', 'rep']);
+  // pri and rep are in the column picker; four columns fit a half-width card without scrolling.
+  var keep = ['index', 'health', 'docs.count', 'store.size'];
   var hidden = dict();
   t.columns.forEach(function (c) { if (keep.indexOf(c) < 0) hidden[c] = true; });
   var idx = t.columns.indexOf('index');
@@ -269,7 +291,9 @@ function indicesSection(sec, body) {
   }
   body.appendChild(el('div', 'Largest indices', 'label'));
   var lt = sectionTable('indices-largest'); lt.hidden = hidden;
-  body.appendChild(buildTable(t.columns, t.rows.slice(0, LARGEST_SHOWN), t.types, lt, { rowAction: action, barColumns: ['store.size'] }).node);
+  var largest = buildTable(t.columns, t.rows.slice(0, LARGEST_SHOWN), t.types, lt, { rowAction: action, barColumns: ['store.size'] }).node;
+  largest.classList.add('largest-indices');
+  body.appendChild(largest);
   if (t.rows.length > LARGEST_SHOWN) {
     var all = el('details', null, 'all-indices');
     all.open = overviewState.allIndices;
@@ -400,7 +424,7 @@ function diskBars(sec, rows) {
     link.setAttribute('aria-label', 'Filter by node ' + cellText(name));
     who.appendChild(link);
     row.appendChild(who);
-    row.appendChild(usageBar(pct, cellText(name) + ': ' + (typeof pct === 'number' ? pct + '% disk used' : 'disk use unknown'), typeof pct === 'number' ? diskTone(pct) : '', DISK_WATERMARKS));
+    row.appendChild(usageBar(pct, cellText(name) + ': ' + (typeof pct === 'number' ? pct + '% disk used' : 'disk use unknown'), typeof pct === 'number' ? diskTone(pct) : '', HIGH_WATERMARK_MARK));
     var figs = el('div', null, 'figs');
     figs.appendChild(el('strong', typeof pct === 'number' ? pct + '%' : '\u2014'));
     var used = r[c('disk.used')], total = r[c('disk.total')], shards = r[c('shards')];
@@ -413,14 +437,11 @@ function diskBars(sec, rows) {
   });
   if (!wrap.childNodes.length) wrap.appendChild(el('div', 'No data nodes report disk use.', 'notice empty'));
   var legend = el('div', null, 'legend-line');
-  [['low', 0], ['high', 1], ['flood stage', 2]].forEach(function (w) {
-    var item = el('span');
-    item.appendChild(el('span', null, 'tick'));
-    item.appendChild(document.createTextNode(w[0] + ' ' + DISK_WATERMARKS[w[1]] + '%'));
-    legend.appendChild(item);
-  });
-  legend.appendChild(el('span', 'OpenSearch default watermarks'));
-  if (unassigned) legend.appendChild(el('span', plural(unassigned, 'shard') + ' unassigned', 'status-text-unassigned'));
+  var item = el('span');
+  item.appendChild(el('span', null, 'tick'));
+  item.appendChild(document.createTextNode('High watermark ' + DISK_WATERMARKS[1] + '% (OpenSearch default; low ' + DISK_WATERMARKS[0] + '%, flood stage ' + DISK_WATERMARKS[2] + '%)'));
+  legend.appendChild(item);
+  if (unassigned) legend.appendChild(el('span', plural(unassigned, 'shard') + ' unassigned', 'danger'));
   wrap.appendChild(legend);
   return wrap;
 }
@@ -436,9 +457,10 @@ function renderOverview(data) {
   var h = data.sections.health && data.sections.health.status === 'ok' ? data.sections.health.data || {} : {};
   var name = h.cluster_name || '';
   // The header's own Refresh would say less; this one names what it refreshes.
+  // Status is the first health tile, so the header has no status badge.
   app.appendChild(header(Object.assign({}, data, { refreshable: false }), 'Cluster overview' + (name ? ': ' + name : ''), [], [
     canCallBack(data) ? withIcon(button('Refresh all', function () { callBack(data, {}, 'Refreshing all sections\u2026'); }, 'callback refresh refresh-all'), 'refresh') : null
-  ], { badges: [h.status ? statusBadge(healthStatus(h)) : null] }));
+  ]));
   if (!canCallBack(data)) app.appendChild(el('div', 'This host does not let views call tools, so sections cannot be refreshed here. Ask the assistant to run ' + (data.tool || 'ClusterOverviewTool') + ' again.', 'notice degraded'));
   var status = el('div', null, 'muted handoff-status');
   status.setAttribute('role', 'status');

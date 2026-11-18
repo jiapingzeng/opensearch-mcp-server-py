@@ -89,7 +89,15 @@ function mappingPanel(data, state) {
     count.textContent = q ? plural(shown, 'matching field') : '';
     var types = dict();
     data.indices.forEach(function (idx) { typeCounts(idx.fields, types); });
-    summary.textContent = 'types: ' + Object.keys(types).sort().map(function (t) { return t + ' ' + types[t]; }).join(', ');
+    // One badge per type, in the same colours as the tree's type badges.
+    summary.textContent = '';
+    summary.appendChild(el('span', 'Field types:', 'sr-only'));
+    Object.keys(types).sort().forEach(function (t) {
+      var chip = el('span', t, 'type t-' + typeFamily(t));
+      chip.appendChild(el('span', formatNumber(types[t]), 'n'));
+      chip.title = plural(types[t], t + ' field');
+      summary.appendChild(chip);
+    });
   }
   search.addEventListener('input', function () { state.query = search.value; drawTrees(); });
   drawTrees();

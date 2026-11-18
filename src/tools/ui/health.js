@@ -32,7 +32,8 @@ function renderHealth(data) {
       var tr = el('tr');
       r.forEach(function (v, i) {
         var status = data.columns[i] === 'status' && typeof v === 'string';
-        var td = el('td', null, status ? 'status-' + v : typeof v === 'number' ? 'num' : '');
+        var known = status && v in STATUS_ORDER;
+        var td = el('td', null, known ? 'status-' + v + ' health-cell status-text-' + v : typeof v === 'number' ? 'num' : '');
         td.appendChild(el('span', cellText(v), 'cell'));
         tr.appendChild(td);
       });
