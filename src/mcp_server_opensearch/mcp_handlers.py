@@ -28,7 +28,7 @@ from tools.ui_resources import (
     UI_RESOURCES,
     apps_enabled,
     bound_resource_uris,
-    dashboards_base_url,
+    dashboards_draft_config,
     finalize_view_payload,
     is_app_callable,
     is_view_bound,
@@ -149,7 +149,7 @@ def build_handlers(enabled_tools: dict) -> dict:
     """Return the on_* keyword arguments for Server(...) for the enabled tools."""
     apps = apps_enabled()
     if apps:
-        dashboards_base_url()  # fail at startup on a malformed URL
+        dashboards_draft_config()  # fail at startup on a malformed Dashboards setting
     enabled_tools, view_called, plans = _present_tools(enabled_tools, apps)
     for key, plan in plans.items():
         if not plan['listed']:

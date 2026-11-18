@@ -1595,3 +1595,51 @@ describe('index explorer', () => {
     assert.equal(v.doc.querySelector('.list-count').textContent, '3 indices (first 3 of 900)');
   });
 });
+
+describe('Add to Dashboards', () => {
+  const DRAFT = 'https://osd.example.com/w/ws-1/app/dashboards#/create?_a=(panels:!())&_g=(time:(from:now-24h,to:now))';
+  const QUERY = 'source=logs | stats count() by service';
+  const draft = (meta) => {
+    const r = pplResult(QUERY, ['count()', 'service'], [[3, 'checkout']], ['bigint', 'string']);
+    Object.assign(r.structuredContent.meta, meta);
+    return r;
+  };
+
+  test('opens the server-built URL through the host, next to the Discover link, with the save note', async () => {
+    const v = await openView('results', { openLinks: {} }, { query: QUERY }, draft({ dashboards_url: 'http://127.0.0.1:5601/app/x', dashboards_draft_url: DRAFT }));
+    const actions = [...v.doc.querySelectorAll('header button')].map((b) => b.className);
+    assert.deepEqual(actions.slice(0, 2), ['deep-link', 'add-to-dashboards']);
+    assert.equal(v.doc.querySelector('.draft-note').textContent, 'Opens a draft dashboard; save it in OpenSearch Dashboards.');
+    v.doc.querySelector('button.add-to-dashboards').click();
+    assert.deepEqual(v.request('ui/open-link').params, { url: DRAFT });
+    assert.equal(v.doc.querySelector('.draft-url'), null);
+  });
+
+  test('without openLinks, shows the URL with a copy button', async () => {
+    const v = await openView('results', {}, { query: QUERY }, draft({ dashboards_draft_url: DRAFT }));
+    assert.equal(v.doc.querySelector('button.deep-link'), null);
+    v.doc.querySelector('button.add-to-dashboards').click();
+    assert.equal(v.request('ui/open-link'), undefined);
+    assert.equal(v.doc.querySelector('.draft-url textarea').value, DRAFT);
+    assert.equal(await copied(v, 'button.copy-draft-url'), DRAFT);
+  });
+
+  test('falls back to the URL when the host blocks the link', async () => {
+    const v = await openView('results', { openLinks: {} }, { query: QUERY }, draft({ dashboards_draft_url: DRAFT }));
+    v.doc.querySelector('button.add-to-dashboards').click();
+    await v.reply('ui/open-link', { isError: true });
+    assert.match(v.doc.querySelector('.draft-url').textContent, /^The host blocked the link\./);
+    assert.equal(v.doc.querySelector('.draft-url textarea').value, DRAFT);
+  });
+
+  test('hidden without a server URL or with a non-http one; notes a URL over the cap', async () => {
+    for (const meta of [{}, { dashboards_draft_url: 'javascript:alert(1)' }, { chart_spec: { chartType: 'bar' } }]) {
+      const v = await openView('results', { openLinks: {} }, { query: QUERY }, draft(meta));
+      assert.equal(v.doc.querySelector('button.add-to-dashboards'), null, JSON.stringify(meta));
+      assert.equal(v.doc.querySelector('.draft-note'), null);
+    }
+    const v = await openView('results', { openLinks: {} }, { query: QUERY }, draft({ dashboards_draft_omitted: 'url_too_long' }));
+    assert.equal(v.doc.querySelector('button.add-to-dashboards'), null);
+    assert.equal(v.doc.querySelector('.draft-note').textContent, 'This query is too long to add to a dashboard from here.');
+  });
+});

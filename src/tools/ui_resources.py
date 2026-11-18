@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 APPS_ENABLED_ENV = 'OPENSEARCH_MCP_APPS_ENABLED'
 DASHBOARDS_URL_ENV = 'OPENSEARCH_DASHBOARDS_URL'
+DASHBOARDS_DATA_SOURCE_ID_ENV = 'OPENSEARCH_DASHBOARDS_DATA_SOURCE_ID'
+DASHBOARDS_DATA_SOURCE_TITLE_ENV = 'OPENSEARCH_DASHBOARDS_DATA_SOURCE_TITLE'
+DASHBOARDS_WORKSPACE_ID_ENV = 'OPENSEARCH_DASHBOARDS_WORKSPACE_ID'
 RESULTS_VIEW_URI = 'ui://opensearch/results'
 TABLE_VIEW_URI = 'ui://opensearch/table'
 HEALTH_VIEW_URI = 'ui://opensearch/cluster-health'
@@ -473,20 +476,26 @@ def _rison_string(value: str) -> str:
     return "'" + value.replace('!', '!!').replace("'", "!'") + "'"
 
 
-def discover_ppl_url(ppl_query: str) -> str | None:
-    """Build an OpenSearch Dashboards Discover link that opens the PPL query on its source index."""
-    base = dashboards_base_url()
-    if not base:
-        return None
-    from mcp_server_opensearch.global_state import get_mode
-
-    # One Dashboards URL cannot address every cluster in multi mode.
-    if get_mode() != 'single':
-        return None
+def _ppl_source_index(ppl_query: str) -> str | None:
     match = re.search(r'\bsource\s*=\s*([^\s|]+)', ppl_query or '', re.IGNORECASE)
     if not match:
         return None
-    index = match.group(1).replace('`', '')
+    return match.group(1).replace('`', '') or None
+
+
+def _single_mode() -> bool:
+    from mcp_server_opensearch.global_state import get_mode
+
+    # One Dashboards URL cannot address every cluster in multi mode.
+    return get_mode() == 'single'
+
+
+def discover_ppl_url(ppl_query: str) -> str | None:
+    """Build an OpenSearch Dashboards Discover link that opens the PPL query on its source index."""
+    base = dashboards_base_url()
+    if not base or not _single_mode():
+        return None
+    index = _ppl_source_index(ppl_query)
     if not index:
         return None
     dataset = f'(id:{_rison_string("::" + index)},title:{_rison_string(index)},type:INDEXES)'
@@ -497,6 +506,279 @@ def discover_ppl_url(ppl_query: str) -> str | None:
     parts = urlsplit(base)
     path = parts.path + '/app/data-explorer/discover'
     return urlunsplit((parts.scheme, parts.netloc, path, '', f'?_q={encoded}'))
+
+
+# Chart types in the OpenSearch Dashboards Explore visualization registry (ChartType).
+OSD_CHART_TYPES = frozenset(
+    {
+        'line',
+        'pie',
+        'metric',
+        'heatmap',
+        'scatter',
+        'bar',
+        'area',
+        'table',
+        'gauge',
+        'state_timeline',
+        'bar_gauge',
+        'histogram',
+        'sankey',
+    }
+)
+# Explore AxisRole values, the keys of a chart's axesMapping.
+OSD_AXIS_ROLES = frozenset(
+    {'x', 'y', 'source', 'target', 'color', 'facet', 'size', 'y2', 'value', 'time'}
+)
+DASHBOARD_MAX_PANELS = 10
+DASHBOARD_URL_MAX_CHARS = 16384
+DASHBOARD_DEFAULT_TIME = {'from': 'now-24h', 'to': 'now'}
+DRAFT_NOT_CONFIGURED = 'not_configured'
+DRAFT_TOO_MANY_PANELS = 'too_many_panels'
+DRAFT_URL_TOO_LONG = 'url_too_long'
+_EXPLORE_PANEL_VERSION = '3.8.0'
+_PANEL_WIDTH, _PANEL_HEIGHT = 24, 15
+_DASHBOARDS_ID_RE = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
+_DATA_SOURCE_TITLE_MAX = 255
+
+
+def dashboards_draft_config() -> dict | None:
+    """Return the Dashboards URL, data source and workspace for draft dashboards, or None.
+
+    The data source id and title and the workspace id are set together or not at all.
+    """
+    base = dashboards_base_url()
+    names = (
+        DASHBOARDS_DATA_SOURCE_ID_ENV,
+        DASHBOARDS_DATA_SOURCE_TITLE_ENV,
+        DASHBOARDS_WORKSPACE_ID_ENV,
+    )
+    ds_id, ds_title, workspace = (os.getenv(n, '').strip() for n in names)
+    if not (ds_id or ds_title or workspace):
+        return None
+    if not (ds_id and ds_title and workspace and base):
+        raise ValueError(
+            f'Set {DASHBOARDS_URL_ENV}, {", ".join(names)} together to enable Add to '
+            f'Dashboards, or unset the last three to turn it off.'
+        )
+    for name, value in ((names[0], ds_id), (names[2], workspace)):
+        if not _DASHBOARDS_ID_RE.match(value):
+            raise ValueError(
+                f'{name} must be 1 to 64 letters, digits, hyphens or underscores, as shown in '
+                f'the OpenSearch Dashboards URL; got {value!r}.'
+            )
+    if len(ds_title) > _DATA_SOURCE_TITLE_MAX or _has_control_chars(ds_title):
+        raise ValueError(
+            f'{names[1]} must be the data source title, at most {_DATA_SOURCE_TITLE_MAX} '
+            f'characters with no control characters.'
+        )
+    return {
+        'base': base,
+        'data_source_id': ds_id,
+        'data_source_title': ds_title,
+        'workspace': workspace,
+    }
+
+
+_RISON_ID_RE = re.compile(r"^[^-0-9\s'!:(),*@$][^\s'!:(),*@$]*$")
+
+
+def _rison(value: Any) -> str:
+    # Keys are sorted, matching the verified draft dashboard URLs.
+    if value is True:
+        return '!t'
+    if value is False:
+        return '!f'
+    if value is None:
+        return '!n'
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, str):
+        return value if _RISON_ID_RE.match(value) else _rison_string(value)
+    if isinstance(value, list):
+        return '!(' + ','.join(_rison(v) for v in value) + ')'
+    if isinstance(value, dict):
+        return '(' + ','.join(f'{_rison(k)}:{_rison(value[k])}' for k in sorted(value)) + ')'
+    raise TypeError(f'cannot rison-encode {type(value).__name__}')
+
+
+def _uri_component(text: str) -> str:
+    # JavaScript encodeURIComponent.
+    return quote(text, safe="-_.!~*'()")
+
+
+def _check_panel(spec: Any) -> None:
+    def nonempty(key: str) -> bool:
+        return isinstance(spec.get(key), str) and bool(spec[key].strip())
+
+    axes = spec.get('axesMapping') if isinstance(spec, dict) else None
+    if (
+        not isinstance(spec, dict)
+        or not all(nonempty(k) for k in ('title', 'query', 'index'))
+        or spec.get('chartType') not in OSD_CHART_TYPES
+        or not isinstance(axes, dict)
+        or not all(k in OSD_AXIS_ROLES and isinstance(v, str) and v for k, v in axes.items())
+        or not (spec.get('timeFieldName') is None or nonempty('timeFieldName'))
+    ):
+        raise ValueError(
+            'A dashboard panel needs a title, PPL query and index, a chartType from the '
+            f'Explore registry ({", ".join(sorted(OSD_CHART_TYPES))}), an axesMapping of axis '
+            'roles to column names, and an optional timeFieldName.'
+        )
+
+
+def _explore_panel(i: int, spec: dict, config: dict) -> dict:
+    """A by-value Explore panel, in the shape OpenSearch Dashboards saves into panelsJSON."""
+    index = spec['index']
+    dataset: dict[str, Any] = {
+        'id': f'{config["data_source_id"]}_{index}',
+        'title': index,
+        'type': 'INDEXES',
+    }
+    if spec.get('timeFieldName'):
+        dataset['timeFieldName'] = spec['timeFieldName']
+    dataset['dataSource'] = {
+        'id': config['data_source_id'],
+        'title': config['data_source_title'],
+        'type': 'DATA_SOURCE',
+        'version': '',
+    }
+    search_source = {
+        'index': dataset['id'],
+        'query': {'query': spec['query'], 'language': 'PPL', 'dataset': dataset},
+        'filter': [],
+    }
+    visualization = {
+        'title': '',
+        'chartType': spec['chartType'],
+        'params': {},
+        'axesMapping': spec['axesMapping'],
+    }
+    compact = {'separators': (',', ':')}
+    panel_id = f'p{i}'
+    return {
+        'type': 'explore',
+        'panelIndex': panel_id,
+        'version': _EXPLORE_PANEL_VERSION,
+        'gridData': {
+            'x': (i % 2) * _PANEL_WIDTH,
+            'y': (i // 2) * _PANEL_HEIGHT,
+            'w': _PANEL_WIDTH,
+            'h': _PANEL_HEIGHT,
+            'i': panel_id,
+        },
+        'embeddableConfig': {
+            'references': [],
+            'attributes': {
+                'title': spec['title'],
+                'description': '',
+                'uiState': '{}',
+                'visualization': json.dumps(visualization, **compact),
+                'kibanaSavedObjectMeta': {
+                    'searchSourceJSON': json.dumps(search_source, **compact)
+                },
+            },
+        },
+    }
+
+
+def dashboards_draft_url(
+    panels: list[dict], time_range: dict | None = None
+) -> tuple[str | None, str | None]:
+    """Build an OpenSearch Dashboards link that opens an unsaved dashboard of PPL chart panels.
+
+    Each panel is a chart spec: title, PPL query, index, chartType, axesMapping and an optional
+    timeFieldName. Returns (url, None), or (None, reason) when Add to Dashboards is not
+    configured, in multi mode, or the panel count or URL length cap is exceeded.
+    """
+    config = dashboards_draft_config()
+    if not config or not _single_mode():
+        return None, DRAFT_NOT_CONFIGURED
+    if not panels:
+        raise ValueError('A draft dashboard needs at least one panel.')
+    for spec in panels:
+        _check_panel(spec)
+    if len(panels) > DASHBOARD_MAX_PANELS:
+        return None, DRAFT_TOO_MANY_PANELS
+    time = time_range or DASHBOARD_DEFAULT_TIME
+    if not all(isinstance(time.get(k), str) and time[k] for k in ('from', 'to')):
+        raise ValueError("time_range needs 'from' and 'to', such as now-24h and now.")
+    state = {
+        'panels': [_explore_panel(i, spec, config) for i, spec in enumerate(panels)],
+        'viewMode': 'edit',
+        'layout': {'type': 'GridLayout', 'items': []},
+    }
+    # _g keeps the time range; without it the dashboard opens on the last 15 minutes.
+    global_state = {'time': {'from': time['from'], 'to': time['to']}}
+    url = (
+        f'{config["base"]}/w/{config["workspace"]}/app/dashboards#/create'
+        f'?_a={_uri_component(_rison(state))}&_g={_uri_component(_rison(global_state))}'
+    )
+    if len(url) > DASHBOARD_URL_MAX_CHARS:
+        return None, DRAFT_URL_TOO_LONG
+    return url, None
+
+
+_PPL_TIME_TYPES = frozenset({'timestamp', 'date', 'datetime', 'time', 'date_nanos'})
+# Same as NUMERIC_TYPES in ui/table.js.
+_PPL_NUMERIC_TYPES = frozenset(
+    {
+        'byte',
+        'short',
+        'integer',
+        'int',
+        'long',
+        'bigint',
+        'float',
+        'double',
+        'half_float',
+        'scaled_float',
+        'decimal',
+        'unsigned_long',
+        'number',
+        'bytes',
+    }
+)
+
+
+def ppl_chart_spec(columns: list, column_types: list, query: str) -> dict | None:
+    """Return the dashboard panel spec for a PPL result, or None without a source index.
+
+    Picks the chart as the results view does: time + number is a line (split by at most one
+    category), category + number is a bar, one number is a metric, anything else a table.
+    """
+    index = _ppl_source_index(query)
+    if not index or not columns or not all(isinstance(c, str) and c for c in columns):
+        return None
+    time, values, others = None, [], []
+    for column, kind in zip(columns, column_types or []):
+        kind = str(kind or '').lower()
+        if time is None and kind in _PPL_TIME_TYPES:
+            time = column
+        elif kind in _PPL_NUMERIC_TYPES:
+            values.append(column)
+        else:
+            others.append(column)
+    others += columns[len(column_types or []) :]
+    if time and values and (not others or (len(others) == 1 and len(values) == 1)):
+        chart, axes, title = 'line', {'x': time, 'y': values[0]}, f'{values[0]} over {time}'
+        if others:
+            axes['color'] = others[0]
+    elif len(columns) == 2 and len(values) == 1 and not time:
+        chart, axes, title = 'bar', {'x': others[0], 'y': values[0]}, f'{values[0]} by {others[0]}'
+    elif len(columns) == 1 and values:
+        chart, axes, title = 'metric', {'value': values[0]}, values[0]
+    else:
+        chart, axes, title = 'table', {}, index
+    span = re.search(r'\bspan\s*\(\s*`?([^\s,()`]+)`?\s*,', query, re.IGNORECASE)
+    return {
+        'title': title,
+        'query': query,
+        'index': index,
+        'chartType': chart,
+        'axesMapping': axes,
+        'timeFieldName': span.group(1) if span else None,
+    }
 
 
 def _structured(kind: str, cluster: str, columns: list, rows: list, meta: dict) -> dict:
@@ -871,6 +1153,14 @@ def ppl_rows_payload(response: Any, cluster: str, query: str) -> dict | None:
     link = discover_ppl_url(query)
     if link:
         meta['dashboards_url'] = link
+    spec = ppl_chart_spec(columns, meta['column_types'], query)
+    if spec:
+        meta['chart_spec'] = spec
+        draft, reason = dashboards_draft_url([spec])
+        if draft:
+            meta['dashboards_draft_url'] = draft
+        elif reason != DRAFT_NOT_CONFIGURED:
+            meta['dashboards_draft_omitted'] = reason
     return _structured('ppl_rows', cluster, columns, rows, meta)
 
 

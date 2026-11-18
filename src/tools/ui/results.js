@@ -77,6 +77,39 @@ function deepLink(data) {
   return link;
 }
 
+// Add to Dashboards: the server builds the draft dashboard URL; the view only opens or shows it.
+function draftDashboard(data) {
+  var m = data.meta || {};
+  if (m.dashboards_draft_omitted) {
+    return { button: null, block: el('div', 'This query is too long to add to a dashboard from here.', 'muted draft-note') };
+  }
+  var url = m.dashboards_draft_url;
+  if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return null;
+  var block = el('div', null, 'draft-dashboard');
+  block.appendChild(el('div', 'Opens a draft dashboard; save it in OpenSearch Dashboards.', 'muted draft-note'));
+  function showUrl(reason) {
+    if (block.querySelector('.draft-url')) return;
+    var bar = el('div', null, 'toolbar draft-url');
+    if (reason) bar.appendChild(el('span', reason + ' Copy the URL and open it in your browser.', 'muted'));
+    var field = el('textarea');
+    field.readOnly = true; field.rows = 2; field.value = url;
+    field.setAttribute('aria-label', 'Draft dashboard URL');
+    var status = el('span', null, 'muted');
+    bar.appendChild(field);
+    bar.appendChild(button('Copy URL', function () { copyText(url, 'dashboard URL', status); }, 'copy-draft-url'));
+    bar.appendChild(status);
+    block.appendChild(bar);
+  }
+  var add = button('Add to Dashboards', function () {
+    if (!hostCapabilities.openLinks) { showUrl(); return; }
+    request('ui/open-link', { url: url }).then(function (r) {
+      if (r && r.isError) showUrl('The host blocked the link.');
+    }, function () { showUrl('The host could not open the link.'); });
+  }, 'add-to-dashboards');
+  add.title = 'Opens these results as a chart on a new, unsaved dashboard in OpenSearch Dashboards.';
+  return { button: add, block: block };
+}
+
 function renderResults(data) {
   var m = data.meta || {};
   var title = data.kind === 'ppl_rows' ? 'PPL' : 'Search ' + (m.index || '');
@@ -89,7 +122,9 @@ function renderResults(data) {
   if (m.took !== undefined && m.took !== null) stats.push('took: ' + formatNumber(m.took) + ' ms');
   if (m._shards) stats.push('shards: ' + m._shards.successful + '/' + m._shards.total);
   if (m.timed_out) stats.push('timed out');
-  app.appendChild(header(data, title, stats, [deepLink(data)]));
+  var draft = draftDashboard(data);
+  app.appendChild(header(data, title, stats, [deepLink(data), draft && draft.button]));
+  if (draft) app.appendChild(draft.block);
   var paging = pagingControls(data);
   if (paging) { var pbar = el('div', null, 'toolbar paging-bar'); pbar.appendChild(paging); app.appendChild(pbar); }
   var editor = pplEditor(data);

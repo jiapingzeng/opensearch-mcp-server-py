@@ -579,6 +579,12 @@ class TestFlagOnUiClient:
         with pytest.raises(ValueError, match='OPENSEARCH_DASHBOARDS_URL'):
             build_handlers(_registry())
 
+    def test_partial_draft_dashboard_config_fails_at_startup(self, apps_on, monkeypatch):
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_URL', 'https://osd.example.com')
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_DATA_SOURCE_ID', 'ds-1')
+        with pytest.raises(ValueError, match='OPENSEARCH_DASHBOARDS_WORKSPACE_ID'):
+            build_handlers(_registry())
+
 
 class TestFlagOnUnknownCapabilities:
     """Stateless streamable HTTP: capabilities unknown, so Apps behave as on."""

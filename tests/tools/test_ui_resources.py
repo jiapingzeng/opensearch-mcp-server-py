@@ -5,6 +5,7 @@ import json
 import pytest
 import re
 from importlib import resources
+from pathlib import Path
 from tools.ui_resources import (
     CLUSTER_OVERVIEW_VIEW_URI,
     EXPLAIN_VIEW_URI,
@@ -27,6 +28,8 @@ from tools.ui_resources import (
     cat_table_payload,
     cluster_health_payload,
     dashboards_base_url,
+    dashboards_draft_config,
+    dashboards_draft_url,
     discover_ppl_url,
     explain_payload,
     finalize_view_payload,
@@ -34,6 +37,7 @@ from tools.ui_resources import (
     index_mapping_payload,
     list_indices_payload,
     load_ui_html,
+    ppl_chart_spec,
     ppl_rows_payload,
     resource_meta,
     search_hits_payload,
@@ -1167,6 +1171,295 @@ class TestDashboardsLink:
         assert discover_ppl_url('source=logs').startswith(
             'http://[::1]:5601/osd/app/data-explorer/discover#?_q=('
         )
+
+
+def _rison_decode(text: str):
+    """Minimal rison parser for the draft dashboard URL tests."""
+    pos = 0
+
+    def value():
+        nonlocal pos
+        ch = text[pos]
+        if ch == '(':
+            pos += 1
+            out = {}
+            while text[pos] != ')':
+                key = value()
+                assert text[pos] == ':'
+                pos += 1
+                out[key] = value()
+                if text[pos] == ',':
+                    pos += 1
+            pos += 1
+            return out
+        if text.startswith('!(', pos):
+            pos += 2
+            items = []
+            while text[pos] != ')':
+                items.append(value())
+                if text[pos] == ',':
+                    pos += 1
+            pos += 1
+            return items
+        if ch == '!':
+            pos += 2
+            return {'t': True, 'f': False, 'n': None}[text[pos - 1]]
+        if ch == "'":
+            pos += 1
+            out = []
+            while text[pos] != "'":
+                if text[pos] == '!':
+                    pos += 1
+                out.append(text[pos])
+                pos += 1
+            pos += 1
+            return ''.join(out)
+        end = pos
+        while end < len(text) and text[end] not in "'!:(),":
+            end += 1
+        token, pos = text[pos:end], end
+        return int(token) if re.fullmatch(r'-?\d+', token) else token
+
+    result = value()
+    assert pos == len(text)
+    return result
+
+
+def _draft_state(url: str) -> tuple[str, dict, dict]:
+    """Split a draft dashboard URL into its prefix, decoded _a and decoded _g."""
+    prefix, query = url.split('?_a=', 1)
+    a, g = query.split('&_g=', 1)
+    state = _rison_decode(unquote(a))
+    for panel in state['panels']:
+        attrs = panel['embeddableConfig']['attributes']
+        attrs['visualization'] = json.loads(attrs['visualization'])
+        meta = attrs['kibanaSavedObjectMeta']
+        meta['searchSourceJSON'] = json.loads(meta['searchSourceJSON'])
+    return prefix, state, _rison_decode(unquote(g))
+
+
+# Captured from a draft dashboard URL verified to render and save on OpenSearch Dashboards
+# 3.x, with the host, workspace and data source replaced.
+VERIFIED_DRAFT_URL = (
+    Path(__file__).with_name('osd_draft_dashboard_url.txt').read_text(encoding='utf-8').strip()
+)
+DRAFT_INDEX = 'e2e-byvalue-web'
+DRAFT_PANELS = [
+    {
+        'title': 'Requests over time',
+        'query': f'source = {DRAFT_INDEX} | stats count() as requests by span(@timestamp, 1h) as ts',
+        'index': DRAFT_INDEX,
+        'chartType': 'line',
+        'axesMapping': {'x': 'ts', 'y': 'requests'},
+        'timeFieldName': '@timestamp',
+    },
+    {
+        'title': 'Bytes by service',
+        'query': f'source = {DRAFT_INDEX} | stats sum(bytes) as total_bytes by service',
+        'index': DRAFT_INDEX,
+        'chartType': 'bar',
+        'axesMapping': {'x': 'service', 'y': 'total_bytes'},
+        'timeFieldName': '@timestamp',
+    },
+    {
+        'title': 'Requests by region',
+        'query': f'source = {DRAFT_INDEX} | stats count() as requests by region',
+        'index': DRAFT_INDEX,
+        'chartType': 'pie',
+        'axesMapping': {'size': 'requests', 'color': 'region'},
+        'timeFieldName': '@timestamp',
+    },
+]
+
+
+class TestDashboardsDraft:
+    @pytest.fixture(autouse=True)
+    def configured(self, monkeypatch):
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_URL', 'https://osd.example.com')
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_DATA_SOURCE_ID', 'ds-1')
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_DATA_SOURCE_TITLE', 'my-data-source')
+        monkeypatch.setenv('OPENSEARCH_DASHBOARDS_WORKSPACE_ID', 'ws-1')
+        with patch('mcp_server_opensearch.global_state.get_mode', return_value='single'):
+            yield
+
+    def test_matches_the_verified_url(self):
+        url, reason = dashboards_draft_url(DRAFT_PANELS)
+        assert reason is None
+        prefix, state, time = _draft_state(url)
+        v_prefix, verified, v_time = _draft_state(VERIFIED_DRAFT_URL)
+        assert prefix == v_prefix == 'https://osd.example.com/w/ws-1/app/dashboards#/create'
+        for panel in verified['panels']:  # the verified URL named its panels byvalue-p<i>
+            panel['panelIndex'] = panel['gridData']['i'] = panel['panelIndex'][len('byvalue-') :]
+        assert state == verified
+        assert time == v_time == {'time': {'from': 'now-24h', 'to': 'now'}}
+        assert url == VERIFIED_DRAFT_URL.replace('byvalue-p', 'p')
+
+    def test_grid_is_two_columns(self):
+        url, _ = dashboards_draft_url(DRAFT_PANELS * 2)
+        grids = [p['gridData'] for p in _draft_state(url)[1]['panels']]
+        assert [(g['x'], g['y']) for g in grids] == [
+            (0, 0),
+            (24, 0),
+            (0, 15),
+            (24, 15),
+            (0, 30),
+            (24, 30),
+        ]
+
+    def test_quotes_and_bangs_in_the_query_round_trip(self):
+        spec = {
+            **DRAFT_PANELS[0],
+            'query': "source = logs | where msg = 'it!s (ok)'",
+            'index': 'logs',
+        }
+        spec['title'] = "Don't panic!"
+        url, _ = dashboards_draft_url([spec], {'from': '2026-11-01T00:00:00Z', 'to': 'now'})
+        _, state, time = _draft_state(url)
+        attrs = state['panels'][0]['embeddableConfig']['attributes']
+        assert attrs['title'] == "Don't panic!"
+        query = attrs['kibanaSavedObjectMeta']['searchSourceJSON']['query']
+        assert query['query'] == "source = logs | where msg = 'it!s (ok)'"
+        assert query['dataset']['id'] == 'ds-1_logs'
+        assert time == {'time': {'from': '2026-11-01T00:00:00Z', 'to': 'now'}}
+        assert '#' not in url.split('#', 1)[1] and ' ' not in url
+
+    def test_no_time_field_omits_it(self):
+        spec = {**DRAFT_PANELS[1], 'timeFieldName': None}
+        url, _ = dashboards_draft_url([spec])
+        dataset = _draft_state(url)[1]['panels'][0]['embeddableConfig']['attributes'][
+            'kibanaSavedObjectMeta'
+        ]['searchSourceJSON']['query']['dataset']
+        assert 'timeFieldName' not in dataset
+
+    def test_caps(self):
+        assert dashboards_draft_url(DRAFT_PANELS * 4) == (None, 'too_many_panels')
+        long = {**DRAFT_PANELS[0], 'query': 'source = logs | where a = "' + 'x' * 20000 + '"'}
+        assert dashboards_draft_url([long]) == (None, 'url_too_long')
+        url, _ = dashboards_draft_url((DRAFT_PANELS * 4)[:10])
+        assert len(url) <= 16384
+
+    def test_not_configured_or_multi_mode(self, monkeypatch):
+        with patch('mcp_server_opensearch.global_state.get_mode', return_value='multi'):
+            assert dashboards_draft_url(DRAFT_PANELS) == (None, 'not_configured')
+        for name in (
+            'OPENSEARCH_DASHBOARDS_DATA_SOURCE_ID',
+            'OPENSEARCH_DASHBOARDS_DATA_SOURCE_TITLE',
+            'OPENSEARCH_DASHBOARDS_WORKSPACE_ID',
+        ):
+            monkeypatch.delenv(name)
+        assert dashboards_draft_config() is None
+        assert dashboards_draft_url(DRAFT_PANELS) == (None, 'not_configured')
+
+    @pytest.mark.parametrize(
+        'env,match',
+        [
+            ({'OPENSEARCH_DASHBOARDS_WORKSPACE_ID': ''}, 'together'),
+            ({'OPENSEARCH_DASHBOARDS_URL': ''}, 'together'),
+            ({'OPENSEARCH_DASHBOARDS_DATA_SOURCE_ID': 'ds 1'}, 'DATA_SOURCE_ID'),
+            ({'OPENSEARCH_DASHBOARDS_WORKSPACE_ID': "w'1"}, 'WORKSPACE_ID'),
+            ({'OPENSEARCH_DASHBOARDS_WORKSPACE_ID': 'w/../x'}, 'WORKSPACE_ID'),
+            ({'OPENSEARCH_DASHBOARDS_DATA_SOURCE_TITLE': 'a\u202eb'}, 'DATA_SOURCE_TITLE'),
+            ({'OPENSEARCH_DASHBOARDS_DATA_SOURCE_TITLE': 'x' * 256}, 'DATA_SOURCE_TITLE'),
+        ],
+    )
+    def test_invalid_config_rejected(self, monkeypatch, env, match):
+        for name, value in env.items():
+            monkeypatch.setenv(name, value)
+        with pytest.raises(ValueError, match=match):
+            dashboards_draft_config()
+
+    @pytest.mark.parametrize(
+        'change',
+        [
+            {'chartType': 'donut'},
+            {'axesMapping': {'z': 'a'}},
+            {'axesMapping': {'x': ''}},
+            {'index': ''},
+            {'query': None},
+            {'timeFieldName': ''},
+        ],
+    )
+    def test_invalid_panel_rejected(self, change):
+        with pytest.raises(ValueError, match='Explore registry'):
+            dashboards_draft_url([{**DRAFT_PANELS[0], **change}])
+        with pytest.raises(ValueError, match='at least one panel'):
+            dashboards_draft_url([])
+
+    @pytest.mark.parametrize(
+        'columns,types,chart,axes',
+        [
+            (['ts', 'requests'], ['timestamp', 'bigint'], 'line', {'x': 'ts', 'y': 'requests'}),
+            (
+                ['c', 't', 'svc'],
+                ['bigint', 'timestamp', 'string'],
+                'line',
+                {'x': 't', 'y': 'c', 'color': 'svc'},
+            ),
+            (['a', 'b', 't'], ['long', 'double', 'timestamp'], 'line', {'x': 't', 'y': 'a'}),
+            (
+                ['count()', 'service'],
+                ['bigint', 'string'],
+                'bar',
+                {'x': 'service', 'y': 'count()'},
+            ),
+            (['total'], ['double'], 'metric', {'value': 'total'}),
+            (['a', 'b', 'c', 't'], ['long', 'long', 'string', 'timestamp'], 'table', {}),
+            (['a', 'b'], ['bigint', 'bigint'], 'table', {}),
+            (['name', 'host'], ['string', 'string'], 'table', {}),
+        ],
+    )
+    def test_ppl_chart_spec_picks_the_chart(self, columns, types, chart, axes):
+        spec = ppl_chart_spec(
+            columns, types, 'source = logs | stats count() by span(`@timestamp`, 1h)'
+        )
+        assert spec['chartType'] == chart
+        assert spec['axesMapping'] == axes
+        assert spec['index'] == 'logs'
+        assert spec['timeFieldName'] == '@timestamp'
+
+    def test_ppl_chart_spec_needs_a_source(self):
+        assert ppl_chart_spec(['a'], ['long'], 'describe logs') is None
+        assert ppl_chart_spec([None], ['long'], 'source = logs') is None
+        assert (
+            ppl_chart_spec(['a'], ['long'], 'source = logs | stats count() as a')['timeFieldName']
+            is None
+        )
+
+    def test_ppl_payload_carries_the_spec_and_url(self):
+        response = {
+            'schema': [
+                {'name': 'requests', 'type': 'bigint'},
+                {'name': 'ts', 'type': 'timestamp'},
+            ],
+            'datarows': [[3, '2026-11-01 00:00:00']],
+            'total': 1,
+            'size': 1,
+        }
+        query = 'source = logs | stats count() as requests by span(@timestamp, 1h) as ts'
+        meta = ppl_rows_payload(response, '', query)['meta']
+        assert meta['chart_spec'] == {
+            'title': 'requests over ts',
+            'query': query,
+            'index': 'logs',
+            'chartType': 'line',
+            'axesMapping': {'x': 'ts', 'y': 'requests'},
+            'timeFieldName': '@timestamp',
+        }
+        assert meta['dashboards_draft_url'] == dashboards_draft_url([meta['chart_spec']])[0]
+        assert 'dashboards_draft_omitted' not in meta
+
+    def test_ppl_payload_without_config_or_over_the_cap(self, monkeypatch):
+        response = {'schema': [{'name': 'n', 'type': 'long'}], 'datarows': [[1]]}
+        long = 'source = logs | where a = "' + 'x' * 20000 + '" | stats count() as n'
+        assert ppl_rows_payload(response, '', long)['meta']['dashboards_draft_omitted'] == (
+            'url_too_long'
+        )
+        monkeypatch.delenv('OPENSEARCH_DASHBOARDS_WORKSPACE_ID')
+        monkeypatch.delenv('OPENSEARCH_DASHBOARDS_DATA_SOURCE_ID')
+        monkeypatch.delenv('OPENSEARCH_DASHBOARDS_DATA_SOURCE_TITLE')
+        meta = ppl_rows_payload(response, '', 'source = logs | stats count() as n')['meta']
+        assert meta['chart_spec']['chartType'] == 'metric'
+        assert 'dashboards_draft_url' not in meta and 'dashboards_draft_omitted' not in meta
 
 
 class TestToolVisibility:
