@@ -1,0 +1,155 @@
+{
+  "argv": [
+    "install-hooks",
+    "--client",
+    "claude-code"
+  ],
+  "first_run": {
+    "error": null,
+    "exit_code": null,
+    "files": {
+      "cwd": {
+        ".claude/settings.json": {
+          "json": {
+            "hooks": {
+              "Stop": [
+                {
+                  "hooks": [
+                    {
+                      "command": "python3 -c \"import base64; base64.b64decode(\"U2F2ZU1lbW9yeVRvb2w=\")\"",
+                      "type": "command"
+                    }
+                  ]
+                },
+                {
+                  "hooks": [
+                    {
+                      "command": "python3 -c \"import json,sys,base64; data=json.load(sys.stdin); sys.stdout.write('' if data.get('stop_hook_active') else base64.b64decode('eyJkZWNpc2lvbiI6ICJibG9jayIsICJyZWFzb24iOiAiQmVmb3JlIGZpbmlzaGluZywgcmV2aWV3IHRoZSBjb252ZXJzYXRpb24gZm9yIGltcG9ydGFudCBmYWN0cywgZGVjaXNpb25zLCB1c2VyIHByZWZlcmVuY2VzLCBvciBpbnNpZ2h0cyB0aGF0IHNob3VsZCBwZXJzaXN0LiBTYXZlIGVhY2ggYXMgYSBzZXBhcmF0ZSBtZW1vcnkgdXNpbmcgU2F2ZU1lbW9yeVRvb2wgd2l0aCBhcHByb3ByaWF0ZSB0YWdzLiJ9').decode())\"",
+                      "type": "command"
+                    }
+                  ]
+                }
+              ],
+              "UserPromptSubmit": [
+                {
+                  "hooks": [
+                    {
+                      "command": "echo 'Before responding, search memory for relevant context about the topics in the current message using SearchMemoryTool. This ensures continuity across sessions.'",
+                      "type": "command"
+                    }
+                  ],
+                  "matcher": ""
+                }
+              ]
+            },
+            "model": "some-model"
+          },
+          "written_as_json_dumps_indent_2": true
+        }
+      },
+      "home": {}
+    },
+    "logs": [
+      {
+        "level": "INFO",
+        "logger": "mcp_server_opensearch.install_hooks",
+        "message": "Added Claude Code memory hooks to .claude/settings.json"
+      }
+    ],
+    "stderr": [
+      ""
+    ],
+    "stdin_left_unread": "",
+    "stdout": [
+      "Installing memory hooks for claude-code (scope: workspace)...",
+      "Updated .claude/settings.json:",
+      "  Added UserPromptSubmit memory search hook to .claude/settings.json",
+      "  Added Stop memory save hook (with loop guard) to .claude/settings.json",
+      "",
+      "Restart your IDE to activate the hooks.",
+      ""
+    ]
+  },
+  "given_cwd": {
+    ".claude/settings.json": {
+      "hooks": {
+        "Stop": [
+          {
+            "hooks": [
+              {
+                "command": "python3 -c \"import base64; base64.b64decode(\"U2F2ZU1lbW9yeVRvb2w=\")\"",
+                "type": "command"
+              }
+            ]
+          }
+        ]
+      },
+      "model": "some-model"
+    }
+  },
+  "given_home": {},
+  "second_run": {
+    "error": null,
+    "exit_code": null,
+    "files": {
+      "cwd": {
+        ".claude/settings.json": {
+          "json": {
+            "hooks": {
+              "Stop": [
+                {
+                  "hooks": [
+                    {
+                      "command": "python3 -c \"import base64; base64.b64decode(\"U2F2ZU1lbW9yeVRvb2w=\")\"",
+                      "type": "command"
+                    }
+                  ]
+                },
+                {
+                  "hooks": [
+                    {
+                      "command": "python3 -c \"import json,sys,base64; data=json.load(sys.stdin); sys.stdout.write('' if data.get('stop_hook_active') else base64.b64decode('eyJkZWNpc2lvbiI6ICJibG9jayIsICJyZWFzb24iOiAiQmVmb3JlIGZpbmlzaGluZywgcmV2aWV3IHRoZSBjb252ZXJzYXRpb24gZm9yIGltcG9ydGFudCBmYWN0cywgZGVjaXNpb25zLCB1c2VyIHByZWZlcmVuY2VzLCBvciBpbnNpZ2h0cyB0aGF0IHNob3VsZCBwZXJzaXN0LiBTYXZlIGVhY2ggYXMgYSBzZXBhcmF0ZSBtZW1vcnkgdXNpbmcgU2F2ZU1lbW9yeVRvb2wgd2l0aCBhcHByb3ByaWF0ZSB0YWdzLiJ9').decode())\"",
+                      "type": "command"
+                    }
+                  ]
+                }
+              ],
+              "UserPromptSubmit": [
+                {
+                  "hooks": [
+                    {
+                      "command": "echo 'Before responding, search memory for relevant context about the topics in the current message using SearchMemoryTool. This ensures continuity across sessions.'",
+                      "type": "command"
+                    }
+                  ],
+                  "matcher": ""
+                }
+              ]
+            },
+            "model": "some-model"
+          },
+          "written_as_json_dumps_indent_2": true
+        }
+      },
+      "home": {}
+    },
+    "logs": [
+      {
+        "level": "INFO",
+        "logger": "mcp_server_opensearch.install_hooks",
+        "message": "Memory hooks already installed in Claude Code settings"
+      }
+    ],
+    "stderr": [
+      ""
+    ],
+    "stdin_left_unread": "",
+    "stdout": [
+      "Installing memory hooks for claude-code (scope: workspace)...",
+      "All hooks already installed.",
+      "",
+      "Restart your IDE to activate the hooks.",
+      ""
+    ]
+  }
+}

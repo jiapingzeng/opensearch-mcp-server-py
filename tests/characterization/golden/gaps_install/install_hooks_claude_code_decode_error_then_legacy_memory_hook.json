@@ -1,0 +1,137 @@
+{
+  "argv": [
+    "install-hooks",
+    "--client",
+    "claude-code"
+  ],
+  "first_run": {
+    "error": null,
+    "exit_code": null,
+    "files": {
+      "cwd": {
+        ".claude/settings.json": {
+          "json": {
+            "hooks": {
+              "Stop": [
+                {
+                  "hooks": [
+                    {
+                      "command": "python3 -c \"import base64; base64.b64decode('abc')\"",
+                      "type": "command"
+                    },
+                    {
+                      "command": "python3 -c \"import base64; base64.b64decode('U2F2ZU1lbW9yeVRvb2w=')\"",
+                      "type": "command"
+                    }
+                  ]
+                }
+              ]
+            },
+            "model": "some-model"
+          },
+          "written_as_json_dumps_indent_2": true
+        }
+      },
+      "home": {}
+    },
+    "logs": [
+      {
+        "level": "DEBUG",
+        "logger": "mcp_server_opensearch.install_hooks",
+        "message": "Could not decode hook command for idempotency check: Incorrect padding"
+      },
+      {
+        "level": "INFO",
+        "logger": "mcp_server_opensearch.install_hooks",
+        "message": "Memory hooks already installed in Claude Code settings"
+      }
+    ],
+    "stderr": [
+      ""
+    ],
+    "stdin_left_unread": "",
+    "stdout": [
+      "Installing memory hooks for claude-code (scope: workspace)...",
+      "All hooks already installed.",
+      "",
+      "Restart your IDE to activate the hooks.",
+      ""
+    ]
+  },
+  "given_cwd": {
+    ".claude/settings.json": {
+      "hooks": {
+        "Stop": [
+          {
+            "hooks": [
+              {
+                "command": "python3 -c \"import base64; base64.b64decode('abc')\"",
+                "type": "command"
+              },
+              {
+                "command": "python3 -c \"import base64; base64.b64decode('U2F2ZU1lbW9yeVRvb2w=')\"",
+                "type": "command"
+              }
+            ]
+          }
+        ]
+      },
+      "model": "some-model"
+    }
+  },
+  "given_home": {},
+  "second_run": {
+    "error": null,
+    "exit_code": null,
+    "files": {
+      "cwd": {
+        ".claude/settings.json": {
+          "json": {
+            "hooks": {
+              "Stop": [
+                {
+                  "hooks": [
+                    {
+                      "command": "python3 -c \"import base64; base64.b64decode('abc')\"",
+                      "type": "command"
+                    },
+                    {
+                      "command": "python3 -c \"import base64; base64.b64decode('U2F2ZU1lbW9yeVRvb2w=')\"",
+                      "type": "command"
+                    }
+                  ]
+                }
+              ]
+            },
+            "model": "some-model"
+          },
+          "written_as_json_dumps_indent_2": true
+        }
+      },
+      "home": {}
+    },
+    "logs": [
+      {
+        "level": "DEBUG",
+        "logger": "mcp_server_opensearch.install_hooks",
+        "message": "Could not decode hook command for idempotency check: Incorrect padding"
+      },
+      {
+        "level": "INFO",
+        "logger": "mcp_server_opensearch.install_hooks",
+        "message": "Memory hooks already installed in Claude Code settings"
+      }
+    ],
+    "stderr": [
+      ""
+    ],
+    "stdin_left_unread": "",
+    "stdout": [
+      "Installing memory hooks for claude-code (scope: workspace)...",
+      "All hooks already installed.",
+      "",
+      "Restart your IDE to activate the hooks.",
+      ""
+    ]
+  }
+}
