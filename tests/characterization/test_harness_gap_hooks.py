@@ -75,7 +75,7 @@ async def test_fail_streaming_fails_the_streaming_attempt_and_answers_others(
     url = yarl.URL(f'{fake_opensearch.url}/_cat/indices')
 
     # What BufferedAsyncHttpConnection.perform_request sends: allow_redirects is set.
-    with pytest.raises(harness.aiohttp.ClientConnectionError, match='during streaming'):
+    with pytest.raises(RuntimeError, match='during streaming'):
         async with session.request('GET', url, allow_redirects=True):
             pass
     # What opensearch-py's AsyncHttpConnection.perform_request (the fallback) sends.

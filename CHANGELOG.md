@@ -17,6 +17,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - Fix the OpenAPI tool generator printing its start-up error to stdout, which corrupted the stdio JSON-RPC stream; the error is now logged at ERROR level and start-up continues as before
 - Fix tools generated from the OpenAPI spec sending every omitted optional query parameter as the literal string `None` (e.g. `/_count?allow_no_indices=None`); omitted parameters are no longer sent, while `False`, `0` and empty values still are
 - Fix the generic API tool dropping the request body on GET, so a `GET /_search` with a query ran match-all; GET now sends the body as documented, and DELETE and HEAD still send none
+- Fix a connection failure (refused, reset, timed out or a certificate fingerprint mismatch) being sent twice per transport try, once by the streaming connection and again by its fallback; each try is now sent once, and the error returned to the client is unchanged
 
 ### Removed
 

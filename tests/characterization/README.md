@@ -81,8 +81,9 @@ On a mismatch the failure shows a unified diff (golden vs actual).
   `OPENSEARCH_USERNAME`/`OPENSEARCH_PASSWORD`.
   `fail_streaming(method, path, body, *, status=200, headers=None, message=...)` reaches the
   connection's fallback: the streaming attempt `BufferedAsyncHttpConnection.perform_request`
-  makes fails at the connection level, before any response (`aiohttp.ClientConnectionError`,
-  as `fail_connection`), and the retry `_fallback_perform_request` makes through
+  makes fails with an unexpected error that is not a connection failure, before any response
+  (`RuntimeError`; a connection failure, as `fail_connection`, is retried by the transport and
+  never reaches the fallback), and the retry `_fallback_perform_request` makes through
   opensearch-py's `AsyncHttpConnection.perform_request` is answered with `status`, `headers`
   and `body`. That retry reads the body with `response.text()`, which returns `body` as it
   is: a `str`, `bytes` or any other object (`None`, a list, an int), so each reaches the

@@ -34,7 +34,7 @@
     {
       "level": "WARNING",
       "logger": "opensearch.connection",
-      "message": "Streaming request failed (ClientConnectionError: fake: connection reset during streaming), falling back to parent implementation"
+      "message": "Streaming request failed (RuntimeError: fake: unexpected failure during streaming), falling back to parent implementation"
     },
     {
       "level": "ERROR",
@@ -107,7 +107,7 @@
     "resultType": "complete"
   },
   "warnings": [
-    "Streaming request failed (ClientConnectionError: fake: connection reset during streaming), falling back to parent implementation",
+    "Streaming request failed (RuntimeError: fake: unexpected failure during streaming), falling back to parent implementation",
     "Response size exceeded limit: 999 > 697 bytes"
   ]
 }

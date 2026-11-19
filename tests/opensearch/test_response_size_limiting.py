@@ -3,6 +3,10 @@
 
 """Unit tests for response size limiting functionality."""
 
+import aiohttp
+import asyncio
+import contextlib
+import logging
 import os
 import pytest
 import tempfile
@@ -16,7 +20,10 @@ from opensearch.connection import (
     BufferedAsyncHttpConnection,
     ResponseSizeExceededError,
 )
-from unittest.mock import MagicMock, patch
+from opensearchpy import AsyncHttpConnection, AsyncTransport
+from opensearchpy.exceptions import ConnectionError, ConnectionTimeout, TransportError
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class TestBufferedAsyncHttpConnection:
@@ -41,10 +48,16 @@ class TestBufferedAsyncHttpConnection:
 
     @pytest.mark.asyncio
     async def test_perform_request_fallback_to_parent(self):
-        """Test that perform_request falls back to parent implementation on error."""
+        """Test that perform_request falls back to parent implementation on an unexpected error.
+
+        A connection failure no longer falls back (see TestConnectionFailuresSendEachTryOnce),
+        so the streaming request fails here with an error that is not one.
+        """
         connection = BufferedAsyncHttpConnection(
             host='localhost', port=9200, use_ssl=False, max_response_size=1024
         )
+        connection.session = MagicMock()
+        connection.session.request = MagicMock(side_effect=RuntimeError('unexpected'))
 
         # Mock parent class perform_request to return a successful response
         with patch.object(connection.__class__.__bases__[0], 'perform_request') as mock_parent:
@@ -557,3 +570,235 @@ class TestIntegrationScenarios:
         # Simulate a response much smaller than the limit
         simulated_response_size = 20 * 1024  # 20KB
         assert simulated_response_size < large_limit
+
+
+class _FailingSession:
+    """Stands in for ``aiohttp.ClientSession``: records each request and fails it.
+
+    ``fail(kind)`` returns the exception a request of that kind raises, or ``None`` to answer
+    it. The streaming request passes ``allow_redirects``; the parent's does not, so the kind
+    is ``'streaming'`` or ``'parent'``. ``stage`` is where the failure happens: on connect
+    (``__aenter__``) or while the body is read.
+    """
+
+    def __init__(self, fail, stage='connect'):
+        self.fail = fail
+        self.stage = stage
+        self.requests = []
+
+    def request(self, method, url, **kwargs):
+        kind = 'streaming' if 'allow_redirects' in kwargs else 'parent'
+        self.requests.append(kind)
+        error = self.fail(kind)
+
+        @contextlib.asynccontextmanager
+        async def exchange():
+            if error is not None and self.stage == 'connect':
+                raise error
+            yield self._response(error)
+
+        return exchange()
+
+    @staticmethod
+    def _response(error):
+        async def chunks(_size):
+            if error is not None:
+                raise error
+            yield b'[]'
+
+        response = MagicMock()
+        response.status = 200
+        response.headers.getall = MagicMock(return_value=())
+        response.content.iter_chunked = chunks
+        response.text = AsyncMock(side_effect=error, return_value='[]')
+        return response
+
+    async def close(self):
+        pass
+
+
+def _transport(connection_class, session, **kwargs):
+    """An ``AsyncTransport`` (four tries by default) whose connections all use ``session``."""
+
+    class _Connection(connection_class):
+        async def _create_aiohttp_session(self):
+            self.session = session
+
+    return AsyncTransport(
+        [{'host': 'localhost', 'port': 9200}], connection_class=_Connection, **kwargs
+    )
+
+
+async def _raised(transport):
+    with pytest.raises(TransportError) as info:
+        await transport.perform_request('GET', '/_cat/indices')
+    await transport.close()
+    return info.value
+
+
+def _error_events(caplog):
+    """The structured ``opensearch_request`` error events, as the fallback logged them."""
+    return [
+        (r.levelname, r.http_method, r.endpoint, r.error, hasattr(r, 'status_code'))
+        for r in caplog.records
+        if getattr(r, 'event_type', None) == 'opensearch_request' and r.status == 'error'
+    ]
+
+
+def _refused():
+    key = SimpleNamespace(host='localhost', port=9200, ssl=True)
+    return aiohttp.ClientConnectorError(key, ConnectionRefusedError(111, 'Connect call failed'))
+
+
+CONNECTION_FAILURES = {
+    'connection_refused': _refused,
+    'connection_reset': lambda: aiohttp.ClientConnectionError('connection reset'),
+    'fingerprint_mismatch': lambda: aiohttp.ServerFingerprintMismatch(
+        b'expected', b'got', 'localhost', 9200
+    ),
+}
+
+TIMEOUTS = {
+    'asyncio_timeout': asyncio.TimeoutError,
+    'aiohttp_server_timeout': lambda: aiohttp.ServerTimeoutError('Timeout on reading data'),
+}
+
+
+class TestConnectionFailuresSendEachTryOnce:
+    """A connection failure on the streaming path is sent once per transport try, not twice.
+
+    It raises the ``TransportError`` the parent ``AsyncHttpConnection`` raises for it (the
+    reference: today the fallback calls the parent, which raises that error), so the
+    transport retries it without the fallback re-sending each try.
+    """
+
+    @pytest.mark.parametrize('make_error', CONNECTION_FAILURES.values(), ids=CONNECTION_FAILURES)
+    async def test_connection_failure_makes_one_request_per_try(self, make_error, caplog):
+        caplog.set_level(logging.WARNING)
+        session = _FailingSession(lambda _kind: make_error())
+        raised = await _raised(_transport(BufferedAsyncHttpConnection, session))
+
+        reference_session = _FailingSession(lambda _kind: make_error())
+        expected = await _raised(_transport(AsyncHttpConnection, reference_session))
+
+        # Four tries, one streaming request each; the parent's request is never sent.
+        assert session.requests == ['streaming'] * 4
+        assert len(reference_session.requests) == 4
+        assert type(raised) is type(expected)
+        assert str(raised) == str(expected)
+        assert isinstance(raised, ConnectionError)
+        assert 'falling back to parent implementation' not in caplog.text
+        # The error event the fallback logged for each try is still logged, once per try.
+        assert _error_events(caplog) == [('ERROR', 'GET', '/_cat/indices', str(raised), False)] * 4
+        # log_request_fail is called once per try, as the parent does.
+        failures = [r for r in caplog.records if r.name == 'opensearch']
+        assert len(failures) == 8  # four from this transport, four from the reference
+        assert all(
+            r.getMessage().startswith('GET http://localhost:9200/_cat/indices [status:N/A')
+            for r in failures
+        )
+
+    def test_connection_refused_message_is_the_parents(self):
+        error = _refused()
+        assert str(ConnectionError('N/A', str(error), error)) == (
+            'ConnectionError(Cannot connect to host localhost:9200 ssl:default '
+            '[Connect call failed]) caused by: ClientConnectorError(Cannot connect to host '
+            'localhost:9200 ssl:default [Connect call failed])'
+        )
+
+    @pytest.mark.parametrize('stage', ['connect', 'body'])
+    @pytest.mark.parametrize('retry_on_timeout, tries', [(False, 1), (True, 4)])
+    @pytest.mark.parametrize('make_error', TIMEOUTS.values(), ids=TIMEOUTS)
+    async def test_timeout_makes_one_request_per_try(
+        self, make_error, retry_on_timeout, tries, stage, caplog
+    ):
+        caplog.set_level(logging.WARNING, logger='opensearch.connection')
+        session = _FailingSession(lambda _kind: make_error(), stage)
+        raised = await _raised(
+            _transport(BufferedAsyncHttpConnection, session, retry_on_timeout=retry_on_timeout)
+        )
+
+        reference_session = _FailingSession(lambda _kind: make_error(), stage)
+        expected = await _raised(
+            _transport(AsyncHttpConnection, reference_session, retry_on_timeout=retry_on_timeout)
+        )
+
+        assert session.requests == ['streaming'] * tries
+        assert len(reference_session.requests) == tries
+        assert type(raised) is type(expected) is ConnectionTimeout
+        assert str(raised) == str(expected)
+        assert 'falling back to parent implementation' not in caplog.text
+        expected_event = ('ERROR', 'GET', '/_cat/indices', str(raised), False)
+        assert _error_events(caplog) == [expected_event] * tries
+
+    async def test_unexpected_exception_still_falls_back(self, caplog):
+        caplog.set_level(logging.WARNING, logger='opensearch.connection')
+        session = _FailingSession(
+            lambda kind: RuntimeError('not a connection failure') if kind == 'streaming' else None
+        )
+        transport = _transport(BufferedAsyncHttpConnection, session)
+
+        assert await transport.perform_request('GET', '/_cat/indices') == []
+        await transport.close()
+
+        # One try: the streaming request fails, the parent's answers.
+        assert session.requests == ['streaming', 'parent']
+        assert (
+            'Streaming request failed (RuntimeError: not a connection failure), '
+            'falling back to parent implementation'
+        ) in caplog.text
+
+    @pytest.mark.parametrize('source', ['session_creation', 'auth_callable'])
+    async def test_timeout_before_the_request_is_sent_still_falls_back(self, source, caplog):
+        """A failure before the request is built has no request to retry: it falls back, as today.
+
+        ``asyncio.TimeoutError`` is the builtin ``TimeoutError`` on Python 3.11+.
+        """
+        caplog.set_level(logging.WARNING, logger='opensearch.connection')
+        session = _FailingSession(lambda _kind: None)
+        pending = [asyncio.TimeoutError()]
+
+        def fail_once(where):
+            if source == where and pending:
+                raise pending.pop()
+
+        class _Connection(BufferedAsyncHttpConnection):
+            async def _create_aiohttp_session(self):
+                fail_once('session_creation')
+                self.session = session
+
+        def auth(**_kwargs):
+            fail_once('auth_callable')
+            return {}
+
+        transport = AsyncTransport(
+            [{'host': 'localhost', 'port': 9200}], connection_class=_Connection, http_auth=auth
+        )
+        assert await transport.perform_request('GET', '/_cat/indices') == []
+        await transport.close()
+
+        # The streaming request was never sent; the fallback's request answered.
+        assert not pending
+        assert session.requests == ['parent']
+        assert (
+            'Streaming request failed (TimeoutError: ), falling back to parent implementation'
+        ) in caplog.text
+
+    async def test_connection_failure_without_redirects_is_still_reraised(self):
+        """The redirect refusal is unchanged: a failure re-raises as it is, without retries."""
+        session = _FailingSession(lambda _kind: _refused())
+
+        class _Connection(BufferedAsyncHttpConnection):
+            async def _create_aiohttp_session(self):
+                self.session = session
+
+        transport = AsyncTransport(
+            [{'host': 'localhost', 'port': 9200}],
+            connection_class=_Connection,
+            follow_redirects=False,
+        )
+        with pytest.raises(aiohttp.ClientConnectorError):
+            await transport.perform_request('GET', '/_cat/indices')
+        await transport.close()
+
+        assert session.requests == ['streaming']

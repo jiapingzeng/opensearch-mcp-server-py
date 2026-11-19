@@ -686,20 +686,21 @@ class FakeOpenSearch:
         *,
         status: int = 200,
         headers: dict | None = None,
-        message: str = 'fake: connection reset during streaming',
+        message: str = 'fake: unexpected failure during streaming',
     ) -> None:
         """Fail the streaming attempt of ``method path``; answer the fallback retry after it.
 
         ``BufferedAsyncHttpConnection.perform_request`` streams the response itself; when that
         raises, it retries through ``_fallback_perform_request`` (opensearch-py's
-        ``AsyncHttpConnection.perform_request``). Here the streaming attempt fails at the
-        connection level, before any response (``aiohttp.ClientConnectionError(message)``,
-        as ``fail_connection``), and every other attempt is answered with ``status``,
-        ``headers`` and ``body``. The fallback reads the body with ``response.text()``, which
-        returns ``body`` as it is: a ``str``, ``bytes`` or any other object (``None``, a dict,
-        an int), so each type reaches the server's fallback code unchanged; a callable is
-        called with the recorded request, as for ``reply``. The content-type defaults as for
-        ``reply`` (``headers`` override it).
+        ``AsyncHttpConnection.perform_request``). Here the streaming attempt fails with an
+        unexpected error that is not a connection failure, before any response
+        (``RuntimeError(message)``; a connection failure, as ``fail_connection``, is retried by
+        the transport and never reaches the fallback), and every other attempt is answered
+        with ``status``, ``headers`` and ``body``. The fallback reads the body with
+        ``response.text()``, which returns ``body`` as it is: a ``str``, ``bytes`` or any other
+        object (``None``, a dict, an int), so each type reaches the server's fallback code
+        unchanged; a callable is called with the recorded request, as for ``reply``. The
+        content-type defaults as for ``reply`` (``headers`` override it).
 
         The fake tells the attempts apart by the request: the streaming one passes
         ``allow_redirects``, opensearch-py's does not. Each attempt is one entry in
@@ -751,7 +752,7 @@ class FakeOpenSearch:
         if route.streaming_error is not None:
             record['attempt'] = 'streaming' if self._streaming_attempt else 'fallback'
             if self._streaming_attempt:
-                raise aiohttp.ClientConnectionError(route.streaming_error)
+                raise RuntimeError(route.streaming_error)
         body = route.body(record) if callable(route.body) else route.body
         if route.streaming_error is not None:
             return self._verbatim_response(route.status, body, route.headers)
