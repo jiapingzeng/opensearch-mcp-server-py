@@ -1,0 +1,30 @@
+{
+  "calls": [
+    {
+      "arguments": {},
+      "name": "CharPlantedRaises"
+    },
+    {
+      "arguments": {},
+      "name": "CharPlantedReturnsNone"
+    }
+  ],
+  "responses": [
+    {
+      "error": {
+        "code": -32001,
+        "message": "characterization: planted in a launched server"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    {
+      "id": 2,
+      "jsonrpc": "2.0",
+      "result": {
+        "content": [],
+        "isError": false
+      }
+    }
+  ]
+}

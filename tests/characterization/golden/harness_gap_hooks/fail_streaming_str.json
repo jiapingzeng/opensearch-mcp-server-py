@@ -1,0 +1,113 @@
+{
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "connection_log": [
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET / -> 200 (<DURATION>ms)",
+      "response_size": 438,
+      "status": "success",
+      "status_code": 200
+    },
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET / -> 200 (<DURATION>ms)",
+      "response_size": 438,
+      "status": "success",
+      "status_code": 200
+    },
+    {
+      "level": "WARNING",
+      "logger": "opensearch.connection",
+      "message": "Streaming request failed (ClientConnectionError: fake: connection reset during streaming), falling back to parent implementation"
+    },
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/_cat/indices",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET /_cat/indices -> 200 (<DURATION>ms)",
+      "response_size": 18,
+      "status": "success",
+      "status_code": 200
+    }
+  ],
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "attempt": "streaming",
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    },
+    {
+      "attempt": "fallback",
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Indices:\n[\"logs\"]",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "entry": {
+    "args": [
+      "--mode",
+      "single",
+      "--log-format",
+      "text"
+    ],
+    "entry": "main",
+    "main_module": null,
+    "prog": "opensearch-mcp-server-py"
+  },
+  "initialize": {
+    "id": 0,
+    "jsonrpc": "2.0",
+    "result": {
+      "capabilities": {
+        "experimental": {},
+        "tools": {
+          "listChanged": false
+        }
+      },
+      "protocolVersion": "2025-11-25",
+      "serverInfo": {
+        "name": "opensearch-mcp-server",
+        "version": ""
+      }
+    }
+  },
+  "returncode": 0,
+  "tools": [
+    "ListIndexTool",
+    "IndexMappingTool",
+    "SearchIndexTool",
+    "GetShardsTool",
+    "GenericOpenSearchApiTool",
+    "ClusterHealthTool",
+    "CountTool",
+    "ExplainTool",
+    "MsearchTool"
+  ]
+}

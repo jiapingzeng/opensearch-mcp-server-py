@@ -69,7 +69,8 @@ On a mismatch the failure shows a unified diff (golden vs actual).
 - `fake_opensearch`: fake cluster behind the aiohttp session opensearch-py's connections
   use, so the server's connection class, auth and error mapping run unchanged.
   `reply(method, path, body)`, `error(method, path, status, body=None)`,
-  `fail_connection(method, path)`; `requests` lists every request (method, host, path,
+  `fail_connection(method, path)`, `fail_streaming(method, path, body, status=200,
+  headers=None)` (below); `requests` lists every request (method, host, path,
   params, decoded body, auth kind without secrets). `GET /` answers `version`
   (default `3.1.0`); `version = None` makes it fail, so the server sees no version and
   skips version filtering. A request with no route fails the test.
@@ -77,6 +78,19 @@ On a mismatch the failure shows a unified diff (golden vs actual).
   credentials path, fails it (no region) and never reaches the fake: it sees no version.
   To reach the fake, configure auth, e.g. `env={'OPENSEARCH_NO_AUTH': 'true'}` or
   `OPENSEARCH_USERNAME`/`OPENSEARCH_PASSWORD`.
+  `fail_streaming(method, path, body, *, status=200, headers=None, message=...)` reaches the
+  connection's fallback: the streaming attempt `BufferedAsyncHttpConnection.perform_request`
+  makes fails at the connection level, before any response (`aiohttp.ClientConnectionError`,
+  as `fail_connection`), and the retry `_fallback_perform_request` makes through
+  opensearch-py's `AsyncHttpConnection.perform_request` is answered with `status`, `headers`
+  and `body`. That retry reads the body with `response.text()`, which returns `body` as it
+  is: a `str`, `bytes` or any other object (`None`, a list, an int), so each reaches the
+  server's fallback code unchanged; the content-type defaults as for `reply` (`headers`
+  override it, e.g. JSON for a bytes body the client should parse). The fake tells the two
+  attempts apart by the request: the streaming one passes `allow_redirects`, opensearch-py's
+  does not. Each attempt is one entry in `requests`, marked `'attempt': 'streaming'` or
+  `'fallback'`, so a test shows how many requests were made (two per call, or one when
+  the server does not fall back).
 - `pinned_openapi`: `tools.tool_generator.fetch_github_spec` serves `fixtures/openapi/*.yaml`.
   `openapi_unavailable` makes the fetch raise instead.
 - `isolated_state` (autouse): each test starts from the module state at import time and a
@@ -126,8 +140,29 @@ On a mismatch the failure shows a unified diff (golden vs actual).
   `open_stream`, reads its first event (10 s timeout) and disconnects.
   `ctx.request` is `None` over stdio and in-memory, so anything
   header-based (header auth, `x-mcp-client-name`) is reachable only through `http_app`.
-- `stdio_launcher(*args, env=None, cwd=None)`: `async with stdio_launcher('--mode', 'multi')
-  as server:` runs `stdio_launcher.py` with `sys.executable` (no shell): it installs the same
+- `plant_tool(name, *, raises=..., returns=None, enable=True)`: a tool for this test only.
+  It goes in `TOOL_REGISTRY` with an entry shaped as a real tool's (`baseToolArgs` as its
+  args model, `http_methods` `GET`), so it takes the same custom-config, filter and
+  executor path (`tool_executor.execute_tool`) as one, in every server the test builds:
+  `mcp_session`, `http_app`, and `stdio_launcher`, which copies the tools planted so far
+  into the launched server. On every call it raises `raises` (an exception instance, or a
+  class instantiated without arguments) or else returns `returns` as the tool's raw content
+  (`[]`, `None`, a list of content dicts). The SDK's MCP error class is
+  `harness.SDK_MCP_ERROR`: `MCPError(code, message, data=None)`, the name the locked `mcp`
+  (2.0.0) exports from `mcp.shared.exceptions` (1.x called it `McpError`); raised from a
+  tool, the server answers `tools/call` with that JSON-RPC error. `enable` adds `name` to
+  `OPENSEARCH_ENABLED_TOOLS` (keeping its value), as a user enables a tool outside
+  `core_tools` in single mode (multi mode does not filter by category); a test that sets
+  that variable itself, or passes a config file (whose `tool_filters` win over the
+  environment), names the tool there. The registry entry and the variable are undone when
+  the test ends, so the tool exists in no other test; a name already in the registry is
+  refused. The returned `PlantedTool` lists in `calls` the arguments (the fields set) of
+  each call made in this process. Into a launched server an exception crosses as its class
+  and `args` (it must be rebuilt by `cls(*args)` from JSON data, as `MCPError` and the
+  built-in exceptions are) and content as JSON data; otherwise the launch fails with
+  `TypeError`.
+- `stdio_launcher(*args, env=None, cwd=None, entry='main')`:
+  `async with stdio_launcher('--mode', 'multi') as server:` runs `stdio_launcher.py` with `sys.executable` (no shell): it installs the same
   fake OpenSearch, pinned OpenAPI and network guard in the subprocess, then calls
   `mcp_server_opensearch.main()` with `args`. The subprocess gets this test's (isolated)
   environment plus `env`, UTF-8 stdio and a fresh directory under `tmp_path` as its cwd.
@@ -143,13 +178,22 @@ On a mismatch the failure shows a unified diff (golden vs actual).
   process did. On exit stdin is closed and the server waited for; its fake's requests are
   added to `fake_opensearch.requests` (unmatched ones fail the test) and its blocked
   network attempts fail the test.
+  `entry='module'` starts the server as `python -m mcp_server_opensearch` does, through the
+  package's `__main__.py` (run as `__main__` with `runpy.run_module`, so `sys.argv[0]` is
+  its path), with the same arguments and environment; the default `entry='main'` calls
+  `main()` named as the console script. `server.entry()` shows which ran, recorded as
+  `main()` starts: `{'entry', 'main_module', 'prog', 'args'}` (`main_module` is
+  `mcp_server_opensearch.__main__` under `python -m`, `None` otherwise; `prog` the name of
+  `sys.argv[0]`). How to start and what to plant reach the launcher in a JSON file whose path
+  is in `CHAR_LAUNCH_SPEC`, set for every launch.
 - `memory_enabled_session(mode='single', config_file='', env=None)`: `stdio_launcher` with
   `MEMORY_TOOLS_ENABLED=true`, so the memory tools are registered; same helpers as
   `mcp_session`. Memory tools are registered when `tools.memory_tools` is imported and
   several modules hold `TOOL_REGISTRY` references, so reloading in-process is unsafe.
 - `harness`: the conftest module itself, for tests of its helpers (`harness.parse_sse`,
-  `harness.fake_table`): `import conftest` is not reliable, since every package-less
-  `conftest.py` under `tests/` imports under that name.
+  `harness.fake_table`, `harness.SDK_MCP_ERROR`, `harness.exception_spec`): `import conftest`
+  is not reliable, since every package-less `conftest.py` under `tests/` imports under that
+  name.
 
 Goldens assume the test process starts without `MEMORY_TOOLS_ENABLED=true`: the memory
 tool registry is decided when `tools.memory_tools` is imported. Use

@@ -9,7 +9,8 @@ public entry points and the MCP protocol. This module provides:
 - ``golden``: compare canonical JSON with a committed file in ``golden/``.
 - ``normalize``: replace volatile values (timestamps, ids, ports, ...) with placeholders.
 - ``fake_opensearch``: a fake OpenSearch behind the HTTP session the server's
-  ``AsyncOpenSearch`` connections use, with a route table and a request log.
+  ``AsyncOpenSearch`` connections use, with a route table and a request log
+  (``fail_streaming`` reaches the connection's fallback retry).
 - ``pinned_openapi`` / ``openapi_unavailable``: committed OpenAPI fixtures instead of GitHub.
 - ``isolated_state`` (autouse): resets and restores every piece of module state
   the server mutates, and the environment it reads.
@@ -20,6 +21,8 @@ public entry points and the MCP protocol. This module provides:
 - ``stdio_launcher``: the real entry point (``main()``) in a subprocess through
   ``stdio_launcher.py``, with the same fakes installed there, spoken to over stdio.
 - ``memory_enabled_session``: ``stdio_launcher`` with ``MEMORY_TOOLS_ENABLED=true``.
+- ``plant_tool``: a tool for one test, in the registry the servers above use, that raises
+  or returns what the test gives it.
 """
 
 import aiohttp
@@ -31,6 +34,7 @@ import difflib
 import errno
 import gzip
 import httpx
+import importlib
 import ipaddress
 import itertools
 import json
@@ -453,6 +457,8 @@ class _Route:
     body: Any = None
     headers: dict | None = None
     connection_error: str | None = None
+    # fail_streaming: the streaming attempt fails with this message; the fallback is answered.
+    streaming_error: str | None = None
 
     def matches(self, method: str, path: str) -> bool:
         if method != self.method:
@@ -471,19 +477,29 @@ class _FakeContent:
             yield self._body[start : start + size]
 
 
-class _FakeResponse:
-    """The parts of ``aiohttp.ClientResponse`` the OpenSearch connections read."""
+_VERBATIM_UNSET = object()
 
-    def __init__(self, status: int, body: bytes, headers: dict):
+
+class _FakeResponse:
+    """The parts of ``aiohttp.ClientResponse`` the OpenSearch connections read.
+
+    ``text()`` decodes the body, unless ``text`` is given: then it returns that object as it
+    is (a ``str``, ``bytes`` or any other object), as ``fail_streaming`` answers a fallback.
+    """
+
+    def __init__(self, status: int, body: bytes, headers: dict, text: Any = _VERBATIM_UNSET):
         self.status = status
         self.headers = CIMultiDictProxy(CIMultiDict(headers))
         self.content = _FakeContent(body)
         self._body = body
+        self._text = text
 
     async def read(self) -> bytes:
         return self._body
 
-    async def text(self, encoding: Any = None, errors: str = 'strict') -> str:
+    async def text(self, encoding: Any = None, errors: str = 'strict') -> Any:
+        if self._text is not _VERBATIM_UNSET:
+            return self._text
         return self._body.decode('utf-8', 'surrogatepass')
 
     def release(self) -> None:
@@ -491,14 +507,24 @@ class _FakeResponse:
 
 
 class _FakeExchange:
-    """What ``session.request(...)`` returns: an async context manager yielding the response."""
+    """What ``session.request(...)`` returns: an async context manager yielding the response.
 
-    def __init__(self, fake: 'FakeOpenSearch', method, url, data, auth, headers):
+    ``streaming`` tells the fake which attempt this is (see ``FakeOpenSearch.fail_streaming``).
+    It is set on the fake for the duration of the (synchronous) ``_exchange`` call, so
+    ``_exchange`` keeps its five-argument signature, which tests wrap.
+    """
+
+    def __init__(self, fake: 'FakeOpenSearch', method, url, data, auth, headers, streaming=False):
         self._fake = fake
         self._args = (method, url, data, auth, headers)
+        self._streaming = streaming
 
     async def __aenter__(self) -> _FakeResponse:
-        return self._fake._exchange(*self._args)
+        self._fake._streaming_attempt = self._streaming
+        try:
+            return self._fake._exchange(*self._args)
+        finally:
+            self._fake._streaming_attempt = False
 
     async def __aexit__(self, *exc_info) -> bool:
         return False
@@ -511,8 +537,12 @@ class _FakeAiohttpSession:
         self._fake = fake
         self.closed = False
 
-    def request(self, method, url, data=None, auth=None, headers=None, **_transport_options):
-        return _FakeExchange(self._fake, method, url, data, auth, headers)
+    def request(self, method, url, data=None, auth=None, headers=None, **transport_options):
+        # The streaming request BufferedAsyncHttpConnection.perform_request makes passes
+        # `allow_redirects` (its `follow_redirects`); opensearch-py's
+        # AsyncHttpConnection.perform_request, which the fallback calls, does not.
+        streaming = 'allow_redirects' in transport_options
+        return _FakeExchange(self._fake, method, url, data, auth, headers, streaming)
 
     async def close(self) -> None:
         self.closed = True
@@ -601,6 +631,8 @@ class FakeOpenSearch:
         self.requests: list[dict] = []
         self.unmatched: list[dict] = []
         self._routes: list[_Route] = []
+        # Whether the exchange in progress is a streaming attempt (set by _FakeExchange).
+        self._streaming_attempt = False
 
     def reply(
         self,
@@ -637,6 +669,37 @@ class FakeOpenSearch:
     ) -> None:
         """Make ``method path`` fail as if the connection broke before any response."""
         self._routes.append(_Route(method.upper(), path, connection_error=message))
+
+    def fail_streaming(
+        self,
+        method: str,
+        path: str | re.Pattern,
+        body: Any,
+        *,
+        status: int = 200,
+        headers: dict | None = None,
+        message: str = 'fake: connection reset during streaming',
+    ) -> None:
+        """Fail the streaming attempt of ``method path``; answer the fallback retry after it.
+
+        ``BufferedAsyncHttpConnection.perform_request`` streams the response itself; when that
+        raises, it retries through ``_fallback_perform_request`` (opensearch-py's
+        ``AsyncHttpConnection.perform_request``). Here the streaming attempt fails at the
+        connection level, before any response (``aiohttp.ClientConnectionError(message)``,
+        as ``fail_connection``), and every other attempt is answered with ``status``,
+        ``headers`` and ``body``. The fallback reads the body with ``response.text()``, which
+        returns ``body`` as it is: a ``str``, ``bytes`` or any other object (``None``, a dict,
+        an int), so each type reaches the server's fallback code unchanged; a callable is
+        called with the recorded request, as for ``reply``. The content-type defaults as for
+        ``reply`` (``headers`` override it).
+
+        The fake tells the attempts apart by the request: the streaming one passes
+        ``allow_redirects``, opensearch-py's does not. Each attempt is one entry in
+        ``requests``, marked ``'attempt': 'streaming'`` or ``'fallback'``.
+        """
+        self._routes.append(
+            _Route(method.upper(), path, status, body, headers, streaming_error=message)
+        )
 
     def verify(self) -> None:
         """Fail the test if any request had no route."""
@@ -677,9 +740,25 @@ class FakeOpenSearch:
             )
         if route.connection_error is not None:
             raise aiohttp.ClientConnectionError(route.connection_error)
+        if route.streaming_error is not None:
+            record['attempt'] = 'streaming' if self._streaming_attempt else 'fallback'
+            if self._streaming_attempt:
+                raise aiohttp.ClientConnectionError(route.streaming_error)
         body = route.body(record) if callable(route.body) else route.body
+        if route.streaming_error is not None:
+            return self._verbatim_response(route.status, body, route.headers)
         payload, reply_headers = _encode_reply(body, route.headers)
         return _FakeResponse(route.status, payload, reply_headers)
+
+    @staticmethod
+    def _verbatim_response(status: int, body: Any, headers: dict | None) -> _FakeResponse:
+        """A response whose ``text()`` returns ``body`` itself (see ``fail_streaming``)."""
+        try:
+            payload, reply_headers = _encode_reply(body, headers)
+        except (TypeError, ValueError):
+            # Not JSON data: read() and content carry its str(); text() still returns it.
+            payload, reply_headers = _encode_reply(str(body), headers)
+        return _FakeResponse(status, payload, reply_headers, text=body)
 
     def _version_route(self) -> _Route:
         if self.version is None:
@@ -1766,6 +1845,189 @@ def http_app(monkeypatch, fake_opensearch, pinned_openapi) -> Callable:
 
 
 # ---------------------------------------------------------------------------
+# plant_tool
+# ---------------------------------------------------------------------------
+
+# The SDK's MCP error class, under the name the locked `mcp` (2.0.0) exports from
+# mcp.shared.exceptions: `MCPError` (1.x called it `McpError`). A tool raising it makes the
+# server answer tools/call with a JSON-RPC error (streaming_server's _call_tool re-raises it).
+SDK_MCP_ERROR = MCPError
+PLANTED_TOOL_DESCRIPTION = 'Characterization harness: a tool planted for one test.'
+# The server's own variable for naming tools to enable beside the core_tools category.
+ENABLED_TOOLS_ENV = 'OPENSEARCH_ENABLED_TOOLS'
+_NOT_GIVEN = object()
+
+
+def planted_tool_entry(name: str, function: Callable) -> dict:
+    """The ``TOOL_REGISTRY`` entry of a planted tool: shaped as a real one (see tools.py).
+
+    Its arguments are ``baseToolArgs`` (what every tool's args model extends), its
+    ``http_methods`` ``GET``, so the write filter keeps it.
+    """
+    return {
+        'display_name': name,
+        'description': PLANTED_TOOL_DESCRIPTION,
+        'input_schema': baseToolArgs.model_json_schema(),
+        'function': function,
+        'args_model': baseToolArgs,
+        'http_methods': 'GET',
+    }
+
+
+def exception_spec(error: BaseException) -> dict:
+    """``error`` as JSON data a launched server rebuilds (``exception_from_spec``).
+
+    An exception crosses as its class (``module:qualname``) and its ``args``, so it must be
+    rebuilt by ``cls(*args)`` from JSON data, to an exception of the same class and args
+    (``MCPError(code, message, data)`` and the built-in exceptions are); else TypeError.
+    """
+    cls = type(error)
+    spec = {'class': f'{cls.__module__}:{cls.__qualname__}', 'args': list(error.args)}
+    try:
+        spec = json.loads(json.dumps(spec))
+        rebuilt = exception_from_spec(spec)
+    except Exception as failure:
+        raise TypeError(
+            f'{cls.__qualname__}{error.args!r} cannot be rebuilt in a launched server: {failure}'
+        ) from failure
+    if type(rebuilt) is not cls or rebuilt.args != error.args:
+        raise TypeError(
+            f'{cls.__qualname__}{error.args!r} cannot be rebuilt in a launched server: '
+            f'{cls.__qualname__}(*args) gives {type(rebuilt).__qualname__}{rebuilt.args!r}'
+        )
+    return spec
+
+
+def exception_from_spec(spec: dict) -> BaseException:
+    """A new exception from an ``exception_spec``."""
+    module_name, _, qualname = spec['class'].partition(':')
+    cls: Any = importlib.import_module(module_name)
+    for part in qualname.split('.'):
+        cls = getattr(cls, part)
+    return cls(*spec['args'])
+
+
+def planted_function(raises: Callable[[], BaseException] | None, returns: Any, calls: list):
+    """The async function a planted tool runs.
+
+    It records the arguments it was given (the fields set) in ``calls``, then raises
+    ``raises()`` if given, else returns ``returns`` (whatever it is: [], None, content dicts).
+    """
+
+    async def planted(args: baseToolArgs) -> Any:
+        calls.append(args.model_dump(mode='json', exclude_unset=True))
+        if raises is not None:
+            raise raises()
+        return returns
+
+    return planted
+
+
+def planted_tool_from_spec(spec: dict) -> dict:
+    """The registry entry a launched server plants for one ``ToolPlanter.specs()`` item."""
+    if 'raises' in spec:
+
+        def raises() -> BaseException:
+            return exception_from_spec(spec['raises'])
+
+    else:
+        raises = None
+    return planted_tool_entry(spec['name'], planted_function(raises, spec.get('returns'), []))
+
+
+@dataclass
+class PlantedTool:
+    """A tool ``plant_tool`` put in the registry.
+
+    ``calls`` lists the arguments of each call made in this process (a launched server's
+    calls are not seen here).
+    """
+
+    name: str
+    raises: BaseException | None
+    returns: Any
+    calls: list = field(default_factory=list)
+
+
+class ToolPlanter:
+    """``plant_tool(name, *, raises=..., returns=None, enable=True)``: see ``plant_tool``."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch):
+        self._monkeypatch = monkeypatch
+        self.planted: list[PlantedTool] = []
+
+    def __call__(
+        self,
+        name: str,
+        *,
+        raises: BaseException | type | Any = _NOT_GIVEN,
+        returns: Any = None,
+        enable: bool = True,
+    ) -> PlantedTool:
+        if name in TOOL_REGISTRY:
+            raise ValueError(f'{name!r} is already in TOOL_REGISTRY; plant a tool by a new name')
+        if raises is not _NOT_GIVEN:
+            if isinstance(raises, type) and issubclass(raises, BaseException):
+                raises = raises()
+            if not isinstance(raises, BaseException):
+                raise TypeError(f'raises must be an exception, not {raises!r}')
+        tool = PlantedTool(name, None if raises is _NOT_GIVEN else raises, returns)
+        error = tool.raises
+        function = planted_function(
+            None if error is None else (lambda: error), tool.returns, tool.calls
+        )
+        # Undone after the test (isolated_state restores the registry as well).
+        self._monkeypatch.setitem(TOOL_REGISTRY, name, planted_tool_entry(name, function))
+        if enable:
+            enabled = [n for n in os.environ.get(ENABLED_TOOLS_ENV, '').split(',') if n.strip()]
+            self._monkeypatch.setenv(ENABLED_TOOLS_ENV, ','.join([*enabled, name]))
+        self.planted.append(tool)
+        return tool
+
+    def specs(self) -> list[dict]:
+        """The planted tools as JSON data, for a launched server (``planted_tool_from_spec``).
+
+        TypeError if a tool's exception cannot cross (see ``exception_spec``) or its content
+        is no JSON data.
+        """
+        specs = []
+        for tool in self.planted:
+            spec: dict[str, Any] = {'name': tool.name}
+            if tool.raises is not None:
+                spec['raises'] = exception_spec(tool.raises)
+            else:
+                try:
+                    spec['returns'] = json.loads(json.dumps(tool.returns))
+                except (TypeError, ValueError) as failure:
+                    raise TypeError(
+                        f'planted tool {tool.name}: its content cannot be passed to a launched '
+                        f'server; give it as JSON data ({failure})'
+                    ) from failure
+            specs.append(spec)
+        return specs
+
+
+@pytest.fixture
+def plant_tool(monkeypatch) -> ToolPlanter:
+    """``plant_tool(name, *, raises=..., returns=None, enable=True)``: a tool for this test only.
+
+    Puts ``name`` in ``TOOL_REGISTRY`` as a real tool's entry (``planted_tool_entry``), so it
+    goes through the same custom config, filter and executor path
+    (``tool_executor.execute_tool``) as one; the test's servers (``mcp_session``,
+    ``http_app``, and ``stdio_launcher``, which copies it in at launch) list and call it. The
+    tool raises ``raises`` (an exception such as ``SDK_MCP_ERROR(code, message, data)`` or
+    ``ValueError('...')``, or a class, instantiated without arguments), else returns
+    ``returns`` as the tool's raw content (``[]``, ``None``, a list of content dicts), on
+    every call. ``enable`` adds ``name`` to
+    ``OPENSEARCH_ENABLED_TOOLS`` (keeping what it held), as a user enables a tool outside the
+    ``core_tools`` category in single mode; a test that sets that variable itself, or passes
+    a config file (whose ``tool_filters`` win over the environment), names the tool there.
+    The entry and the variable are undone when the test ends. Returns a ``PlantedTool``.
+    """
+    return ToolPlanter(monkeypatch)
+
+
+# ---------------------------------------------------------------------------
 # stdio_launcher / memory_enabled_session
 # ---------------------------------------------------------------------------
 
@@ -1775,6 +2037,12 @@ SERVER_PROG = 'opensearch-mcp-server-py'
 # Files the test process and stdio_launcher.py share (paths in these variables).
 FAKE_TABLE_ENV = 'CHAR_FAKE_OPENSEARCH_TABLE'
 FAKE_LOG_ENV = 'CHAR_FAKE_OPENSEARCH_LOG'
+# How to start the server and the tools to plant (JSON: {'entry', 'planted_tools'}).
+LAUNCH_SPEC_ENV = 'CHAR_LAUNCH_SPEC'
+# The entries stdio_launcher.py can start the server through: `main()` called as the
+# console script, or `python -m mcp_server_opensearch` (its __main__.py, through runpy).
+LAUNCH_ENTRIES = ('main', 'module')
+LAUNCH_SPEC_FILE = 'launch_spec.json'
 STDIO_TIMEOUT_SECONDS = 60
 # Variables that make a launched process's output depend on the terminal it was started from.
 _LAUNCHER_DROPPED_ENV = ('COLUMNS', 'LINES', 'FORCE_COLOR', 'PYTHON_COLORS')
@@ -1803,6 +2071,7 @@ def fake_table(fake: FakeOpenSearch, pinned: PinnedOpenApi) -> dict:
             'status': route.status,
             'headers': route.headers,
             'connection_error': route.connection_error,
+            'streaming_error': route.streaming_error,
         }
         if isinstance(route.path, re.Pattern):
             entry['path_regex'] = route.path.pattern
@@ -1843,6 +2112,7 @@ def fake_from_table(table: dict) -> tuple[FakeOpenSearch, PinnedOpenApi]:
                 body,
                 entry['headers'],
                 entry['connection_error'],
+                entry.get('streaming_error'),
             )
         )
     pinned = PinnedOpenApi()
@@ -2072,6 +2342,20 @@ class StdioServerProcess:
         """Requests the launched server's fake OpenSearch received so far (as ``requests``)."""
         return [e['record'] for e in read_launcher_log(self.log_path) if e['kind'] == 'request']
 
+    def entry(self) -> dict | None:
+        """How the launched process entered the server, once it has (else ``None``).
+
+        ``{'entry': 'main' | 'module', 'main_module', 'prog', 'args'}``, recorded as
+        ``mcp_server_opensearch.main()`` starts: ``main_module`` is the ``__spec__`` name of
+        the ``__main__`` module then (``mcp_server_opensearch.__main__`` under
+        ``python -m``; ``None`` for the launcher script), ``prog`` the name of
+        ``sys.argv[0]`` and ``args`` the rest of ``sys.argv``.
+        """
+        for entry in read_launcher_log(self.log_path):
+            if entry['kind'] == 'entry':
+                return {key: value for key, value in entry.items() if key != 'kind'}
+        return None
+
 
 def _launcher_env(env: dict | None, table_path: Path, log_path: Path) -> dict:
     # This process's environment, already cleaned by isolated_state (OPENSEARCH_URL points at
@@ -2086,6 +2370,8 @@ def _launcher_env(env: dict | None, table_path: Path, log_path: Path) -> dict:
             process_env[name] = str(value)
     process_env[FAKE_TABLE_ENV] = str(table_path)
     process_env[FAKE_LOG_ENV] = str(log_path)
+    # Beside the table; set for every launch, so both entries get the same environment.
+    process_env[LAUNCH_SPEC_ENV] = str(table_path.with_name(LAUNCH_SPEC_FILE))
     # stderr in UTF-8 on every OS (Windows would use the ANSI code page for a pipe).
     process_env['PYTHONIOENCODING'] = 'utf-8'
     python_path = [_SERVER_SOURCE_ROOT, *filter(None, [process_env.get('PYTHONPATH')])]
@@ -2094,11 +2380,16 @@ def _launcher_env(env: dict | None, table_path: Path, log_path: Path) -> dict:
 
 
 @pytest.fixture
-def stdio_launcher(fake_opensearch, pinned_openapi, no_network, tmp_path) -> Callable:
+def stdio_launcher(fake_opensearch, pinned_openapi, no_network, tmp_path, plant_tool) -> Callable:
     """Factory running the real entry point in a subprocess through ``stdio_launcher.py``.
 
-    Use as ``async with stdio_launcher(*args, env=None, cwd=None) as server:``; ``args`` are
-    the server's command-line arguments (``--transport stdio`` is the default). The process
+    Use as ``async with stdio_launcher(*args, env=None, cwd=None, entry='main') as server:``;
+    ``args`` are the server's command-line arguments (``--transport stdio`` is the default).
+    ``entry='main'`` (the default) calls ``mcp_server_opensearch.main()`` as the console
+    script; ``entry='module'`` runs it as ``python -m mcp_server_opensearch`` does, through
+    the package's ``__main__.py`` (``runpy``), with the same arguments and environment
+    (``server.entry()`` shows which ran). Tools planted with ``plant_tool`` so far are
+    planted in the launched server too (``ToolPlanter.specs``). The process
     is ``sys.executable`` (no shell), runs in a fresh directory under ``tmp_path`` unless
     ``cwd`` is given, and gets this process's environment (as ``isolated_state`` left it)
     with ``env`` on top (``None`` unsets a variable). ``fake_opensearch``'s routes and version
@@ -2112,13 +2403,22 @@ def stdio_launcher(fake_opensearch, pinned_openapi, no_network, tmp_path) -> Cal
     launches = itertools.count(1)
 
     @contextlib.asynccontextmanager
-    async def launch(*args: str, env: dict | None = None, cwd: str | os.PathLike | None = None):
+    async def launch(
+        *args: str,
+        env: dict | None = None,
+        cwd: str | os.PathLike | None = None,
+        entry: str = 'main',
+    ):
+        if entry not in LAUNCH_ENTRIES:
+            raise ValueError(f'entry must be one of {LAUNCH_ENTRIES}, not {entry!r}')
         workdir = tmp_path / f'stdio-{next(launches)}'
         workdir.mkdir()
         table_path = workdir / 'fake_opensearch_table.json'
         log_path = workdir / 'fake_opensearch_log.jsonl'
         with open(table_path, 'w', encoding='utf-8', newline='\n') as f:
             json.dump(fake_table(fake_opensearch, pinned_openapi), f)
+        with open(workdir / LAUNCH_SPEC_FILE, 'w', encoding='utf-8', newline='\n') as f:
+            json.dump({'entry': entry, 'planted_tools': plant_tool.specs()}, f)
         log_path.touch()
         process = await asyncio.create_subprocess_exec(
             sys.executable,

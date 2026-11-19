@@ -1,0 +1,109 @@
+{
+  "call": {
+    "arguments": {
+      "index": "missing"
+    },
+    "name": "IndexMappingTool"
+  },
+  "connection_log": [
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET / -> 200 (<DURATION>ms)",
+      "response_size": 438,
+      "status": "success",
+      "status_code": 200
+    },
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET / -> 200 (<DURATION>ms)",
+      "response_size": 438,
+      "status": "success",
+      "status_code": 200
+    },
+    {
+      "level": "WARNING",
+      "logger": "opensearch.connection",
+      "message": "Streaming request failed (ClientConnectionError: fake: connection reset during streaming), falling back to parent implementation"
+    },
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/missing/_mapping",
+      "error": "NotFoundError(404, '{\"error\": {\"type\": \"index_not_found_exception\", \"reason\": \"no such index [missing]\"}, \"status\": 404}')",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "ERROR",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request failed: GET /missing/_mapping -> 404 (<DURATION>ms)",
+      "status": "error",
+      "status_code": 404
+    }
+  ],
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "attempt": "streaming",
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/missing/_mapping"
+    },
+    {
+      "attempt": "fallback",
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/missing/_mapping"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error getting mapping: NotFoundError(404, '{\"error\": {\"type\": \"index_not_found_exception\", \"reason\": \"no such index [missing]\"}, \"status\": 404}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}
