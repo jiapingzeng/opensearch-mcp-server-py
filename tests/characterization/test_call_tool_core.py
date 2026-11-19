@@ -1144,7 +1144,8 @@ GENERATED_CASES = [
     # characterization: current behaviour. The generated tools' `timeout` parameter never
     # reaches OpenSearch: opensearch-py's transport takes it out of the query params as the
     # client request timeout, so a string such as '5s' ends up in aiohttp.ClientTimeout and
-    # fails against a real session (the fake drops transport options). Not used here.
+    # fails against a real session (the fake drops transport options). The `with_timeout`
+    # case pins it: its recorded request has no `timeout` query parameter.
     Case(
         'generated/ClusterHealthTool/without_index',
         'ClusterHealthTool',
@@ -1156,6 +1157,12 @@ GENERATED_CASES = [
         'ClusterHealthTool',
         {'index': 'logs', 'wait_for_status': 'yellow', 'level': 'indices'},
         (ok('GET', '/_cluster/health/logs', CLUSTER_HEALTH),),
+    ),
+    Case(
+        'generated/ClusterHealthTool/with_timeout',
+        'ClusterHealthTool',
+        {'timeout': '5s'},
+        (ok('GET', '/_cluster/health', CLUSTER_HEALTH),),
     ),
     Case(
         'generated/ClusterHealthTool/error_403',
