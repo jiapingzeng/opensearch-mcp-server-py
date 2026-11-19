@@ -1,0 +1,289 @@
+{
+  "boto3_calls": [
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "us-east-1",
+        "service": "sts"
+      },
+      "host": "sts.amazonaws.com",
+      "operation": "GetCallerIdentity",
+      "params": {},
+      "service": "sts"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "aoss"
+      },
+      "host": "aoss.eu-west-1.amazonaws.com",
+      "operation": "BatchGetCollection",
+      "params": {
+        "ids": [
+          "k2x9memcoll"
+        ]
+      },
+      "service": "opensearchserverless"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "aoss"
+      },
+      "host": "aoss.eu-west-1.amazonaws.com",
+      "operation": "GetAccessPolicy",
+      "params": {
+        "name": "mcp-memory-access",
+        "type": "data"
+      },
+      "service": "opensearchserverless"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "aoss"
+      },
+      "host": "aoss.eu-west-1.amazonaws.com",
+      "operation": "UpdateAccessPolicy",
+      "params": {
+        "name": "mcp-memory-access",
+        "policy": "[{\"Rules\": [{\"Resource\": [\"index/agent-memories-0/*\"], \"Permission\": [\"aoss:ReadDocument\"], \"ResourceType\": \"index\"}], \"Principal\": [\"arn:aws:iam::123456789012:role/SearchReader\", \"arn:aws:iam::123456789012:role/MemoryWriter\"]}]",
+        "policyVersion": "MTU3NzgzNjgwMDAwMF8x",
+        "type": "data"
+      },
+      "service": "opensearchserverless"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "aoss"
+      },
+      "host": "aoss.eu-west-1.amazonaws.com",
+      "operation": "CreateAccessPolicy",
+      "params": {
+        "description": "Data access policy for MCP agentic memory tools",
+        "name": "mcp-memory-access",
+        "policy": "[{\"Rules\": [{\"Resource\": [\"collection/agent-memories\"], \"Permission\": [\"aoss:CreateCollectionItems\", \"aoss:DescribeCollectionItems\"], \"ResourceType\": \"collection\"}, {\"Resource\": [\"index/agent-memories/agent-memory\"], \"Permission\": [\"aoss:CreateIndex\", \"aoss:ReadDocument\", \"aoss:WriteDocument\", \"aoss:UpdateIndex\", \"aoss:DescribeIndex\", \"aoss:DeleteDocument\"], \"ResourceType\": \"index\"}], \"Principal\": [\"arn:aws:iam::123456789012:role/MemoryWriter\"], \"Description\": \"Auto-created by OpenSearch MCP server for agentic memory index\"}]",
+        "type": "data"
+      },
+      "service": "opensearchserverless"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "aoss"
+      },
+      "host": "aoss.eu-west-1.amazonaws.com",
+      "operation": "CreateIndex",
+      "params": {
+        "id": "k2x9memcoll",
+        "indexName": "agent-memory",
+        "indexSchema": {
+          "mappings": {
+            "properties": {
+              "agent_id": {
+                "type": "keyword"
+              },
+              "created_at": {
+                "type": "date"
+              },
+              "memory_text": {
+                "semantic_enrichment": {
+                  "language_options": "english",
+                  "status": "ENABLED"
+                },
+                "type": "text"
+              },
+              "session_id": {
+                "type": "keyword"
+              },
+              "tags": {
+                "type": "keyword"
+              },
+              "updated_at": {
+                "type": "date"
+              },
+              "user_id": {
+                "type": "keyword"
+              }
+            }
+          }
+        }
+      },
+      "service": "opensearchserverless"
+    }
+  ],
+  "boto3_replies": [
+    {
+      "data": {
+        "Account": "123456789012",
+        "Arn": "arn:aws:sts::123456789012:assumed-role/MemoryWriter/char-session",
+        "UserId": "AIDAFAKEID:char"
+      },
+      "kind": "Ok",
+      "operation": "GetCallerIdentity",
+      "service": "sts"
+    },
+    {
+      "data": {
+        "collectionDetails": [
+          {
+            "createdDate": 1577836800000,
+            "id": "k2x9memcoll",
+            "name": "agent-memories",
+            "status": "ACTIVE"
+          }
+        ],
+        "collectionErrorDetails": []
+      },
+      "kind": "Ok",
+      "operation": "BatchGetCollection",
+      "service": "opensearchserverless"
+    },
+    {
+      "data": {
+        "accessPolicyDetail": {
+          "createdDate": 1577836800000,
+          "lastModifiedDate": 1577836800000,
+          "name": "mcp-memory-access",
+          "policy": [
+            {
+              "Principal": [
+                "arn:aws:iam::123456789012:role/SearchReader"
+              ],
+              "Rules": [
+                {
+                  "Permission": [
+                    "aoss:ReadDocument"
+                  ],
+                  "Resource": [
+                    "index/agent-memories-0/*"
+                  ],
+                  "ResourceType": "index"
+                }
+              ]
+            }
+          ],
+          "policyVersion": "MTU3NzgzNjgwMDAwMF8x",
+          "type": "data"
+        }
+      },
+      "kind": "Ok",
+      "operation": "GetAccessPolicy",
+      "service": "opensearchserverless"
+    },
+    {
+      "data": {
+        "accessPolicyDetail": {
+          "createdDate": 1577836800000,
+          "lastModifiedDate": 1577836800000,
+          "name": "mcp-memory-access",
+          "policy": [
+            {
+              "Principal": [
+                "arn:aws:iam::123456789012:role/MemoryWriter"
+              ],
+              "Rules": [
+                {
+                  "Permission": [
+                    "aoss:ReadDocument"
+                  ],
+                  "Resource": [
+                    "index/agent-memories/*"
+                  ],
+                  "ResourceType": "index"
+                }
+              ]
+            }
+          ],
+          "policyVersion": "MTU3NzgzNjgwMDAwMF8x",
+          "type": "data"
+        }
+      },
+      "kind": "Ok",
+      "operation": "CreateAccessPolicy",
+      "service": "opensearchserverless"
+    },
+    {
+      "data": null,
+      "kind": "Ok",
+      "operation": "CreateIndex",
+      "service": "opensearchserverless"
+    },
+    {
+      "code": "ResourceNotFoundException",
+      "kind": "Fail",
+      "message": "Policy not found",
+      "operation": "UpdateAccessPolicy",
+      "service": "opensearchserverless"
+    }
+  ],
+  "call": {
+    "arguments": {
+      "memory": "User prefers vegetarian food",
+      "user_id": "user-123"
+    },
+    "name": "SaveMemoryTool"
+  },
+  "logs": [
+    {
+      "level": "WARNING",
+      "logger": "tools.memory_tools",
+      "message": "Creating AOSS data access policy \"mcp-memory-access\" granting arn:aws:iam::123456789012:role/MemoryWriter access to index agent-memory in collection agent-memories. Review this policy in the AWS console if you have other indices in this collection."
+    },
+    {
+      "level": "INFO",
+      "logger": "tools.memory_tools",
+      "message": "Created AOSS data access policy \"mcp-memory-access\" for arn:aws:iam::123456789012:role/MemoryWriter on collection agent-memories"
+    },
+    {
+      "level": "INFO",
+      "logger": "tools.memory_tools",
+      "message": "Created AOSS memory index \"agent-memory\" on collection k2x9memcoll"
+    }
+  ],
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "HEAD",
+      "params": {},
+      "path": "/agent-memory"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "created_at": "<TIMESTAMP>",
+        "memory_text": "User prefers vegetarian food",
+        "updated_at": "<TIMESTAMP>",
+        "user_id": "user-123"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/agent-memory/_doc"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Memory saved (id: mem-7Kx2):\n\"User prefers vegetarian food\"",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

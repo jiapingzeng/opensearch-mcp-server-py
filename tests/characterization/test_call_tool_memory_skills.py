@@ -391,8 +391,9 @@ SKILLS_CASES = (
             ),
         ),
     ),
-    # Diff mode (a baseline, no trace field). Insight mode (no baseline) is not pinned: its
-    # PPL query lists ERROR_KEYWORDS, a set, so the request text changes with the hash seed.
+    # Diff mode (a baseline, no trace field). Insight mode (no baseline) is pinned in
+    # test_gaps_skills.py, not here: its PPL query lists ERROR_KEYWORDS, a set, so the
+    # request text changes with the hash seed, and that module sorts the words first.
     Case(
         'LogPatternAnalysisTool',
         'success',
@@ -489,6 +490,7 @@ MEMORY_CASES = (
     # First use: the index does not exist, so the tool creates it through the AWS
     # OpenSearch Service API (boto3), not through OpenSearch. The fake OPENSEARCH_URL names
     # no AWS domain, so no domain name can be derived and the call fails before boto3.
+    # With boto3 answered (boto3_stub), index creation is pinned in test_gaps_memory_index.py.
     Case(
         'SaveMemoryTool',
         'index_auto_create_no_domain',
@@ -499,7 +501,8 @@ MEMORY_CASES = (
     # boto3's `opensearch` create_index with camelCase parameters (domainName, indexName,
     # indexSchema) where the API takes DomainName, IndexName and IndexSchema, so botocore's
     # parameter validation rejects the call before it is signed or sent: on a managed domain
-    # the memory index is never auto-created.
+    # the memory index is never auto-created. test_gaps_memory_index.py pins that this holds
+    # with credentials and whatever the service would answer (boto3_stub).
     Case(
         'SaveMemoryTool',
         'index_auto_create_domain',
@@ -510,7 +513,9 @@ MEMORY_CASES = (
     # First use on OpenSearch Serverless: before create_index the tool sets up a data access
     # policy for the caller, starting with STS get_caller_identity, which fails without AWS
     # credentials (the harness keeps boto3 off local AWS config and instance metadata)
-    # before any request leaves the process.
+    # before any request leaves the process. With credentials and boto3 answered
+    # (boto3_stub), the data access policy and create_index paths are pinned in
+    # test_gaps_memory_index.py.
     Case(
         'SaveMemoryTool',
         'index_auto_create_serverless_no_credentials',
