@@ -1,0 +1,5 @@
+{
+  "ci": {
+    "full": "set -e\nuv run --offline ruff format --check .\nuv run --offline ruff check .\nuv run --offline python -m pytest tests"
+  }
+}

@@ -264,28 +264,39 @@ class TestToolGenerator:
             }
         }
 
-        # Mock fetch_github_spec to return our mock spec
-        with patch.object(self, 'fetch_github_spec', AsyncMock(return_value=mock_spec)):
-            # Mock TOOL_REGISTRY
-            mock_registry = {}
-            with patch('tools.tools.TOOL_REGISTRY', mock_registry):
-                # Mock generate_tool_from_group
-                mock_tool = {
-                    'description': 'Test description',
-                    'input_schema': {},
-                    'function': AsyncMock(),
-                    'args_model': Mock(),
-                }
-                with patch.object(self, 'generate_tool_from_group', return_value=mock_tool):
-                    # Call the function
-                    result = await self.generate_tools_from_openapi()
+        mock_registry = {}
+        mock_tool = {
+            'description': 'Test description',
+            'input_schema': {},
+            'function': AsyncMock(),
+            'args_model': Mock(),
+        }
 
-                    # Verify results
-                    assert 'ClusterHealthTool' in result
-                    assert 'CountTool' in result
-                    assert 'ClusterHealthTool' in result
-                    assert 'CountTool' in result
-                    assert 'description' in result['ClusterHealthTool']
-                    assert 'input_schema' in result['ClusterHealthTool']
-                    assert 'function' in result['ClusterHealthTool']
-                    assert 'args_model' in result['ClusterHealthTool']
+        # Patch the names generate_tools_from_openapi looks up in its own module,
+        # so the test never fetches the real spec from GitHub (runs offline).
+        with (
+            patch(
+                'tools.tool_generator.fetch_github_spec', AsyncMock(return_value=mock_spec)
+            ) as mock_fetch,
+            patch(
+                'tools.tool_generator.generate_tool_from_group', return_value=mock_tool
+            ) as mock_generate,
+            patch('tools.tool_generator.TOOL_REGISTRY', mock_registry),
+        ):
+            result = await self.generate_tools_from_openapi()
+
+        # Verify the spec was fetched once per spec file, from the mock
+        assert [c.args for c in mock_fetch.await_args_list] == [(f,) for f in self.SPEC_FILES]
+
+        # Verify tools were generated for each supported operation group
+        generated_names = {c.args[0] for c in mock_generate.call_args_list}
+        assert generated_names == {'ClusterHealth', 'Count'}
+
+        # Verify results were written to the patched registry and returned
+        assert result is mock_registry
+        assert 'ClusterHealthTool' in result
+        assert 'CountTool' in result
+        assert 'description' in result['ClusterHealthTool']
+        assert 'input_schema' in result['ClusterHealthTool']
+        assert 'function' in result['ClusterHealthTool']
+        assert 'args_model' in result['ClusterHealthTool']
