@@ -58,13 +58,22 @@ On a mismatch the failure shows a unified diff (golden vs actual).
   params, decoded body, auth kind without secrets). `GET /` answers `version`
   (default `3.1.0`); `version = None` makes it fail, so the server sees no version and
   skips version filtering. A request with no route fails the test.
+  Note: the default environment sets only `OPENSEARCH_URL`, so the server takes the AWS
+  credentials path, fails it (no region) and never reaches the fake: it sees no version.
+  To reach the fake, configure auth, e.g. `env={'OPENSEARCH_NO_AUTH': 'true'}` or
+  `OPENSEARCH_USERNAME`/`OPENSEARCH_PASSWORD`.
 - `pinned_openapi`: `tools.tool_generator.fetch_github_spec` serves `fixtures/openapi/*.yaml`.
   `openapi_unavailable` makes the fetch raise instead.
 - `isolated_state` (autouse): each test starts from the module state at import time and a
   clean environment (`OPENSEARCH_*`, `AWS_*`, `MEMORY_*` and proxy variables cleared,
   `OPENSEARCH_URL` pointing at the fake, boto3 kept off local AWS config and instance
-  metadata); everything is restored afterwards. `isolated_state.snapshot()` takes the same
-  snapshot the fixture restores.
+  metadata); everything is restored afterwards. Some unit tests delete server modules
+  from `sys.modules` and import them again, which leaves a second `TOOL_REGISTRY` behind;
+  the conftest imports every server module before any test runs and pins those module
+  objects in `sys.modules` during each test, then checks the server's bindings and fails
+  loudly if they still differ. `isolated_state.snapshot()` takes the same snapshot the
+  fixture restores; `isolated_state.isolation(monkeypatch, url)` is the fixture's own
+  setup and teardown as a context manager.
 - `no_network` (autouse): fails the test on any DNS lookup or non-Unix socket connection.
 - `mcp_session(mode='single', config_file='', cli_overrides=None, env=None)`:
   `async with mcp_session() as session:` builds the server and connects a client.

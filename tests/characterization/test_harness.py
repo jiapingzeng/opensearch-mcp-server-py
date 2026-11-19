@@ -4,10 +4,17 @@
 """Smoke tests for the characterization harness itself (see conftest.py and README.md)."""
 
 import copy
+import importlib
+import logging
+import os
 import pytest
+import sys
+import tools as tools_package
 from datetime import datetime, timezone
 from mcp_server_opensearch import clusters_information, global_state
+from mcp_server_opensearch.client_context import client_name_var
 from mcp_server_opensearch.clusters_information import ClusterInfo, add_cluster
+from mcp_server_opensearch.logging_config import configure_logging
 from tools import tool_filter
 from tools.tool_params import ListIndicesArgs
 from tools.tools import TOOL_REGISTRY
@@ -16,9 +23,13 @@ from tools.tools import TOOL_REGISTRY
 # --- the server through the MCP protocol -----------------------------------
 
 
-async def test_list_tools_default(mcp_session, golden, normalize):
+async def test_list_tools_default(mcp_session, fake_opensearch, golden, normalize):
     async with mcp_session() as session:
         golden('harness/list_tools_default', normalize(await session.list_tools()))
+    # Defaults set only OPENSEARCH_URL: with no auth configured the server takes the AWS
+    # credentials path, fails it (no region), never sends GET / and so sees no version, which
+    # turns version filtering off. Reaching the fake needs auth, e.g. OPENSEARCH_NO_AUTH=true.
+    assert fake_opensearch.requests == []
 
 
 async def test_raw_ping(mcp_session, golden):
@@ -201,3 +212,98 @@ async def test_isolated_state_restores_registry_and_schemas(isolated_state):
     assert global_state._current_profile is None
     assert tool_filter._resolved_allow_write_setting is None
     assert clusters_information.cluster_registry == {}
+
+
+def _own_handlers(logger: logging.Logger) -> list:
+    # pytest installs fresh capture handlers for every test phase; the harness leaves those alone.
+    return [h for h in logger.handlers if not type(h).__module__.startswith('_pytest')]
+
+
+def test_isolated_state_resets_before_and_restores_after(isolated_state, fake_opensearch):
+    root = logging.getLogger()
+    leaked_handler = logging.NullHandler()
+    with pytest.MonkeyPatch.context() as outer:
+        # State an earlier, non-characterization test could leave behind.
+        outer.setenv('OPENSEARCH_URL', 'http://leaked.invalid:9200')
+        outer.setenv('MEMORY_TOOLS_ENABLED', 'true')
+        outer.setenv('AWS_REGION', 'leaked-region-1')
+        global_state.set_mode('multi')
+        add_cluster('leaked', ClusterInfo(opensearch_url='http://leaked.invalid:9200'))
+        leaked_token = client_name_var.set('leaked-client')
+        root.addHandler(leaked_handler)
+        handlers, level = _own_handlers(root), root.level
+        entries = dict(TOOL_REGISTRY)
+        index_description = ListIndicesArgs.model_fields['index'].description
+        try:
+            # The fixture's own setup and teardown, around a stand-in test body.
+            with (
+                pytest.MonkeyPatch.context() as inner,
+                isolated_state.isolation(inner, fake_opensearch.url),
+            ):
+                # Before the test body: import-time state and a clean environment.
+                assert global_state._current_mode is None
+                assert clusters_information.cluster_registry == {}
+                assert client_name_var.get() == 'unknown'
+                assert os.environ['OPENSEARCH_URL'] == fake_opensearch.url
+                assert 'MEMORY_TOOLS_ENABLED' not in os.environ
+                assert 'AWS_REGION' not in os.environ
+
+                # The test body changes everything the server can change.
+                inner.setenv('OPENSEARCH_NO_AUTH', 'true')
+                configure_logging(level=logging.DEBUG)
+                client_name_var.set('inner-client')
+                global_state.set_mode('single')
+                global_state.set_profile('inner-profile')
+                tool_filter.set_allow_write_setting(False)
+                add_cluster('inner', ClusterInfo(opensearch_url='http://inner.invalid:9200'))
+                TOOL_REGISTRY['InnerTool'] = {'display_name': 'InnerTool'}
+                TOOL_REGISTRY['ListIndexTool']['input_schema']['properties'].pop('index')
+                ListIndicesArgs.model_fields['index'].description = 'inner'
+
+            # After: back to what the earlier test left, not to import-time state.
+            assert os.environ['OPENSEARCH_URL'] == 'http://leaked.invalid:9200'
+            assert os.environ['MEMORY_TOOLS_ENABLED'] == 'true'
+            assert os.environ['AWS_REGION'] == 'leaked-region-1'
+            assert 'OPENSEARCH_NO_AUTH' not in os.environ
+            assert global_state._current_mode == 'multi'
+            assert global_state._current_profile is None
+            assert tool_filter._resolved_allow_write_setting is None
+            assert list(clusters_information.cluster_registry) == ['leaked']
+            assert client_name_var.get() == 'leaked-client'
+            assert _own_handlers(root) == handlers
+            assert root.level == level
+            assert list(TOOL_REGISTRY) == list(entries)
+            assert all(TOOL_REGISTRY[name] is entry for name, entry in entries.items())
+            assert 'index' in TOOL_REGISTRY['ListIndexTool']['input_schema']['properties']
+            assert ListIndicesArgs.model_fields['index'].description == index_description
+        finally:
+            client_name_var.reset(leaked_token)
+            root.removeHandler(leaked_handler)
+
+
+async def test_isolated_state_pins_server_modules_other_tests_reimport(
+    isolated_state, fake_opensearch, mcp_session, golden, normalize
+):
+    with pytest.MonkeyPatch.context() as outer:
+        # What tests/tools does: drop modules from sys.modules and import them again (here
+        # with memory tools on), leaving a second TOOL_REGISTRY behind for later importers.
+        for name in ('tools.memory_tools', 'tools.tools'):
+            child = name.rpartition('.')[2]
+            outer.delitem(sys.modules, name)
+            outer.setattr(tools_package, child, getattr(tools_package, child))
+        outer.setenv('MEMORY_TOOLS_ENABLED', 'true')
+        importlib.import_module('tools.memory_tools')
+        reimported = importlib.import_module('tools.tools')
+        assert reimported.TOOL_REGISTRY is not TOOL_REGISTRY
+        assert 'SaveMemoryTool' in reimported.TOOL_REGISTRY
+
+        with (
+            pytest.MonkeyPatch.context() as inner,
+            isolated_state.isolation(inner, fake_opensearch.url),
+        ):
+            assert sys.modules['tools.tools'] is not reimported
+            assert sys.modules['tools.tools'].TOOL_REGISTRY is TOOL_REGISTRY
+            async with mcp_session() as session:
+                golden('harness/list_tools_default', normalize(await session.list_tools()))
+
+        assert sys.modules['tools.tools'] is reimported

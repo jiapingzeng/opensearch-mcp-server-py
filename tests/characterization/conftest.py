@@ -31,6 +31,7 @@ import os
 import pytest
 import re
 import socket
+import sys
 import tempfile
 import yaml
 import yarl
@@ -39,7 +40,15 @@ from datetime import datetime, timedelta, timezone
 from mcp.client import Client
 from mcp.client._memory import InMemoryTransport
 from mcp.shared.message import SessionMessage
-from mcp_server_opensearch import clusters_information, global_state
+from mcp_server_opensearch import (
+    clusters_information,
+    global_state,
+    logging_config,
+    server_instructions,
+    stdio_server,
+    streaming_server,
+    tool_executor,
+)
 from mcp_server_opensearch.client_context import client_name_var, request_context_var
 from mcp_types import (
     CLIENT_CAPABILITIES_META_KEY,
@@ -56,6 +65,7 @@ from opensearchpy._async.http_aiohttp import AIOHttpConnection
 from opensearchpy.connection.http_async import AsyncHttpConnection
 from pathlib import Path, PurePosixPath
 from pydantic import BaseModel
+from tools import config as tool_config
 from tools import tool_filter, tool_generator
 from tools.agentic_memory.actions import AGENTIC_MEMORY_TOOLS_REGISTRY
 from tools.memory_tools import MEMORY_TOOLS_REGISTRY
@@ -780,6 +790,88 @@ class StateSnapshot:
 # Taken when this conftest is imported, before any test has run.
 _PRISTINE_STATE = StateSnapshot()
 
+# Packages of the server under test. Some unit tests delete modules of these packages from
+# sys.modules and import them again (tests/tools does so for tools.tools, tools.memory_tools,
+# tools.skills_tools and opensearch.helper), so a module first imported after that binds to
+# a second TOOL_REGISTRY. This conftest imports every server module up front (see the
+# imports above), so they all share the objects the harness tracks, and pins exactly those
+# module objects in sys.modules for the duration of each characterization test.
+_SERVER_PACKAGES = ('tools', 'opensearch', 'mcp_server_opensearch')
+
+
+def _is_server_module(name: str) -> bool:
+    return name.partition('.')[0] in _SERVER_PACKAGES
+
+
+_PINNED_MODULES = {name: module for name, module in sys.modules.items() if _is_server_module(name)}
+
+# The server modules imported above, so that they are loaded (and pinned) before any test runs.
+_SERVER_MODULES = (
+    logging_config,
+    server_instructions,
+    stdio_server,
+    streaming_server,
+    tool_config,
+    tool_executor,
+    tool_filter,
+    tool_generator,
+)
+assert all(module in _PINNED_MODULES.values() for module in _SERVER_MODULES)
+
+# (module, attribute, tracked object): what the server code must resolve to, or the harness
+# would snapshot and restore objects the server does not use.
+_REQUIRED_BINDINGS = (
+    ('tools.tools', 'TOOL_REGISTRY', TOOL_REGISTRY),
+    ('tools.memory_tools', 'MEMORY_TOOLS_REGISTRY', MEMORY_TOOLS_REGISTRY),
+    ('tools.skills_tools', 'SKILLS_TOOLS_REGISTRY', SKILLS_TOOLS_REGISTRY),
+    (
+        'tools.agentic_memory.actions',
+        'AGENTIC_MEMORY_TOOLS_REGISTRY',
+        AGENTIC_MEMORY_TOOLS_REGISTRY,
+    ),
+    ('tools.config', 'default_tool_registry', TOOL_REGISTRY),
+    ('tools.tool_generator', 'TOOL_REGISTRY', TOOL_REGISTRY),
+    ('tools.tool_filter', 'SKILLS_TOOLS_REGISTRY', SKILLS_TOOLS_REGISTRY),
+    ('mcp_server_opensearch.streaming_server', 'TOOL_REGISTRY', TOOL_REGISTRY),
+    ('mcp_server_opensearch.stdio_server', 'TOOL_REGISTRY', TOOL_REGISTRY),
+    (
+        'mcp_server_opensearch.clusters_information',
+        'cluster_registry',
+        clusters_information.cluster_registry,
+    ),
+)
+
+
+def _pin_server_modules(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Put the conftest-time server modules back in sys.modules (and on their packages)."""
+    for name, module in _PINNED_MODULES.items():
+        monkeypatch.setitem(sys.modules, name, module)
+        parent_name, _, child = name.rpartition('.')
+        if parent_name in _PINNED_MODULES:
+            monkeypatch.setattr(_PINNED_MODULES[parent_name], child, module, raising=False)
+    # A server module first imported later may be bound to re-imported copies: drop it, so a
+    # test that needs it imports it afresh against the pinned modules.
+    for name in [n for n in sys.modules if _is_server_module(n) and n not in _PINNED_MODULES]:
+        monkeypatch.delitem(sys.modules, name)
+        parent_name, _, child = name.rpartition('.')
+        parent = _PINNED_MODULES.get(parent_name)
+        if parent is not None and child in vars(parent):
+            monkeypatch.delattr(parent, child)
+
+
+def _check_bindings() -> None:
+    wrong = [
+        f'{module_name}.{attribute}'
+        for module_name, attribute, expected in _REQUIRED_BINDINGS
+        if getattr(sys.modules.get(module_name), attribute, None) is not expected
+    ]
+    if wrong:
+        pytest.fail(
+            'the server is bound to different module state than the harness tracks: '
+            f'{", ".join(wrong)}. Something replaced these objects; isolation cannot hold.',
+            pytrace=False,
+        )
+
 
 class IsolatedState:
     """Handle the ``isolated_state`` fixture yields."""
@@ -788,15 +880,23 @@ class IsolatedState:
         """Take a snapshot the same way the fixture does before each test."""
         return StateSnapshot()
 
+    @staticmethod
+    def isolation(monkeypatch: pytest.MonkeyPatch, opensearch_url: str):
+        """The fixture's own setup and teardown as a context manager (see ``isolation``)."""
+        return isolation(monkeypatch, opensearch_url)
 
-@pytest.fixture(autouse=True)
-def isolated_state(monkeypatch, fake_opensearch, pinned_openapi):
-    """Run each test from import-time module state and a clean environment; undo it after.
 
-    Before the test: snapshot the current state, reset it to the state at import, clear the
-    environment the server reads and point ``OPENSEARCH_URL`` at the fake. After the test:
-    restore the snapshot, the context variables and the environment.
+@contextlib.contextmanager
+def isolation(monkeypatch: pytest.MonkeyPatch, opensearch_url: str):
+    """Body of ``isolated_state``; ``monkeypatch``'s undo restores modules and environment.
+
+    On entry: pin the server modules, check the server's bindings, snapshot the current
+    state, reset it to the state at import, reset the context variables, clear the
+    environment the server reads and point ``OPENSEARCH_URL`` at ``opensearch_url``.
+    On exit: restore the snapshot and the context variables.
     """
+    _pin_server_modules(monkeypatch)
+    _check_bindings()
     before = StateSnapshot()
     _PRISTINE_STATE.restore(include_logging=False)
     tokens = [(var, default, var.set(default)) for var, default in _CONTEXT_VARS]
@@ -804,21 +904,31 @@ def isolated_state(monkeypatch, fake_opensearch, pinned_openapi):
     for name in list(os.environ):
         if name.startswith(_CLEARED_ENV_PREFIXES) or name in _CLEARED_ENV_NAMES:
             monkeypatch.delenv(name)
-    monkeypatch.setenv('OPENSEARCH_URL', fake_opensearch.url)
+    monkeypatch.setenv('OPENSEARCH_URL', opensearch_url)
     # Keep boto3 off the developer's AWS config and credentials and off instance metadata.
     monkeypatch.setenv('AWS_CONFIG_FILE', os.devnull)
     monkeypatch.setenv('AWS_SHARED_CREDENTIALS_FILE', os.devnull)
     monkeypatch.setenv('AWS_EC2_METADATA_DISABLED', 'true')
     monkeypatch.setenv('BOTO_CONFIG', os.devnull)
+    try:
+        yield IsolatedState()
+    finally:
+        before.restore()
+        for var, default, token in reversed(tokens):
+            try:
+                var.reset(token)
+            except (RuntimeError, ValueError):
+                var.set(default)
 
-    yield IsolatedState()
 
-    before.restore()
-    for var, default, token in reversed(tokens):
-        try:
-            var.reset(token)
-        except (RuntimeError, ValueError):
-            var.set(default)
+@pytest.fixture(autouse=True)
+def isolated_state(monkeypatch, fake_opensearch, pinned_openapi):
+    """Run each test from import-time module state and a clean environment; undo it after.
+
+    See ``isolation`` for what happens before and after the test.
+    """
+    with isolation(monkeypatch, fake_opensearch.url) as state:
+        yield state
 
 
 # ---------------------------------------------------------------------------
@@ -946,14 +1056,12 @@ def mcp_session(monkeypatch, fake_opensearch, pinned_openapi) -> Callable:
         profile: str = '',
         client_mode: str = 'legacy',
     ):
-        from mcp_server_opensearch.streaming_server import create_mcp_server
-
         for name, value in (env or {}).items():
             if value is None:
                 monkeypatch.delenv(name, raising=False)
             else:
                 monkeypatch.setenv(name, value)
-        server = await create_mcp_server(
+        server = await streaming_server.create_mcp_server(
             mode=mode,
             profile=profile,
             config_file_path=str(config_file) if config_file else '',
