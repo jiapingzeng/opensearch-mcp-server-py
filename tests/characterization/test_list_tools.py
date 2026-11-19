@@ -251,9 +251,9 @@ CASES = {
     'quirks/second_list_default': Case(twice=True),
     'quirks/second_list_dynamic': Case(env=_env(OPENSEARCH_URL=None), twice=True),
     'quirks/second_list_multi': Case(mode='multi', config={'clusters': TWO_CLUSTERS}, twice=True),
-    # characterization: current behaviour: USER_GUIDE.md documents the YAML key
-    # `enable_tools_regex`, but tool_filter.py reads `enabled_tools_regex`: the documented key
-    # is ignored.
+    # characterization: current behaviour: tool_filter.py reads `enabled_tools_regex`; the
+    # misspelled key `enable_tools_regex` is ignored without an error, so the default core
+    # tools are listed. (The case name predates the user guide fix, 56c27b5.)
     'quirks/config_enable_tools_regex_user_guide_key': Case(
         config={'tool_filters': {'enable_tools_regex': ['^GetSegments.*']}}
     ),
@@ -646,6 +646,9 @@ async def test_list_tools(
     result = error = list_error = same_as_first = None
     requests: list[dict] = []
     if case.memory:
+        # memory_enabled_session takes no CLI overrides: a memory case's cli_overrides would
+        # be dropped silently while its golden's inputs still listed them.
+        assert case.cli_overrides is None, f'{name}: memory cases cannot set cli_overrides'
         memory_enabled_session = request.getfixturevalue('memory_enabled_session')
         async with memory_enabled_session(
             mode=case.mode, config_file=config_file, env=case.env
