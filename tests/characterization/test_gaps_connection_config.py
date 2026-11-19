@@ -287,10 +287,10 @@ URL_CASES = [
         env={**NO_AUTH, 'OPENSEARCH_URL': 'ftp://fake-opensearch.invalid'},
     ),
     # characterization: current behaviour. With "//" but no host after the userinfo, the URL
-    # passes validation (it has a netloc), gets no default port, and the client is built;
-    # opensearch-py then fails on the missing host when it makes the connection, and that
-    # raw TypeError (not a ConfigurationError) is the call's error. The URL is redacted
-    # whole where the server logs it.
+    # passes validation (it has a netloc) and gets no default port; opensearch-py then fails
+    # on the missing host while it sets up the connection, before the connection's __init__
+    # finishes, so no connection is recorded and no request is made. That raw TypeError (not
+    # a ConfigurationError) is the call's error, and no WARNING or higher log shows the URL.
     Case(
         'url/userinfo_without_host',
         gap='189-190, 296-297',
@@ -439,7 +439,9 @@ async def test_tls_file_exists_but_unreadable(run_case, tmp_path):
     unreadable.write_text('not read\n', encoding='utf-8', newline='\n')
     unreadable.chmod(0)
     try:
-        assert not os.access(unreadable, os.R_OK)
+        if os.access(unreadable, os.R_OK):
+            # e.g. a container whose non-root user has CAP_DAC_OVERRIDE
+            pytest.skip('this process can read a file with no read permission')
         await run_case(
             Case(
                 'tls/ca_cert_file_unreadable',
