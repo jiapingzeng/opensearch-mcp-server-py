@@ -1,0 +1,37 @@
+{
+  "error": null,
+  "inputs": {
+    "cli_overrides": {
+      "tool.GetShardsTool.description": "123"
+    },
+    "config": null,
+    "config_file_missing": false,
+    "env": {
+      "OPENSEARCH_NO_AUTH": "true"
+    },
+    "memory_tools_enabled": false,
+    "mode": "single",
+    "openapi_unavailable": false,
+    "opensearch_version": "3.1.0"
+  },
+  "list_error": {
+    "error": {
+      "code": -32602,
+      "data": "",
+      "message": "Invalid request parameters"
+    },
+    "id": 1,
+    "jsonrpc": "2.0"
+  },
+  "opensearch_requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "method": "GET",
+      "path": "/"
+    }
+  ],
+  "result": null,
+  "tool_names": null
+}

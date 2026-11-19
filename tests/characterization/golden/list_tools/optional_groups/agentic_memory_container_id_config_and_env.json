@@ -1,0 +1,1508 @@
+{
+  "error": null,
+  "inputs": {
+    "cli_overrides": null,
+    "config": {
+      "agentic_memory": {
+        "memory_container_id": "file-container"
+      },
+      "tool_filters": {
+        "enabled_categories": [
+          "agentic_memory"
+        ],
+        "settings": {
+          "allow_write": true
+        }
+      }
+    },
+    "config_file_missing": false,
+    "env": {
+      "OPENSEARCH_MEMORY_CONTAINER_ID": "env-container",
+      "OPENSEARCH_NO_AUTH": "true"
+    },
+    "memory_tools_enabled": false,
+    "mode": "single",
+    "openapi_unavailable": false,
+    "opensearch_version": "3.5.0"
+  },
+  "list_error": null,
+  "opensearch_requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "method": "GET",
+      "path": "/"
+    }
+  ],
+  "result": {
+    "cacheScope": "private",
+    "resultType": "complete",
+    "tools": [
+      {
+        "description": "Create a new session in a memory container.",
+        "inputSchema": {
+          "description": "Arguments for creating a new session in a agentic memory container.",
+          "examples": [
+            {
+              "memory_container_id": "SdjmmpgBOh0h20Y9kWuN",
+              "metadata": {
+                "key1": "value1"
+              },
+              "session_id": "abc123"
+            },
+            {
+              "memory_container_id": "SdjmmpgBOh0h20Y9kWuN",
+              "metadata": {
+                "key1": "value1"
+              },
+              "namespace": {
+                "user_id": "bob"
+              },
+              "summary": "This is a test session"
+            },
+            {
+              "memory_container_id": "SdjmmpgBOh0h20Y9kWuN",
+              "metadata": {
+                "category": "onboarding",
+                "priority": "high"
+              },
+              "namespace": {
+                "agent_id": "onboarding_bot",
+                "user_id": "alice"
+              },
+              "summary": "Session for user onboarding"
+            }
+          ],
+          "properties": {
+            "memory_container_id": {
+              "default": "file-container",
+              "description": "The ID of the memory container.",
+              "title": "Memory Container Id",
+              "type": "string"
+            },
+            "metadata": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Additional metadata for the session provided as key-value pairs.",
+              "title": "Metadata"
+            },
+            "namespace": {
+              "anyOf": [
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Namespace information for organizing the session.",
+              "title": "Namespace"
+            },
+            "session_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "A custom session ID. If provided, this ID is used for the session. If not provided, a random ID is generated.",
+              "title": "Session Id"
+            },
+            "summary": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "A session summary or description.",
+              "title": "Summary"
+            }
+          },
+          "required": [],
+          "title": "CreateAgenticMemorySessionArgs",
+          "type": "object"
+        },
+        "name": "CreateAgenticMemorySessionTool"
+      },
+      {
+        "description": "Add an agentic memory to a memory container.",
+        "inputSchema": {
+          "$defs": {
+            "MessageContentItem": {
+              "description": "Schema for the content part of a message.\n\nUsed for strong typing in 'messages' fields.",
+              "properties": {
+                "text": {
+                  "description": "The text content of the message.",
+                  "title": "Text",
+                  "type": "string"
+                },
+                "type": {
+                  "description": "The type of the content (e.g., 'text'). ",
+                  "title": "Type",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "text",
+                "type"
+              ],
+              "title": "MessageContentItem",
+              "type": "object"
+            },
+            "MessageItem": {
+              "description": "Schema for a single message in 'messages' field.\n\nUsed for strong typing.",
+              "properties": {
+                "content": {
+                  "description": "A list of content items for this message.",
+                  "items": {
+                    "$ref": "#/$defs/MessageContentItem"
+                  },
+                  "title": "Content",
+                  "type": "array"
+                },
+                "role": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "The role of the entity (e.g., 'user', 'assistant').",
+                  "title": "Role"
+                }
+              },
+              "required": [
+                "content"
+              ],
+              "title": "MessageItem",
+              "type": "object"
+            },
+            "PayloadType": {
+              "description": "Specifies the type of payload being added to agentic memory.",
+              "enum": [
+                "conversational",
+                "data"
+              ],
+              "title": "PayloadType",
+              "type": "string"
+            }
+          },
+          "description": "Arguments for adding memories to the agentic memory container.",
+          "examples": [
+            {
+              "infer": true,
+              "memory_container_id": "SdjmmpgBOh0h20Y9kWuN",
+              "messages": [
+                {
+                  "content": [
+                    {
+                      "text": "I'm Bob, I really like swimming.",
+                      "type": "text"
+                    }
+                  ],
+                  "role": "user"
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Cool, nice. Hope you enjoy your life.",
+                      "type": "text"
+                    }
+                  ],
+                  "role": "assistant"
+                }
+              ],
+              "metadata": {
+                "branch": {
+                  "branch_name": "high",
+                  "root_event_id": "228nadfs879mtgk"
+                },
+                "status": "checkpoint"
+              },
+              "namespace": {
+                "user_id": "bob"
+              },
+              "payload_type": "conversational",
+              "tags": {
+                "topic": "personal info"
+              }
+            },
+            {
+              "infer": false,
+              "memory_container_id": "SdjmmpgBOh0h20Y9kWuN",
+              "metadata": {
+                "anyobject": "abc",
+                "status": "checkpoint"
+              },
+              "namespace": {
+                "agent_id": "testAgent1"
+              },
+              "payload_type": "data",
+              "structured_data": {
+                "time_range": {
+                  "end": "2025-09-15",
+                  "start": "2025-09-11"
+                }
+              },
+              "tags": {
+                "topic": "agent_state"
+              }
+            }
+          ],
+          "properties": {
+            "binary_data": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Binary data content encoded as a Base64 string for binary payloads.",
+              "title": "Binary Data"
+            },
+            "infer": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": false,
+              "description": "Whether to use a large language model (LLM) to extract key information...",
+              "title": "Infer"
+            },
+            "memory_container_id": {
+              "default": "file-container",
+              "description": "The ID of the memory container.",
+              "title": "Memory Container Id",
+              "type": "string"
+            },
+            "messages": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/$defs/MessageItem"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "A list of messages for a conversational payload...",
+              "title": "Messages"
+            },
+            "metadata": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Additional metadata for the memory...",
+              "title": "Metadata"
+            },
+            "namespace": {
+              "anyOf": [
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "The namespace context for organizing memories...",
+              "title": "Namespace"
+            },
+            "payload_type": {
+              "$ref": "#/$defs/PayloadType",
+              "description": "The type of payload. Valid values are conversational or data."
+            },
+            "structured_data": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Structured data content for data memory. Required when payload_type is data.",
+              "title": "Structured Data"
+            },
+            "tags": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Tags for categorizing and organizing memories.",
+              "title": "Tags"
+            }
+          },
+          "required": [
+            "payload_type"
+          ],
+          "title": "AddAgenticMemoriesArgs",
+          "type": "object"
+        },
+        "name": "AddAgenticMemoriesTool"
+      },
+      {
+        "description": "Retrieve a specific memory by its type and ID.",
+        "inputSchema": {
+          "$defs": {
+            "MemoryType": {
+              "description": "Specifies the different types of agentic memory.",
+              "enum": [
+                "sessions",
+                "working",
+                "long-term",
+                "history"
+              ],
+              "title": "MemoryType",
+              "type": "string"
+            }
+          },
+          "description": "Arguments for retrieving a specific agentic memory by its type and ID.",
+          "examples": [
+            {
+              "id": "XyEuiJkBeh2gPPwzjYWM",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "type": "working"
+            },
+            {
+              "id": "DcxjTpkBvwXRq366C1Zz",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "type": "long-term"
+            },
+            {
+              "id": "CcxjTpkBvwXRq366A1aE",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "type": "sessions"
+            },
+            {
+              "id": "eMxnTpkBvwXRq366hmAU",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "type": "history"
+            }
+          ],
+          "properties": {
+            "id": {
+              "description": "The ID of the memory to retrieve.",
+              "title": "Id",
+              "type": "string"
+            },
+            "memory_container_id": {
+              "default": "file-container",
+              "description": "The ID of the memory container.",
+              "title": "Memory Container Id",
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/$defs/MemoryType",
+              "description": "The memory type. Valid values are sessions, working, long-term, and history."
+            }
+          },
+          "required": [
+            "id",
+            "type"
+          ],
+          "title": "GetAgenticMemoryArgs",
+          "type": "object"
+        },
+        "name": "GetAgenticMemoryTool"
+      },
+      {
+        "description": "Update a specific memory by its type and ID.",
+        "inputSchema": {
+          "$defs": {
+            "MessageContentItem": {
+              "description": "Schema for the content part of a message.\n\nUsed for strong typing in 'messages' fields.",
+              "properties": {
+                "text": {
+                  "description": "The text content of the message.",
+                  "title": "Text",
+                  "type": "string"
+                },
+                "type": {
+                  "description": "The type of the content (e.g., 'text'). ",
+                  "title": "Type",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "text",
+                "type"
+              ],
+              "title": "MessageContentItem",
+              "type": "object"
+            },
+            "MessageItem": {
+              "description": "Schema for a single message in 'messages' field.\n\nUsed for strong typing.",
+              "properties": {
+                "content": {
+                  "description": "A list of content items for this message.",
+                  "items": {
+                    "$ref": "#/$defs/MessageContentItem"
+                  },
+                  "title": "Content",
+                  "type": "array"
+                },
+                "role": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "The role of the entity (e.g., 'user', 'assistant').",
+                  "title": "Role"
+                }
+              },
+              "required": [
+                "content"
+              ],
+              "title": "MessageItem",
+              "type": "object"
+            }
+          },
+          "description": "Arguments for updating a specific agentic memory by its type and ID.",
+          "examples": [
+            {
+              "additional_info": {
+                "key1": "value1",
+                "last_activity": "2025-09-15T17:30:00Z"
+              },
+              "id": "N2CDipkB2Mtr6INFFcX8",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "type": "sessions"
+            },
+            {
+              "id": "XyEuiJkBeh2gPPwzjYWM",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "tags": {
+                "priority": "high",
+                "topic": "updated_topic"
+              },
+              "type": "working"
+            },
+            {
+              "id": "DcxjTpkBvwXRq366C1Zz",
+              "memory": "User's name is Bob Smith",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "tags": {
+                "topic": "personal info",
+                "updated": "true"
+              },
+              "type": "long-term"
+            },
+            {
+              "id": "another_working_memory_id",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "messages": [
+                {
+                  "content": [
+                    {
+                      "text": "Updated user message",
+                      "type": "text"
+                    }
+                  ],
+                  "role": "user"
+                }
+              ],
+              "metadata": {
+                "status": "updated"
+              },
+              "type": "working"
+            }
+          ],
+          "properties": {
+            "additional_info": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Additional metadata to associate with the session.",
+              "title": "Additional Info"
+            },
+            "agents": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Additional information about the agents.",
+              "title": "Agents"
+            },
+            "binary_data": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Updated binary data content encoded as a Base64 string (for data memory payloads).",
+              "title": "Binary Data"
+            },
+            "id": {
+              "description": "The ID of the memory to update.",
+              "title": "Id",
+              "type": "string"
+            },
+            "memory": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "The updated memory content.",
+              "title": "Memory"
+            },
+            "memory_container_id": {
+              "default": "file-container",
+              "description": "The ID of the memory container.",
+              "title": "Memory Container Id",
+              "type": "string"
+            },
+            "messages": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/$defs/MessageItem"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Updated conversation messages (for conversation type).",
+              "title": "Messages"
+            },
+            "metadata": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Additional metadata for the memory (for example, status, branch, or custom fields).",
+              "title": "Metadata"
+            },
+            "structured_data": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Updated structured data content (for data memory payloads).",
+              "title": "Structured Data"
+            },
+            "summary": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "The summary of the session.",
+              "title": "Summary"
+            },
+            "tags": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Updated tags for categorization.",
+              "title": "Tags"
+            },
+            "type": {
+              "description": "The memory type. Valid values are sessions, working, and long-term. Note that history memory cannot be updated.",
+              "enum": [
+                "sessions",
+                "working",
+                "long-term"
+              ],
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "type"
+          ],
+          "title": "UpdateAgenticMemoryArgs",
+          "type": "object"
+        },
+        "name": "UpdateAgenticMemoryTool"
+      },
+      {
+        "description": "Deletes specific agentic memory container by its type and ID.",
+        "inputSchema": {
+          "$defs": {
+            "MemoryType": {
+              "description": "Specifies the different types of agentic memory.",
+              "enum": [
+                "sessions",
+                "working",
+                "long-term",
+                "history"
+              ],
+              "title": "MemoryType",
+              "type": "string"
+            }
+          },
+          "description": "Arguments for deleting a specific agentic memory by its type and ID.",
+          "examples": [
+            {
+              "id": "XyEuiJkBeh2gPPwzjYWM",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "type": "working"
+            },
+            {
+              "id": "DcxjTpkBvwXRq366C1Zz",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "type": "long-term"
+            },
+            {
+              "id": "CcxjTpkBvwXRq366A1aE",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "type": "sessions"
+            },
+            {
+              "id": "eMxnTpkBvwXRq366hmAU",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "type": "history"
+            }
+          ],
+          "properties": {
+            "id": {
+              "description": "The ID of the specific memory to delete.",
+              "title": "Id",
+              "type": "string"
+            },
+            "memory_container_id": {
+              "default": "file-container",
+              "description": "The ID of the memory container.",
+              "title": "Memory Container Id",
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/$defs/MemoryType",
+              "description": "The type of memory to delete. Valid values are sessions, working, long-term, and history."
+            }
+          },
+          "required": [
+            "id",
+            "type"
+          ],
+          "title": "DeleteAgenticMemoryByIDArgs",
+          "type": "object"
+        },
+        "name": "DeleteAgenticMemoryByIDTool"
+      },
+      {
+        "description": "Deletes specific agentic memory by query.",
+        "inputSchema": {
+          "$defs": {
+            "MemoryType": {
+              "description": "Specifies the different types of agentic memory.",
+              "enum": [
+                "sessions",
+                "working",
+                "long-term",
+                "history"
+              ],
+              "title": "MemoryType",
+              "type": "string"
+            }
+          },
+          "description": "Arguments for deleting agentic memories by query.",
+          "examples": [
+            {
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "query": {
+                "match": {
+                  "owner_id": "admin"
+                }
+              },
+              "type": "working"
+            },
+            {
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "query": {
+                "range": {
+                  "created_time": {
+                    "lt": "2025-09-01"
+                  }
+                }
+              },
+              "type": "long-term"
+            },
+            {
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "query": {
+                "term": {
+                  "namespace.user_id": "inactive_user"
+                }
+              },
+              "type": "sessions"
+            }
+          ],
+          "properties": {
+            "memory_container_id": {
+              "default": "file-container",
+              "description": "The ID of the memory container.",
+              "title": "Memory Container Id",
+              "type": "string"
+            },
+            "query": {
+              "additionalProperties": true,
+              "description": "The query to match the memories you want to delete. This should be a valid OpenSearch query DSL object.",
+              "title": "Query",
+              "type": "object"
+            },
+            "type": {
+              "$ref": "#/$defs/MemoryType",
+              "description": "The type of memory to delete. Valid values are sessions, working, long-term, and history."
+            }
+          },
+          "required": [
+            "query",
+            "type"
+          ],
+          "title": "DeleteAgenticMemoryByQueryArgs",
+          "type": "object"
+        },
+        "name": "DeleteAgenticMemoryByQueryTool"
+      },
+      {
+        "description": "Search for memories of a specific type within a memory container.",
+        "inputSchema": {
+          "$defs": {
+            "MemoryType": {
+              "description": "Specifies the different types of agentic memory.",
+              "enum": [
+                "sessions",
+                "working",
+                "long-term",
+                "history"
+              ],
+              "title": "MemoryType",
+              "type": "string"
+            }
+          },
+          "description": "Arguments for searching memories of a specific type within a agentic memory container.",
+          "examples": [
+            {
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "query": {
+                "match_all": {}
+              },
+              "sort": [
+                {
+                  "created_time": {
+                    "order": "desc"
+                  }
+                }
+              ],
+              "type": "sessions"
+            },
+            {
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "query": {
+                "bool": {
+                  "must": [
+                    {
+                      "term": {
+                        "namespace.user_id": "bob"
+                      }
+                    }
+                  ]
+                }
+              },
+              "sort": [
+                {
+                  "created_time": {
+                    "order": "desc"
+                  }
+                }
+              ],
+              "type": "long-term"
+            },
+            {
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "query": {
+                "match_all": {}
+              },
+              "sort": [
+                {
+                  "created_time": {
+                    "order": "desc"
+                  }
+                }
+              ],
+              "type": "history"
+            },
+            {
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "query": {
+                "bool": {
+                  "must": [
+                    {
+                      "term": {
+                        "namespace.user_id": "bob"
+                      }
+                    }
+                  ],
+                  "must_not": [
+                    {
+                      "exists": {
+                        "field": "tags.parent_memory_id"
+                      }
+                    }
+                  ]
+                }
+              },
+              "sort": [
+                {
+                  "created_time": {
+                    "order": "desc"
+                  }
+                }
+              ],
+              "type": "working"
+            },
+            {
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "query": {
+                "term": {
+                  "namespace.session_id": "123"
+                }
+              },
+              "sort": [
+                {
+                  "created_time": {
+                    "order": "desc"
+                  }
+                }
+              ],
+              "type": "working"
+            }
+          ],
+          "properties": {
+            "memory_container_id": {
+              "default": "file-container",
+              "description": "The ID of the memory container.",
+              "title": "Memory Container Id",
+              "type": "string"
+            },
+            "query": {
+              "additionalProperties": true,
+              "description": "The search query using OpenSearch query DSL.",
+              "title": "Query",
+              "type": "object"
+            },
+            "sort": {
+              "anyOf": [
+                {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Sort specification for the search results.",
+              "title": "Sort"
+            },
+            "type": {
+              "$ref": "#/$defs/MemoryType",
+              "description": "The memory type. Valid values are sessions, working, long-term, and history."
+            }
+          },
+          "required": [
+            "query",
+            "type"
+          ],
+          "title": "SearchAgenticMemoryArgs",
+          "type": "object"
+        },
+        "name": "SearchAgenticMemoryTool"
+      },
+      {
+        "description": "Lists indices in the OpenSearch cluster. If an index name or pattern is specified, return only information about the provided index or index pattern. The include_detail flag controls output: if False, returns only index name(s); if True (default), returns full metadata.",
+        "inputSchema": {
+          "description": "Arguments for the ListIndicesTool.",
+          "properties": {
+            "include_detail": {
+              "default": true,
+              "description": "Whether to include detailed information. If False, returns only index name(s). If True, returns full metadata.",
+              "title": "Include Detail",
+              "type": "boolean"
+            },
+            "index": {
+              "default": "",
+              "description": "The name of the index or index pattern to get information for.",
+              "title": "Index",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "ListIndicesArgs",
+          "type": "object"
+        },
+        "name": "ListIndexTool"
+      },
+      {
+        "description": "Retrieves index mapping and setting information for an index in OpenSearch",
+        "inputSchema": {
+          "description": "Arguments for the GetIndexMappingTool.",
+          "properties": {
+            "index": {
+              "description": "The name of the index to get mapping information for",
+              "title": "Index",
+              "type": "string"
+            }
+          },
+          "required": [
+            "index"
+          ],
+          "title": "GetIndexMappingArgs",
+          "type": "object"
+        },
+        "name": "IndexMappingTool"
+      },
+      {
+        "description": "Searches an index using a query written in query domain-specific language (DSL) in OpenSearch. PREREQUISITE: You need to know the mappings of the index before constructing queries.",
+        "inputSchema": {
+          "description": "Arguments for the SearchIndexTool.",
+          "properties": {
+            "format": {
+              "default": "json",
+              "description": "Output format: \"json\" or \"csv\"",
+              "title": "Format",
+              "type": "string"
+            },
+            "index": {
+              "description": "The name of the index to search in",
+              "title": "Index",
+              "type": "string"
+            },
+            "query_dsl": {
+              "description": "The search query in OpenSearch query DSL format. For keyword-type fields (mapping shows \"type\": \"keyword\"), use field name DIRECTLY - do NOT add .keyword suffix. For text-type fields with .keyword subfields, use the .keyword suffix for exact matches. For date/time range queries, MUST include \"format\" parameter (commonly \"format\": \"strict_date_optional_time||epoch_millis\"), e.g. {\"range\": {\"timestamp\": {\"gte\": \"2025-12-29T17:15:12Z\", \"lte\": \"2025-12-30T08:15:12Z\", \"format\": \"strict_date_optional_time||epoch_millis\"}}}; if using non-ISO formats, adjust \"format\" accordingly.",
+              "title": "Query Dsl"
+            },
+            "size": {
+              "default": 10,
+              "description": "Number of search results to return. The maximum allowed value is 100, unless overridden by configuration.",
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "index",
+            "query_dsl"
+          ],
+          "title": "SearchIndexArgs",
+          "type": "object"
+        },
+        "name": "SearchIndexTool"
+      },
+      {
+        "description": "Gets information about shards in OpenSearch",
+        "inputSchema": {
+          "description": "Arguments for the GetShardsTool.",
+          "properties": {
+            "index": {
+              "description": "The name of the index to get shard information for",
+              "title": "Index",
+              "type": "string"
+            }
+          },
+          "required": [
+            "index"
+          ],
+          "title": "GetShardsArgs",
+          "type": "object"
+        },
+        "name": "GetShardsTool"
+      },
+      {
+        "description": "A flexible tool for calling any OpenSearch API endpoint. Supports all HTTP methods with custom paths, query parameters, request bodies, and headers. Use this when you need to access OpenSearch APIs that don't have dedicated tools, or when you need more control over the request. Leverages your knowledge of OpenSearch API documentation to construct appropriate requests.",
+        "inputSchema": {
+          "description": "Arguments for the generic OpenSearch API tool.",
+          "examples": [
+            {
+              "method": "GET",
+              "path": "/_search",
+              "query_params": {
+                "from": 0,
+                "size": 10
+              }
+            },
+            {
+              "method": "GET",
+              "path": "/_cat/indices",
+              "query_params": {
+                "format": "json",
+                "v": true
+              }
+            },
+            {
+              "body": {
+                "content": "This is a test",
+                "title": "Test Document"
+              },
+              "method": "POST",
+              "path": "/my_index/_doc"
+            },
+            {
+              "body": {
+                "query": {
+                  "match": {
+                    "title": "search term"
+                  }
+                }
+              },
+              "method": "POST",
+              "path": "/my_index/_search"
+            },
+            {
+              "method": "GET",
+              "path": "/_cluster/health"
+            }
+          ],
+          "properties": {
+            "body": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Request body for GET/POST/PUT requests. Can be a JSON object, string, or None",
+              "title": "Body"
+            },
+            "headers": {
+              "anyOf": [
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Additional HTTP headers to include in the request",
+              "title": "Headers"
+            },
+            "method": {
+              "default": "GET",
+              "description": "HTTP method to use (GET, POST, PUT, DELETE, HEAD, PATCH)",
+              "title": "Method",
+              "type": "string"
+            },
+            "path": {
+              "description": "The API endpoint path (e.g., \"/_search\", \"/_cat/indices\", \"/my_index/_doc/1\"). Should start with \"/\".",
+              "title": "Path",
+              "type": "string"
+            },
+            "query_params": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Query parameters to include in the request URL as key-value pairs",
+              "title": "Query Params"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "title": "GenericOpenSearchApiArgs",
+          "type": "object"
+        },
+        "name": "GenericOpenSearchApiTool"
+      },
+      {
+        "description": "Returns basic information about the health of the cluster.",
+        "inputSchema": {
+          "properties": {
+            "cluster_manager_timeout": {
+              "description": "The amount of time to wait for a response from the cluster manager node.",
+              "title": "Cluster_Manager_Timeout",
+              "type": "string"
+            },
+            "expand_wildcards": {
+              "description": "Specifies the type of index that wildcard expressions can match. Supports comma-separated values.",
+              "title": "Expand_Wildcards",
+              "type": "string"
+            },
+            "index": {
+              "title": "Index",
+              "type": "string"
+            },
+            "level": {
+              "description": "Controls the amount of detail included in the cluster health response.",
+              "title": "Level",
+              "type": "string"
+            },
+            "local": {
+              "description": "Whether to return information from the local node only instead of from the cluster manager node.",
+              "title": "Local",
+              "type": "boolean"
+            },
+            "master_timeout": {
+              "description": "The amount of time to wait for a response from the cluster manager node.",
+              "title": "Master_Timeout",
+              "type": "string"
+            },
+            "timeout": {
+              "description": "The amount of time to wait for a response.",
+              "title": "Timeout",
+              "type": "string"
+            },
+            "wait_for_active_shards": {
+              "description": "Waits until the specified number of shards is active before returning a response.",
+              "title": "Wait_For_Active_Shards",
+              "type": "string"
+            },
+            "wait_for_no_relocating_shards": {
+              "description": "Whether to wait until there are no relocating shards in the cluster.",
+              "title": "Wait_For_No_Relocating_Shards",
+              "type": "boolean"
+            },
+            "wait_for_nodes": {
+              "description": "Waits until the specified number of nodes (`N`) is available. Accepts `>=N`, `<=N`, `>N`, and `<N`.",
+              "title": "Wait_For_Nodes",
+              "type": "string"
+            },
+            "wait_for_status": {
+              "description": "Waits until the cluster health reaches the specified status or better.",
+              "title": "Wait_For_Status",
+              "type": "string"
+            }
+          },
+          "title": "ClusterHealthArgs",
+          "type": "object"
+        },
+        "name": "ClusterHealthTool"
+      },
+      {
+        "description": "Returns number of documents matching a query.",
+        "inputSchema": {
+          "properties": {
+            "allow_no_indices": {
+              "description": "If `false`, the request returns an error if any wildcard expression, index alias, or `_all` value targets only missing or closed indexes.",
+              "title": "Allow_No_Indices",
+              "type": "boolean"
+            },
+            "analyze_wildcard": {
+              "description": "If `true`, wildcard and prefix queries are analyzed. This parameter can only be used when the `q` query string parameter is specified.",
+              "title": "Analyze_Wildcard",
+              "type": "boolean"
+            },
+            "analyzer": {
+              "description": "Analyzer to use for the query string. This parameter can only be used when the `q` query string parameter is specified.",
+              "title": "Analyzer",
+              "type": "string"
+            },
+            "body": {
+              "description": "Request body",
+              "title": "Body"
+            },
+            "default_operator": {
+              "description": "The default operator for query string query `AND` or `OR`.",
+              "title": "Default_Operator",
+              "type": "string"
+            },
+            "expand_wildcards": {
+              "description": "Type of index that wildcard patterns can match.",
+              "title": "Expand_Wildcards",
+              "type": "string"
+            },
+            "ignore_unavailable": {
+              "description": "If `false`, the request returns an error if it targets a missing or closed index.",
+              "title": "Ignore_Unavailable",
+              "type": "boolean"
+            },
+            "index": {
+              "title": "Index",
+              "type": "string"
+            },
+            "min_score": {
+              "description": "Sets the minimum `_score` value that documents must have to be included in the result.",
+              "title": "Min_Score",
+              "type": "number"
+            },
+            "preference": {
+              "description": "Specifies the node or shard the operation should be performed on.",
+              "title": "Preference",
+              "type": "string"
+            },
+            "q": {
+              "description": "Query in the Lucene query string syntax.",
+              "title": "Q",
+              "type": "string"
+            },
+            "routing": {
+              "description": "Custom value used to route operations to a specific shard.",
+              "title": "Routing",
+              "type": "string"
+            },
+            "terminate_after": {
+              "description": "Maximum number of documents to collect for each shard.",
+              "title": "Terminate_After",
+              "type": "integer"
+            }
+          },
+          "title": "CountArgs",
+          "type": "object"
+        },
+        "name": "CountTool"
+      },
+      {
+        "description": "Returns information about why a specific matches (or doesn't match) a query.",
+        "inputSchema": {
+          "properties": {
+            "analyze_wildcard": {
+              "description": "If `true`, wildcard and prefix queries are analyzed.",
+              "title": "Analyze_Wildcard",
+              "type": "boolean"
+            },
+            "analyzer": {
+              "description": "Analyzer to use for the query string. This parameter can only be used when the `q` query string parameter is specified.",
+              "title": "Analyzer",
+              "type": "string"
+            },
+            "body": {
+              "description": "Request body containing the query to explain.",
+              "title": "Body"
+            },
+            "default_operator": {
+              "description": "The default operator for query string query `AND` or `OR`.",
+              "title": "Default_Operator",
+              "type": "string"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "index": {
+              "title": "Index",
+              "type": "string"
+            },
+            "lenient": {
+              "description": "If `true`, format-based query failures (such as providing text to a numeric field) in the query string will be ignored.",
+              "title": "Lenient",
+              "type": "boolean"
+            },
+            "preference": {
+              "description": "Specifies the node or shard the operation should be performed on.",
+              "title": "Preference",
+              "type": "string"
+            },
+            "q": {
+              "description": "Query in the Lucene query string syntax.",
+              "title": "Q",
+              "type": "string"
+            },
+            "routing": {
+              "description": "Custom value used to route operations to a specific shard.",
+              "title": "Routing",
+              "type": "string"
+            },
+            "stored_fields": {
+              "description": "A comma-separated list of stored fields to return in the response.",
+              "title": "Stored_Fields",
+              "type": "string"
+            }
+          },
+          "required": [
+            "body",
+            "id",
+            "index"
+          ],
+          "title": "ExplainArgs",
+          "type": "object"
+        },
+        "name": "ExplainTool"
+      },
+      {
+        "description": "Allows to execute several search operations in one request.",
+        "inputSchema": {
+          "properties": {
+            "body": {
+              "description": "Request body as NDJSON format: alternating lines of header and query objects ending with \\n. Alternatively, pass a JSON array [header, query, header, query, ...] and the tool will convert it to NDJSON for you.",
+              "title": "Body"
+            },
+            "ccs_minimize_roundtrips": {
+              "description": "If `true`, network round-trips between the coordinating node and remote clusters are minimized for cross-cluster search requests.",
+              "title": "Ccs_Minimize_Roundtrips",
+              "type": "boolean"
+            },
+            "index": {
+              "title": "Index",
+              "type": "string"
+            },
+            "max_concurrent_searches": {
+              "description": "Maximum number of concurrent searches the multi search API can execute.",
+              "title": "Max_Concurrent_Searches",
+              "type": "integer"
+            },
+            "max_concurrent_shard_requests": {
+              "description": "Maximum number of concurrent shard requests that each sub-search request executes per node.",
+              "title": "Max_Concurrent_Shard_Requests",
+              "type": "integer"
+            },
+            "pre_filter_shard_size": {
+              "description": "Defines a threshold that enforces a pre-filter roundtrip to prefilter search shards based on query rewriting if the number of shards the search request expands to exceeds the threshold.",
+              "title": "Pre_Filter_Shard_Size",
+              "type": "integer"
+            },
+            "rest_total_hits_as_int": {
+              "description": "If `true`, `hits.total` are returned as an integer in the response.",
+              "title": "Rest_Total_Hits_As_Int",
+              "type": "boolean"
+            },
+            "search_type": {
+              "description": "Indicates whether global term and document frequencies should be used when scoring returned documents.",
+              "title": "Search_Type",
+              "type": "string"
+            },
+            "typed_keys": {
+              "description": "Specifies whether aggregation and suggester names should be prefixed by their respective types in the response.",
+              "title": "Typed_Keys",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "body"
+          ],
+          "title": "MsearchArgs",
+          "type": "object"
+        },
+        "name": "MsearchTool"
+      }
+    ],
+    "ttlMs": 0
+  },
+  "tool_names": [
+    "CreateAgenticMemorySessionTool",
+    "AddAgenticMemoriesTool",
+    "GetAgenticMemoryTool",
+    "UpdateAgenticMemoryTool",
+    "DeleteAgenticMemoryByIDTool",
+    "DeleteAgenticMemoryByQueryTool",
+    "SearchAgenticMemoryTool",
+    "ListIndexTool",
+    "IndexMappingTool",
+    "SearchIndexTool",
+    "GetShardsTool",
+    "GenericOpenSearchApiTool",
+    "ClusterHealthTool",
+    "CountTool",
+    "ExplainTool",
+    "MsearchTool"
+  ]
+}

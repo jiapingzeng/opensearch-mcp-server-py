@@ -1,0 +1,244 @@
+{
+  "error": null,
+  "inputs": {
+    "cli_overrides": null,
+    "config": null,
+    "config_file_missing": false,
+    "env": {
+      "OPENSEARCH_NO_AUTH": "true"
+    },
+    "memory_tools_enabled": false,
+    "mode": "single",
+    "openapi_unavailable": true,
+    "opensearch_version": "3.1.0"
+  },
+  "list_error": null,
+  "opensearch_requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "method": "GET",
+      "path": "/"
+    }
+  ],
+  "result": {
+    "cacheScope": "private",
+    "resultType": "complete",
+    "tools": [
+      {
+        "description": "Lists indices in the OpenSearch cluster. If an index name or pattern is specified, return only information about the provided index or index pattern. The include_detail flag controls output: if False, returns only index name(s); if True (default), returns full metadata.",
+        "inputSchema": {
+          "description": "Arguments for the ListIndicesTool.",
+          "properties": {
+            "include_detail": {
+              "default": true,
+              "description": "Whether to include detailed information. If False, returns only index name(s). If True, returns full metadata.",
+              "title": "Include Detail",
+              "type": "boolean"
+            },
+            "index": {
+              "default": "",
+              "description": "The name of the index or index pattern to get information for.",
+              "title": "Index",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "ListIndicesArgs",
+          "type": "object"
+        },
+        "name": "ListIndexTool"
+      },
+      {
+        "description": "Retrieves index mapping and setting information for an index in OpenSearch",
+        "inputSchema": {
+          "description": "Arguments for the GetIndexMappingTool.",
+          "properties": {
+            "index": {
+              "description": "The name of the index to get mapping information for",
+              "title": "Index",
+              "type": "string"
+            }
+          },
+          "required": [
+            "index"
+          ],
+          "title": "GetIndexMappingArgs",
+          "type": "object"
+        },
+        "name": "IndexMappingTool"
+      },
+      {
+        "description": "Searches an index using a query written in query domain-specific language (DSL) in OpenSearch. PREREQUISITE: You need to know the mappings of the index before constructing queries.",
+        "inputSchema": {
+          "description": "Arguments for the SearchIndexTool.",
+          "properties": {
+            "format": {
+              "default": "json",
+              "description": "Output format: \"json\" or \"csv\"",
+              "title": "Format",
+              "type": "string"
+            },
+            "index": {
+              "description": "The name of the index to search in",
+              "title": "Index",
+              "type": "string"
+            },
+            "query_dsl": {
+              "description": "The search query in OpenSearch query DSL format. For keyword-type fields (mapping shows \"type\": \"keyword\"), use field name DIRECTLY - do NOT add .keyword suffix. For text-type fields with .keyword subfields, use the .keyword suffix for exact matches. For date/time range queries, MUST include \"format\" parameter (commonly \"format\": \"strict_date_optional_time||epoch_millis\"), e.g. {\"range\": {\"timestamp\": {\"gte\": \"2025-12-29T17:15:12Z\", \"lte\": \"2025-12-30T08:15:12Z\", \"format\": \"strict_date_optional_time||epoch_millis\"}}}; if using non-ISO formats, adjust \"format\" accordingly.",
+              "title": "Query Dsl"
+            },
+            "size": {
+              "default": 10,
+              "description": "Number of search results to return. The maximum allowed value is 100, unless overridden by configuration.",
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "index",
+            "query_dsl"
+          ],
+          "title": "SearchIndexArgs",
+          "type": "object"
+        },
+        "name": "SearchIndexTool"
+      },
+      {
+        "description": "Gets information about shards in OpenSearch",
+        "inputSchema": {
+          "description": "Arguments for the GetShardsTool.",
+          "properties": {
+            "index": {
+              "description": "The name of the index to get shard information for",
+              "title": "Index",
+              "type": "string"
+            }
+          },
+          "required": [
+            "index"
+          ],
+          "title": "GetShardsArgs",
+          "type": "object"
+        },
+        "name": "GetShardsTool"
+      },
+      {
+        "description": "A flexible tool for calling any OpenSearch API endpoint. Supports all HTTP methods with custom paths, query parameters, request bodies, and headers. Use this when you need to access OpenSearch APIs that don't have dedicated tools, or when you need more control over the request. Leverages your knowledge of OpenSearch API documentation to construct appropriate requests.",
+        "inputSchema": {
+          "description": "Arguments for the generic OpenSearch API tool.",
+          "examples": [
+            {
+              "method": "GET",
+              "path": "/_search",
+              "query_params": {
+                "from": 0,
+                "size": 10
+              }
+            },
+            {
+              "method": "GET",
+              "path": "/_cat/indices",
+              "query_params": {
+                "format": "json",
+                "v": true
+              }
+            },
+            {
+              "body": {
+                "content": "This is a test",
+                "title": "Test Document"
+              },
+              "method": "POST",
+              "path": "/my_index/_doc"
+            },
+            {
+              "body": {
+                "query": {
+                  "match": {
+                    "title": "search term"
+                  }
+                }
+              },
+              "method": "POST",
+              "path": "/my_index/_search"
+            },
+            {
+              "method": "GET",
+              "path": "/_cluster/health"
+            }
+          ],
+          "properties": {
+            "body": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Request body for GET/POST/PUT requests. Can be a JSON object, string, or None",
+              "title": "Body"
+            },
+            "headers": {
+              "anyOf": [
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Additional HTTP headers to include in the request",
+              "title": "Headers"
+            },
+            "method": {
+              "default": "GET",
+              "description": "HTTP method to use (GET, POST, PUT, DELETE, HEAD, PATCH)",
+              "title": "Method",
+              "type": "string"
+            },
+            "path": {
+              "description": "The API endpoint path (e.g., \"/_search\", \"/_cat/indices\", \"/my_index/_doc/1\"). Should start with \"/\".",
+              "title": "Path",
+              "type": "string"
+            },
+            "query_params": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Query parameters to include in the request URL as key-value pairs",
+              "title": "Query Params"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "title": "GenericOpenSearchApiArgs",
+          "type": "object"
+        },
+        "name": "GenericOpenSearchApiTool"
+      }
+    ],
+    "ttlMs": 0
+  },
+  "tool_names": [
+    "ListIndexTool",
+    "IndexMappingTool",
+    "SearchIndexTool",
+    "GetShardsTool",
+    "GenericOpenSearchApiTool"
+  ]
+}
