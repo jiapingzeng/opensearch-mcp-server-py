@@ -449,3 +449,125 @@ class TestGeneratedToolQueryParams:
             'params': {'q': 'level:error', 'routing': 'shard-1'},
             'body': None,
         }
+
+
+class TestGeneratedToolTimeoutParam:
+    """A generated tool's `timeout` argument is OpenSearch's query parameter.
+
+    The call goes through a real opensearch-py client and transport, configured with a
+    client timeout as the server configures it, down to a connection that records what it
+    receives.
+    """
+
+    ENDPOINTS = [
+        {
+            'path': '/_cluster/health',
+            'method': 'get',
+            'details': {
+                'description': 'Returns cluster health',
+                'x-operation-group': 'cluster.health',
+                'parameters': [
+                    {'name': 'timeout', 'in': 'query', 'schema': {'type': 'string'}},
+                    {'name': 'level', 'in': 'query', 'schema': {'type': 'string'}},
+                ],
+            },
+        }
+    ]
+    CONFIGURED_TIMEOUT = 30
+
+    def setup_method(self):
+        from tools.tool_generator import generate_tool_from_group
+
+        self.tool = generate_tool_from_group('ClusterHealth', self.ENDPOINTS)
+
+    async def call(self, **arguments) -> tuple[dict, dict]:
+        """Run the tool; return the transport call's kwargs and what the connection got."""
+        from contextlib import asynccontextmanager
+        from opensearchpy import AsyncOpenSearch
+        from opensearchpy._async.http_aiohttp import AsyncConnection
+
+        received = []
+
+        class RecordingConnection(AsyncConnection):
+            async def perform_request(
+                self, method, url, params=None, body=None, timeout=None, ignore=(), headers=None
+            ):
+                received.append(
+                    {
+                        'method': method,
+                        'url': url,
+                        'params': dict(params or {}),
+                        'body': body,
+                        'timeout': timeout,
+                        'configured_timeout': self.timeout,
+                    }
+                )
+                return 200, {'content-type': 'application/json'}, '{"status": "green"}'
+
+            async def close(self):
+                pass
+
+        client = AsyncOpenSearch(
+            hosts=['http://localhost:9200'],
+            connection_class=RecordingConnection,
+            timeout=self.CONFIGURED_TIMEOUT,
+        )
+        spy = AsyncMock(wraps=client.transport.perform_request)
+
+        @asynccontextmanager
+        async def fake_get_opensearch_client(args):
+            yield client
+
+        try:
+            with (
+                patch.object(client.transport, 'perform_request', spy),
+                patch('opensearch.client.get_opensearch_client', fake_get_opensearch_client),
+                patch('tools.tool_generator.check_tool_compatibility', AsyncMock()),
+            ):
+                result = await self.tool['function'](
+                    self.tool['args_model'](opensearch_cluster_name='', **arguments)
+                )
+        finally:
+            await client.close()
+
+        assert result == [TextContent(type='text', text='{"status": "green"}')]
+        spy.assert_awaited_once()
+        assert len(received) == 1
+        return spy.await_args.kwargs, received[0]
+
+    @pytest.mark.asyncio
+    async def test_caller_timeout_is_sent_as_query_parameter(self):
+        """Step 1 reproduction: a caller's `timeout: '5s'` reaches OpenSearch in the query."""
+        _, received = await self.call(timeout='5s')
+
+        assert received['url'] == '/_cluster/health'
+        assert received['params'] == {'timeout': '5s'}
+
+    @pytest.mark.asyncio
+    async def test_caller_timeout_leaves_the_client_timeout_configured(self):
+        """The request timeout the connection gets is the client's configured one, not '5s'."""
+        _, received = await self.call(timeout='5s', level='indices')
+
+        assert received['timeout'] == self.CONFIGURED_TIMEOUT
+        assert received['configured_timeout'] == self.CONFIGURED_TIMEOUT
+        assert received['params'] == {'timeout': '5s', 'level': 'indices'}
+
+    @pytest.mark.asyncio
+    async def test_call_without_timeout_is_unchanged(self):
+        """Without `timeout`, the transport call and the request are as before the fix."""
+        transport_call, received = await self.call(level='indices')
+
+        assert transport_call == {
+            'method': 'GET',
+            'url': '/_cluster/health',
+            'params': {'level': 'indices'},
+            'body': None,
+        }
+        assert received == {
+            'method': 'GET',
+            'url': '/_cluster/health',
+            'params': {'level': 'indices'},
+            'body': None,
+            'timeout': None,
+            'configured_timeout': self.CONFIGURED_TIMEOUT,
+        }

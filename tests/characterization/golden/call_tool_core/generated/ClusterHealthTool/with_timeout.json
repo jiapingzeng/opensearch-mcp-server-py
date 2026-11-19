@@ -36,7 +36,9 @@
       "body_format": "none",
       "host": "http://fake-opensearch.invalid:9200",
       "method": "GET",
-      "params": {},
+      "params": {
+        "timeout": "5s"
+      },
       "path": "/_cluster/health"
     }
   ],
