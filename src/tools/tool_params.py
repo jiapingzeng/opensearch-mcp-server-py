@@ -8,6 +8,41 @@ from typing import Any, Dict, Literal, Optional, Type, TypeVar
 
 T = TypeVar('T', bound=BaseModel)
 
+_SECRET_KEY_PARTS = (
+    'password',
+    'passwd',
+    'secret',
+    'credential',
+    'authorization',
+    'cookie',
+    'api_key',
+    'apikey',
+    'access_key',
+    'private_key',
+)
+
+
+def _is_secret_key(key: Any) -> bool:
+    """Return True when an argument key looks like it holds a secret."""
+    if not isinstance(key, str):
+        return False
+    lowered = key.lower()
+    if lowered == 'token' or lowered.endswith('_token'):
+        return True
+    return any(part in lowered for part in _SECRET_KEY_PARTS)
+
+
+def _redact_secrets(value: Any) -> Any:
+    """Return a copy of value with every secret-looking key's value replaced by '***'.
+
+    Recurses into nested dicts and lists; the input is not modified.
+    """
+    if isinstance(value, dict):
+        return {k: '***' if _is_secret_key(k) else _redact_secrets(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_redact_secrets(item) for item in value]
+    return value
+
 
 def validate_args_for_mode(args_dict: Dict[str, Any], args_model_class: Type[T]) -> T:
     """Validation middleware that handles mode-specific validation.
@@ -47,10 +82,12 @@ def validate_args_for_mode(args_dict: Dict[str, Any], args_model_class: Type[T])
 
             # For single mode, show user input without opensearch_cluster_name
             if mode == 'single':
-                user_input = {k: v for k, v in args_dict.items() if k != 'opensearch_cluster_name'}
+                user_input = _redact_secrets(
+                    {k: v for k, v in args_dict.items() if k != 'opensearch_cluster_name'}
+                )
                 error_msg += f'\n\nProvided: {user_input}'
             else:
-                error_msg += f'\n\nProvided: {args_dict}'
+                error_msg += f'\n\nProvided: {_redact_secrets(args_dict)}'
 
             raise ValueError(error_msg) from e
 
