@@ -1,0 +1,39 @@
+{
+  "arguments": {
+    "baseTimeRangeStart": "2020-01-01 09:00:00",
+    "index": "logs-app",
+    "logFieldName": "message",
+    "selectionTimeRangeEnd": "2020-01-01 10:30:00",
+    "selectionTimeRangeStart": "2020-01-01 10:00:00",
+    "timeField": "@timestamp",
+    "traceFieldName": "traceId"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": "source=logs-app | where @timestamp>'2020-01-01T10:00:00.000Z' and @timestamp<'2020-01-01T10:30:00.000Z' | where match(message, 'abort aborted aborting backpressure broken conflict corrupt corrupted crash crashed critical deadlock degraded denied disk_full err error exception expired failed failure fatal forbidden insufficient invalid malformed mismatch missing overflow panic retrying severe stale throttled timeout unauthorized underflow unexpected unprocessable unusual violation') | head 10000 | fields message | patterns message method=brain mode=aggregation max_sample_count=5 variable_count_threshold=3 | fields patterns_field, pattern_count, sample_logs | sort -pattern_count | head 5"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {
+        "format": "jdbc"
+      },
+      "path": "/_plugins/_ppl"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "LogPatternAnalysisTool result:\n{\"logInsights\":[{\"pattern\":\"Connection timeout to <*>\",\"count\":300,\"sampleLogs\":[\"2020-01-01 10:05:00 ERROR Connection timeout to db-1.internal\",\"2020-01-01 10:06:00 ERROR Connection timeout to db-2.internal\"]},{\"pattern\":\"NullPointerException at <*> <*>\",\"count\":50,\"sampleLogs\":[\"2020-01-01 10:07:00 FATAL NullPointerException at OrderService.java:42 checkout\"]},{\"pattern\":\"Request <*> failed: invalid token\",\"count\":12,\"sampleLogs\":[\"2020-01-01 10:08:00 WARN Request req-1 failed: invalid token\"]}]}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "LogPatternAnalysisTool"
+}

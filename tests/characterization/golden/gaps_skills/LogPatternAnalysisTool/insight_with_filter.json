@@ -1,0 +1,38 @@
+{
+  "arguments": {
+    "filter": "serviceName='ts-auth-service'",
+    "index": "logs-app",
+    "logFieldName": "message",
+    "selectionTimeRangeEnd": "2020-01-01 10:30:00",
+    "selectionTimeRangeStart": "2020-01-01 10:00:00",
+    "timeField": "@timestamp"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": "source=logs-app | where @timestamp>'2020-01-01T10:00:00.000Z' and @timestamp<'2020-01-01T10:30:00.000Z' | where serviceName='ts-auth-service' | where match(message, 'abort aborted aborting backpressure broken conflict corrupt corrupted crash crashed critical deadlock degraded denied disk_full err error exception expired failed failure fatal forbidden insufficient invalid malformed mismatch missing overflow panic retrying severe stale throttled timeout unauthorized underflow unexpected unprocessable unusual violation') | head 10000 | fields message | patterns message method=brain mode=aggregation max_sample_count=5 variable_count_threshold=3 | fields patterns_field, pattern_count, sample_logs | sort -pattern_count | head 5"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {
+        "format": "jdbc"
+      },
+      "path": "/_plugins/_ppl"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "LogPatternAnalysisTool result:\n{\"logInsights\":[]}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "LogPatternAnalysisTool"
+}
