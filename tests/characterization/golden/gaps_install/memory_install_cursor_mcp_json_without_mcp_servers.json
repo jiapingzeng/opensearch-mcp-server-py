@@ -1,0 +1,104 @@
+{
+  "answers": [
+    "https://abc123example.us-west-2.aoss.amazonaws.com",
+    "",
+    "",
+    "y"
+  ],
+  "argv": [
+    "memory",
+    "install"
+  ],
+  "error": null,
+  "exit_code": null,
+  "files": {
+    "cwd": {},
+    "home": {
+      ".cursor/hooks.json": {
+        "json": {
+          "hooks": {
+            "sessionStart": [
+              {
+                "command": "echo '{\"additional_context\": \"Before responding, search memory for relevant context about the topics in the current message using SearchMemoryTool. This ensures continuity across sessions.\"}'"
+              }
+            ],
+            "stop": [
+              {
+                "command": "echo '{\"followup_message\": \"Before finishing, review the conversation for important facts, decisions, user preferences, or insights that should persist. Save each as a separate memory using SaveMemoryTool with appropriate tags.\"}'",
+                "loop_limit": 1
+              }
+            ]
+          },
+          "version": 1
+        },
+        "written_as_json_dumps_indent_2": true
+      },
+      ".cursor/mcp.json": {
+        "json": {
+          "mcpServers": {
+            "opensearch-memory": {
+              "args": [
+                "opensearch-mcp-server-py"
+              ],
+              "command": "uvx",
+              "env": {
+                "AWS_OPENSEARCH_SERVERLESS": "true",
+                "AWS_REGION": "us-west-2",
+                "MEMORY_TOOLS_ENABLED": "true",
+                "OPENSEARCH_DISABLED_CATEGORIES": "core_tools,skills",
+                "OPENSEARCH_URL": "https://abc123example.us-west-2.aoss.amazonaws.com"
+              }
+            }
+          },
+          "other": "kept"
+        },
+        "written_as_json_dumps_indent_2": true
+      }
+    }
+  },
+  "given_home": {
+    ".cursor/mcp.json": {
+      "other": "kept"
+    }
+  },
+  "logs": [
+    {
+      "level": "INFO",
+      "logger": "mcp_server_opensearch.install_hooks",
+      "message": "Added Cursor memory hooks to <TMP>/home/.cursor/hooks.json"
+    }
+  ],
+  "stderr": [
+    ""
+  ],
+  "stdin_left_unread": "",
+  "transcript": [
+    "",
+    "OpenSearch MCP Server — Memory Setup",
+    "========================================",
+    "",
+    "Step 1: OpenSearch Connection",
+    "------------------------------",
+    "OpenSearch Serverless endpoint URL: https://abc123example.us-west-2.aoss.amazonaws.com",
+    "AWS region [us-west-2]: ",
+    "AWS profile (leave empty for default credentials): ",
+    "",
+    "Step 2: IDE Detection",
+    "------------------------------",
+    "Detected: Cursor",
+    "",
+    "Step 3: Configuration",
+    "------------------------------",
+    "Configure Cursor? [Y/n]: y",
+    "",
+    "Done!",
+    "------------------------------",
+    "  Configured MCP server in <TMP>/home/.cursor/mcp.json",
+    "Added sessionStart memory search hook to <TMP>/home/.cursor/hooks.json",
+    "Added stop memory save hook to <TMP>/home/.cursor/hooks.json",
+    "",
+    "Restart your IDE(s) to activate agent memory.",
+    "",
+    ""
+  ]
+}

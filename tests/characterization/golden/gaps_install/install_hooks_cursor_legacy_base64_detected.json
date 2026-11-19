@@ -1,0 +1,100 @@
+{
+  "argv": [
+    "install-hooks",
+    "--client",
+    "cursor"
+  ],
+  "first_run": {
+    "error": null,
+    "exit_code": null,
+    "files": {
+      "cwd": {
+        ".cursor/hooks.json": {
+          "json": {
+            "hooks": {
+              "stop": [
+                {
+                  "command": "python3 -c \"import base64; base64.b64decode('U2F2ZU1lbW9yeVRvb2w=')\""
+                }
+              ]
+            },
+            "version": 1
+          },
+          "written_as_json_dumps_indent_2": true
+        }
+      },
+      "home": {}
+    },
+    "logs": [
+      {
+        "level": "INFO",
+        "logger": "mcp_server_opensearch.install_hooks",
+        "message": "Memory hooks already installed in Cursor hooks config"
+      }
+    ],
+    "stderr": [
+      ""
+    ],
+    "stdin_left_unread": "",
+    "stdout": [
+      "Installing memory hooks for cursor (scope: workspace)...",
+      "All hooks already installed.",
+      "",
+      "Restart your IDE to activate the hooks.",
+      ""
+    ]
+  },
+  "given_cwd": {
+    ".cursor/hooks.json": {
+      "hooks": {
+        "stop": [
+          {
+            "command": "python3 -c \"import base64; base64.b64decode('U2F2ZU1lbW9yeVRvb2w=')\""
+          }
+        ]
+      },
+      "version": 1
+    }
+  },
+  "given_home": {},
+  "second_run": {
+    "error": null,
+    "exit_code": null,
+    "files": {
+      "cwd": {
+        ".cursor/hooks.json": {
+          "json": {
+            "hooks": {
+              "stop": [
+                {
+                  "command": "python3 -c \"import base64; base64.b64decode('U2F2ZU1lbW9yeVRvb2w=')\""
+                }
+              ]
+            },
+            "version": 1
+          },
+          "written_as_json_dumps_indent_2": true
+        }
+      },
+      "home": {}
+    },
+    "logs": [
+      {
+        "level": "INFO",
+        "logger": "mcp_server_opensearch.install_hooks",
+        "message": "Memory hooks already installed in Cursor hooks config"
+      }
+    ],
+    "stderr": [
+      ""
+    ],
+    "stdin_left_unread": "",
+    "stdout": [
+      "Installing memory hooks for cursor (scope: workspace)...",
+      "All hooks already installed.",
+      "",
+      "Restart your IDE to activate the hooks.",
+      ""
+    ]
+  }
+}
