@@ -5,8 +5,8 @@
 
 A behaviour change is a modified or deleted characterization golden. When there is one,
 the ledger and CHANGELOG.md must be changed too, and the ledger must name every changed
-golden (its path relative to the golden directory). A change that only adds goldens is new
-characterization and passes.
+golden (its path relative to the golden directory, or its full repo path). A change that
+only adds goldens is new characterization and passes.
 
 Usage: python scripts/check_behaviour_ledger.py [--base REF] [--require-entry]
 """
@@ -23,10 +23,17 @@ LEDGER = 'docs/mcpserver-migration-behaviour-changes.md'
 CHANGELOG = 'CHANGELOG.md'
 
 
-def _named(path: str, text: str) -> bool:
-    """Return True when path appears in text as a whole path, not inside a longer one."""
-    pattern = r'(?<![\w./\\-])' + re.escape(path) + r'(?!\.?[\w/\\-])'
-    return re.search(pattern, text) is not None
+def _named(name: str, text: str) -> bool:
+    """Return True when text names the golden name (its path relative to GOLDEN_DIR).
+
+    The ledger may write the relative path or the full repo path (GOLDEN_DIR + name). Either
+    must appear as a whole path, not inside a longer one.
+    """
+    for path in (name, GOLDEN_DIR + name):
+        pattern = r'(?<![\w./\\-])' + re.escape(path) + r'(?!\.?[\w/\\-])'
+        if re.search(pattern, text) is not None:
+            return True
+    return False
 
 
 def check(changes: list[tuple[str, str]], ledger_text: str, require_entry: bool) -> list[str]:
@@ -51,6 +58,15 @@ def check(changes: list[tuple[str, str]], ledger_text: str, require_entry: bool)
             if not _named(name, ledger_text):
                 problems.append(f'golden not named in {LEDGER}: {name}')
     return problems
+
+
+def summary(changes: list[tuple[str, str]], base: str) -> str:
+    """Return the success line: how many distinct golden paths changed since base."""
+    paths = {path.replace('\\', '/') for _, path in changes}
+    goldens = len({path for path in paths if path.startswith(GOLDEN_DIR)})
+    if not goldens:
+        return f'no characterization goldens changed since {base}'
+    return f'{goldens} golden(s) changed since {base}; the behaviour ledger covers them'
 
 
 def _git(root: Path, *args: str) -> str:
@@ -97,6 +113,9 @@ def main() -> int:
     except subprocess.CalledProcessError as e:
         print(f'git failed: {" ".join(e.cmd)}: {e.stderr.strip()}', file=sys.stderr)
         return 2
+    except OSError as e:
+        print(f'git could not run: {e}', file=sys.stderr)
+        return 2
     ledger = root / LEDGER
     ledger_text = ledger.read_text(encoding='utf-8') if ledger.is_file() else ''
     problems = check(changes, ledger_text, args.require_entry)
@@ -104,8 +123,7 @@ def main() -> int:
         print(problem)
     if problems:
         return 1
-    goldens = sum(1 for _, path in changes if path.replace('\\', '/').startswith(GOLDEN_DIR))
-    print(f'{goldens} golden(s) changed since {args.base}; the behaviour ledger covers them')
+    print(summary(changes, args.base))
     return 0
 
 

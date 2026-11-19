@@ -9,8 +9,8 @@ The characterization goldens under `tests/characterization/golden/` pin today's 
 as a client sees it, so a golden diff is a behaviour change. The rule: a change that
 modifies or deletes an existing golden adds its entry here, naming every golden it changed,
 and a `CHANGELOG.md` entry in the same change. A change that only adds new goldens is new
-characterization, not a behaviour change. `uv run --offline python
-scripts/check_behaviour_ledger.py` checks it.
+characterization, not a behaviour change. This command checks it:
+`uv run --offline python scripts/check_behaviour_ledger.py`.
 
 ## Fixed before the migration
 

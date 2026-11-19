@@ -1,8 +1,10 @@
 # Copyright OpenSearch Contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for scripts/check_behaviour_ledger.py: the pure check(), no git, no subprocess."""
+"""Tests for scripts/check_behaviour_ledger.py: no real git; main() runs with git stubbed."""
 
 import importlib.util
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -12,6 +14,7 @@ ledger_check = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ledger_check)
 
 check = ledger_check.check
+summary = ledger_check.summary
 GOLDEN = 'tests/characterization/golden/'
 LEDGER = 'docs/mcpserver-migration-behaviour-changes.md'
 CHANGELOG = 'CHANGELOG.md'
@@ -157,3 +160,113 @@ def test_windows_separators_are_normalized():
 def test_windows_separators_only_added_golden_passes():
     changes = [('A', (GOLDEN + 'area/new_case.json').replace('/', '\\'))]
     assert check(changes, '', require_entry=False) == []
+
+
+# Step 2: a golden written as its full repo path counts as named, like its relative path.
+
+
+def test_golden_named_by_its_full_repo_path_passes():
+    changes = [('M', GOLDEN + NAME), ('M', LEDGER), ('M', CHANGELOG)]
+    assert check(changes, f'- `{GOLDEN}{NAME}`\n', require_entry=False) == []
+
+
+def test_golden_named_by_its_relative_path_passes():
+    changes = [('M', GOLDEN + NAME), ('M', LEDGER), ('M', CHANGELOG)]
+    assert check(changes, f'- `{NAME}`\n', require_entry=False) == []
+
+
+def test_full_repo_path_inside_a_longer_path_does_not_count():
+    changes = [('M', GOLDEN + 'a/b.json'), ('M', LEDGER), ('M', CHANGELOG)]
+    expected = [f'golden not named in {LEDGER}: a/b.json']
+    assert check(changes, '- `x/a/b.json`\n', require_entry=False) == expected
+    assert check(changes, f'- `x/{GOLDEN}a/b.json`\n', require_entry=False) == expected
+    assert check(changes, f'- `{GOLDEN}a/b.json.bak`\n', require_entry=False) == expected
+    assert check(changes, f'- `{GOLDEN}x/a/b.json`\n', require_entry=False) == expected
+    assert check(changes, f'See {GOLDEN}a/b.json.', require_entry=False) == []
+
+
+# Step 3: a missing git executable exits 2 with one line, not a traceback.
+
+
+def test_missing_git_exits_2_with_one_line(monkeypatch, capsys):
+    def no_git(*args, **kwargs):
+        raise FileNotFoundError(2, 'No such file or directory', 'git')
+
+    monkeypatch.setattr(ledger_check.subprocess, 'run', no_git)
+    monkeypatch.setattr(sys, 'argv', ['check_behaviour_ledger.py'])
+    assert ledger_check.main() == 2
+    out, err = capsys.readouterr()
+    assert out == ''
+    assert len(err.strip().splitlines()) == 1
+    assert err.startswith('git could not run: ')
+    assert 'Traceback' not in err
+
+
+def test_git_os_error_exits_2_with_one_line(monkeypatch, capsys):
+    def no_permission(*args, **kwargs):
+        raise PermissionError(13, 'Permission denied', 'git')
+
+    monkeypatch.setattr(ledger_check.subprocess, 'run', no_permission)
+    monkeypatch.setattr(sys, 'argv', ['check_behaviour_ledger.py'])
+    assert ledger_check.main() == 2
+    assert len(capsys.readouterr().err.strip().splitlines()) == 1
+
+
+def test_git_error_still_exits_2_with_one_line(monkeypatch, capsys):
+    def git_fails(cmd, **kwargs):
+        raise subprocess.CalledProcessError(128, cmd, stderr='fatal: not a git repository\n')
+
+    monkeypatch.setattr(ledger_check.subprocess, 'run', git_fails)
+    monkeypatch.setattr(sys, 'argv', ['check_behaviour_ledger.py'])
+    assert ledger_check.main() == 2
+    err = capsys.readouterr().err
+    assert err == 'git failed: git rev-parse --show-toplevel: fatal: not a git repository\n'
+
+
+# Step 4: the success line counts distinct golden paths and says plainly when there are none.
+
+
+def test_summary_with_no_golden_changed_says_so():
+    changes = [('M', 'src/tools/tools.py'), ('M', LEDGER)]
+    assert summary(changes, 'agent-work') == 'no characterization goldens changed since agent-work'
+    assert summary([], 'main') == 'no characterization goldens changed since main'
+
+
+def test_summary_counts_a_rename_as_two_distinct_paths():
+    changes = [('D', GOLDEN + 'area/old_name.json'), ('A', GOLDEN + 'area/new_name.json')]
+    assert summary(changes, 'agent-work') == (
+        '2 golden(s) changed since agent-work; the behaviour ledger covers them'
+    )
+
+
+def test_summary_counts_each_golden_path_once():
+    # The same path in two records (deleted from the index, still on disk as untracked).
+    changes = [
+        ('D', GOLDEN + NAME),
+        ('A', GOLDEN + NAME),
+        ('M', (GOLDEN + 'area/case.json').replace('/', '\\')),
+        ('M', GOLDEN + 'area/case.json'),
+        ('M', CHANGELOG),
+    ]
+    assert summary(changes, 'b') == '2 golden(s) changed since b; the behaviour ledger covers them'
+
+
+def test_main_prints_the_summary_line(monkeypatch, capsys, tmp_path):
+    changes = [('M', GOLDEN + NAME), ('M', LEDGER), ('M', CHANGELOG)]
+    (tmp_path / 'docs').mkdir()
+    (tmp_path / LEDGER).write_text(LEDGER_TEXT, encoding='utf-8')
+    monkeypatch.setattr(ledger_check, '_git', lambda root, *args: f'{tmp_path}\n')
+    monkeypatch.setattr(ledger_check, 'collect_changes', lambda root, base: changes)
+    monkeypatch.setattr(sys, 'argv', ['check_behaviour_ledger.py', '--base', 'b'])
+    assert ledger_check.main() == 0
+    assert capsys.readouterr().out == (
+        '1 golden(s) changed since b; the behaviour ledger covers them\n'
+    )
+
+
+def test_main_with_no_golden_changed_says_so(monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr(ledger_check, '_git', lambda root, *args: f'{tmp_path}\n')
+    monkeypatch.setattr(ledger_check, 'collect_changes', lambda root, base: [('M', 'README.md')])
+    monkeypatch.setattr(sys, 'argv', ['check_behaviour_ledger.py', '--base', 'b'])
+    assert ledger_check.main() == 0
+    assert capsys.readouterr().out == 'no characterization goldens changed since b\n'
