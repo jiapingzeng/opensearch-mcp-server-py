@@ -3,6 +3,7 @@
 """Tests for scripts/check_behaviour_ledger.py: no real git; main() runs with git stubbed."""
 
 import importlib.util
+import pytest
 import subprocess
 import sys
 from pathlib import Path
@@ -83,34 +84,95 @@ def test_deleted_golden_alone_is_a_behaviour_change():
     assert f'missing: {CHANGELOG} is not changed' in problems
 
 
-def test_renamed_golden_old_path_must_be_named():
-    # A rename arrives as its old path deleted and its new path added; the deleted path
-    # is the behaviour change, so it is the one the ledger must name.
+def test_renamed_golden_old_and_new_paths_must_be_named():
+    # A rename arrives as its old path deleted and its new path added: both must be named.
     changes = [
         ('D', GOLDEN + 'area/old_name.json'),
         ('A', GOLDEN + 'area/new_name.json'),
         ('M', LEDGER),
         ('M', CHANGELOG),
     ]
+    assert check(changes, '- `area/old_name.json`\n', require_entry=False) == [
+        f'golden not named in {LEDGER}: area/new_name.json'
+    ]
     assert check(changes, '- `area/new_name.json`\n', require_entry=False) == [
         f'golden not named in {LEDGER}: area/old_name.json'
     ]
-    assert check(changes, '- `area/old_name.json`\n', require_entry=False) == []
+    text = '- `area/old_name.json`\n- `area/new_name.json`\n'
+    assert check(changes, text, require_entry=False) == []
 
 
-def test_golden_added_next_to_a_modified_one_need_not_be_named():
-    # New characterization merged into the same range (as over --base 29db1eb^1) is not a
-    # behaviour change, so only the modified golden must be named.
+def test_renamed_golden_next_to_a_modified_one_names_both_rename_paths():
+    # The change also modifies a golden: the modified golden and both rename paths are named.
+    changes = [
+        ('M', GOLDEN + NAME),
+        ('D', GOLDEN + 'area/old_name.json'),
+        ('A', GOLDEN + 'area/new_name.json'),
+        ('M', LEDGER),
+        ('M', CHANGELOG),
+    ]
+    assert check(changes, LEDGER_TEXT, require_entry=False) == [
+        f'golden not named in {LEDGER}: area/new_name.json',
+        f'golden not named in {LEDGER}: area/old_name.json',
+    ]
+    assert check(changes, LEDGER_TEXT + '- `area/old_name.json`\n', require_entry=False) == [
+        f'golden not named in {LEDGER}: area/new_name.json'
+    ]
+    text = LEDGER_TEXT + f'- `area/old_name.json`\n- `{GOLDEN}area/new_name.json`\n'
+    assert check(changes, text, require_entry=False) == []
+
+
+def test_golden_added_next_to_a_modified_one_must_be_named():
     changes = [
         ('M', GOLDEN + NAME),
         ('A', GOLDEN + 'area/new_case.json'),
         ('M', LEDGER),
         ('M', CHANGELOG),
     ]
-    assert check(changes, LEDGER_TEXT, require_entry=False) == []
-    assert check(changes, '### Fix 22\n', require_entry=False) == [
-        f'golden not named in {LEDGER}: {NAME}'
+    assert check(changes, LEDGER_TEXT, require_entry=False) == [
+        f'golden not named in {LEDGER}: area/new_case.json'
     ]
+    text = LEDGER_TEXT + '- `area/new_case.json`\n'
+    assert check(changes, text, require_entry=False) == []
+
+
+def test_golden_added_next_to_a_modified_one_may_be_named_by_its_full_repo_path():
+    changes = [
+        ('M', GOLDEN + NAME),
+        ('A', GOLDEN + 'area/new_case.json'),
+        ('M', LEDGER),
+        ('M', CHANGELOG),
+    ]
+    text = LEDGER_TEXT + f'- `{GOLDEN}area/new_case.json`\n'
+    assert check(changes, text, require_entry=False) == []
+
+
+def test_golden_added_next_to_a_deleted_one_must_be_named():
+    changes = [
+        ('D', GOLDEN + 'area/old_case.json'),
+        ('A', GOLDEN + 'other/new_case.json'),
+        ('M', LEDGER),
+        ('M', CHANGELOG),
+    ]
+    assert check(changes, '- `area/old_case.json`\n', require_entry=False) == [
+        f'golden not named in {LEDGER}: other/new_case.json'
+    ]
+
+
+def test_several_only_added_goldens_pass_without_ledger_or_changelog():
+    # However many goldens are added, a change with none modified or deleted passes.
+    changes = [
+        ('A', GOLDEN + 'area/new_case.json'),
+        ('A', GOLDEN + 'other/second_case.json'),
+        ('A', 'tests/characterization/test_x.py'),
+    ]
+    assert check(changes, '', require_entry=False) == []
+
+
+def test_only_added_goldens_with_require_entry_need_the_ledger_but_no_names():
+    changes = [('A', GOLDEN + 'area/new_case.json')]
+    assert check(changes, '', require_entry=True) == [f'missing: {LEDGER} is not changed']
+    assert check(changes + [('M', LEDGER)], '', require_entry=True) == []
 
 
 def test_name_inside_a_longer_path_does_not_count():
@@ -213,6 +275,36 @@ def test_git_os_error_exits_2_with_one_line(monkeypatch, capsys):
     assert len(capsys.readouterr().err.strip().splitlines()) == 1
 
 
+def test_os_error_outside_git_is_not_reported_as_git(monkeypatch, capsys):
+    # Only the git subprocess calls are covered: an OSError from Path.cwd() propagates.
+    def no_cwd():
+        raise FileNotFoundError(2, 'No such file or directory')
+
+    def git_must_not_run(*args, **kwargs):
+        raise AssertionError('git ran')
+
+    monkeypatch.setattr(ledger_check.Path, 'cwd', staticmethod(no_cwd))
+    monkeypatch.setattr(ledger_check.subprocess, 'run', git_must_not_run)
+    monkeypatch.setattr(sys, 'argv', ['check_behaviour_ledger.py'])
+    with pytest.raises(FileNotFoundError):
+        ledger_check.main()
+    assert 'git could not run' not in capsys.readouterr().err
+
+
+def test_os_error_reading_the_ledger_is_not_reported_as_git(monkeypatch, capsys, tmp_path):
+    # The ledger path is a directory, so reading it raises an OSError after git has run.
+    (tmp_path / LEDGER).mkdir(parents=True)
+    monkeypatch.setattr(ledger_check, '_git', lambda root, *args: f'{tmp_path}\n')
+    monkeypatch.setattr(ledger_check, 'collect_changes', lambda root, base: [])
+    ledger = tmp_path / LEDGER
+    is_file = Path.is_file
+    monkeypatch.setattr(Path, 'is_file', lambda self: self == ledger or is_file(self))
+    monkeypatch.setattr(sys, 'argv', ['check_behaviour_ledger.py'])
+    with pytest.raises(OSError):
+        ledger_check.main()
+    assert 'git could not run' not in capsys.readouterr().err
+
+
 def test_git_error_still_exits_2_with_one_line(monkeypatch, capsys):
     def git_fails(cmd, **kwargs):
         raise subprocess.CalledProcessError(128, cmd, stderr='fatal: not a git repository\n')
@@ -231,6 +323,21 @@ def test_summary_with_no_golden_changed_says_so():
     changes = [('M', 'src/tools/tools.py'), ('M', LEDGER)]
     assert summary(changes, 'agent-work') == 'no characterization goldens changed since agent-work'
     assert summary([], 'main') == 'no characterization goldens changed since main'
+
+
+def test_summary_with_only_added_goldens_does_not_claim_the_ledger_covers_them():
+    # Only-added goldens are not checked against the ledger, so the line must not say so.
+    changes = [('A', GOLDEN + 'area/new_case.json'), ('A', GOLDEN + 'other/second.json')]
+    assert summary(changes, 'b') == (
+        '2 golden(s) added since b and none modified or deleted; '
+        'new characterization is not a behaviour change'
+    )
+
+
+def test_summary_counts_added_goldens_next_to_a_modified_one():
+    # With the rule restored, the added golden is named too, so the ledger covers both.
+    changes = [('M', GOLDEN + NAME), ('A', GOLDEN + 'area/new_case.json'), ('M', LEDGER)]
+    assert summary(changes, 'b') == '2 golden(s) changed since b; the behaviour ledger covers them'
 
 
 def test_summary_counts_a_rename_as_two_distinct_paths():
