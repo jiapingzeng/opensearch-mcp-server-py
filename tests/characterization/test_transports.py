@@ -42,6 +42,15 @@ EXECUTOR_LOGGER = 'mcp_server_opensearch.tool_executor'
 CLIENT_NAME_HEADER = 'x-mcp-client-name'
 # How long a test waits for the next event on an open stream.
 STREAM_TIMEOUT_SECONDS = 10
+# How long a stream must stay silent before `OpenStream.drain` takes it to have sent all it
+# sends at once (an event stream's keep-alive ping comes only after 15 s).
+STREAM_QUIET_SECONDS = 0.5
+
+# The handshake version and client the harness's own helpers offer (conftest.py).
+PROTOCOL_VERSION = '2025-11-25'
+CLIENT_INFO = {'name': 'characterization-harness', 'version': '0.0.0'}
+# Where `streaming_server.serve` listens by default; http_app's requests carry it as Host.
+HTTP_SERVER = ('127.0.0.1', 9900)
 
 CAT_INDICES = [
     {
@@ -79,6 +88,13 @@ def basic(username: str, password: str) -> str:
     return f'Basic {token}'
 
 
+def basic_username(authorization: str) -> str:
+    """The username of a ``Basic`` ``authorization`` header value."""
+    scheme, _, token = authorization.partition(' ')
+    assert scheme == 'Basic', authorization
+    return base64.b64decode(token).decode('utf-8').partition(':')[0]
+
+
 def rpc(request_id: int, method: str, params: dict | None = None) -> dict:
     message: dict[str, Any] = {'jsonrpc': '2.0', 'id': request_id, 'method': method}
     if params is not None:
@@ -90,10 +106,9 @@ def notification(method: str) -> dict:
     return {'jsonrpc': '2.0', 'method': method}
 
 
-def initialize_request(harness, request_id: int = 1) -> dict:
-    return rpc(
-        request_id, 'initialize', harness._initialize_params(harness.DEFAULT_PROTOCOL_VERSION)
-    )
+def initialize_request(request_id: int = 1) -> dict:
+    params = {'protocolVersion': PROTOCOL_VERSION, 'capabilities': {}, 'clientInfo': CLIENT_INFO}
+    return rpc(request_id, 'initialize', params)
 
 
 def tool_execution_records(caplog) -> list[dict]:
@@ -188,15 +203,71 @@ class OpenStream:
         self._events_read += 1
         return events[self._events_read - 1]
 
+    async def drain(self, quiet: float = STREAM_QUIET_SECONDS) -> bytes:
+        """Add every chunk the app sends to ``body`` until it is ``quiet`` seconds silent.
+
+        Stops at the end of the response, and fails after ``STREAM_TIMEOUT_SECONDS`` if the
+        app never goes quiet. Returns the whole body received so far.
+        """
+        with anyio.fail_after(STREAM_TIMEOUT_SECONDS):
+            while not self.ended:
+                try:
+                    chunk = await asyncio.wait_for(self._chunks.get(), quiet)
+                except asyncio.TimeoutError:
+                    break
+                if chunk is None:
+                    self.ended = True
+                else:
+                    self.body += chunk
+        return self.body
+
     def summary(self) -> dict:
         return {'status': self.status, 'headers': self.headers}
+
+
+def asgi_scope(request_) -> dict:
+    """The ASGI ``http`` scope ``httpx.ASGITransport`` builds for an httpx request."""
+    return {
+        'type': 'http',
+        'asgi': {'version': '3.0'},
+        'http_version': '1.1',
+        'method': request_.method,
+        'headers': [(name.lower(), value) for name, value in request_.headers.raw],
+        'scheme': request_.url.scheme,
+        'path': request_.url.path,
+        'raw_path': request_.url.raw_path.split(b'?')[0],
+        'query_string': request_.url.query,
+        'server': HTTP_SERVER,
+        'client': ('127.0.0.1', 123),
+        'root_path': '',
+    }
+
+
+def reply_headers(raw_headers: list) -> dict[str, str]:
+    """ASGI response headers as ``HttpReply.headers`` holds them: names lower-cased."""
+    headers: dict[str, str] = {}
+    for name, value in raw_headers:
+        name, value = name.decode('latin-1').lower(), value.decode('latin-1')
+        headers[name] = f'{headers[name]}, {value}' if name in headers else value
+    return headers
+
+
+async def finish(task: asyncio.Task, timeout: float) -> bool:
+    """Wait up to ``timeout`` for ``task``; cancel it if still running. True if it finished."""
+    done, _ = await asyncio.wait({task}, timeout=timeout)
+    if done:
+        return True
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError, Exception):
+        await task
+    return False
 
 
 @contextlib.asynccontextmanager
 async def open_stream(harness, http, method: str, path: str, headers: dict | None = None):
     """Send ``method path`` to the app; yield once the response has started; then disconnect."""
     request_ = http.build_request(method, path, headers=headers)
-    scope = harness._asgi_scope(request_)
+    scope = asgi_scope(request_)
     stream = OpenStream(harness)
     disconnected = asyncio.Event()
     request_sent = False
@@ -214,7 +285,7 @@ async def open_stream(harness, http, method: str, path: str, headers: dict | Non
         nonlocal body_ended
         if message['type'] == 'http.response.start' and stream.status is None:
             stream.status = message['status']
-            stream.headers = harness._reply_headers(message.get('headers', []))
+            stream.headers = reply_headers(message.get('headers', []))
             stream._started.set()
         elif message['type'] == 'http.response.body' and stream.status is not None:
             if body_ended:
@@ -236,7 +307,7 @@ async def open_stream(harness, http, method: str, path: str, headers: dict | Non
         yield stream
     finally:
         disconnected.set()
-        if not await harness._finish(task, STREAM_TIMEOUT_SECONDS):
+        if not await finish(task, STREAM_TIMEOUT_SECONDS):
             raise AssertionError(f'{method} {path}: the app did not return after the disconnect')
         task.result()
 
@@ -277,8 +348,8 @@ class SseSession:
                 break
         return {'post': reply.summary(), 'events': events}
 
-    async def handshake(self, harness, headers: dict | None = None) -> dict:
-        initialized = await self.exchange(initialize_request(harness, 0), headers)
+    async def handshake(self, headers: dict | None = None) -> dict:
+        initialized = await self.exchange(initialize_request(0), headers)
         notified = await self.post(notification('notifications/initialized'), headers)
         return {'initialize': initialized, 'notifications/initialized': notified.summary()}
 
@@ -315,9 +386,9 @@ async def stdio_exchange(server, messages: list[dict]) -> list[dict]:
     return received
 
 
-def stdio_session_messages(harness) -> list[dict]:
+def stdio_session_messages() -> list[dict]:
     return [
-        initialize_request(harness, 1),
+        initialize_request(1),
         notification('notifications/initialized'),
         rpc(2, 'tools/list'),
         rpc(3, 'tools/call', LIST_INDEX_CALL),
@@ -338,7 +409,7 @@ async def test_stdio_raw_jsonrpc_session(
 ):
     fake_opensearch.reply('GET', '/_cat/indices', CAT_INDICES)
     async with stdio_launcher(*argv, env=NO_AUTH) as server:
-        responses = await stdio_exchange(server, stdio_session_messages(harness))
+        responses = await stdio_exchange(server, stdio_session_messages())
         lines_before_close = list(server.stdout_lines)
 
     golden(f'{AREA}/stdio/session', normalize({'responses': responses}))
@@ -352,7 +423,7 @@ async def test_stdio_raw_jsonrpc_session(
 async def test_stdio_exit_when_stdin_closes(harness, stdio_launcher, golden, normalize, argv):
     # After a handshake, and before any input at all: closing stdin ends the server.
     async with stdio_launcher(*argv) as after_handshake:
-        await stdio_exchange(after_handshake, stdio_session_messages(harness)[:2])
+        await stdio_exchange(after_handshake, stdio_session_messages()[:2])
         lines_before_close = len(after_handshake.stdout_lines)
     async with stdio_launcher(*argv) as without_input:
         pass
@@ -390,7 +461,7 @@ async def test_stdio_startup_with_openapi_fetch_failing(
     async with stdio_launcher(env={'PYTHONUNBUFFERED': unbuffered}) as server:
         responses = await stdio_exchange(
             server,
-            [initialize_request(harness, 1), notification('notifications/initialized')]
+            [initialize_request(1), notification('notifications/initialized')]
             + [rpc(2, 'tools/list')],
         )
 
@@ -510,7 +581,7 @@ async def test_http_streamable_session(harness, http_app, fake_opensearch, golde
     fake_opensearch.reply('GET', '/_cat/indices', CAT_INDICES)
     exchanges = {}
     async with http_app(env=NO_AUTH) as http:
-        exchanges['initialize'] = await http.post_mcp(initialize_request(harness, 1))
+        exchanges['initialize'] = await http.post_mcp(initialize_request(1))
         exchanges['notifications/initialized'] = await http.post_mcp(
             notification('notifications/initialized')
         )
@@ -553,13 +624,16 @@ async def test_http_streamable_paths_without_redirect(harness, http_app, golden,
 async def test_http_streamable_get_delete_and_other_methods(harness, http_app, golden, normalize):
     async with http_app() as http:
         # Stateless GET opens a server-to-client event stream that sends nothing and stays
-        # open until the client goes: record how it starts, then disconnect.
+        # open until the client goes: record how it starts and everything it sends until it
+        # falls quiet (`drain`), then disconnect.
         async with open_stream(harness, http, 'GET', '/mcp') as get_default_accept:
-            pass
+            await get_default_accept.drain()
+            assert not get_default_accept.ended
         async with open_stream(
             harness, http, 'GET', '/mcp', {'accept': 'text/event-stream'}
         ) as get_sse_accept:
-            pass
+            await get_sse_accept.drain()
+            assert not get_sse_accept.ended
         get_json_accept = await http.get('/mcp', headers={'accept': 'application/json'})
         delete = await http.request('DELETE', '/mcp')
         put = await http.request('PUT', '/mcp', content=b'{}')
@@ -580,9 +654,20 @@ async def test_http_streamable_get_delete_and_other_methods(harness, http_app, g
     golden(f'{AREA}/http/streamable/get_delete_put', normalize(result))
 
 
+async def test_open_stream_drain_reads_what_a_stream_sends(harness, http_app):
+    # The empty GET /mcp bodies above mean nothing was sent: drain does collect what an open
+    # stream sends at once, here GET /sse's endpoint event, without reading it event by event.
+    async with http_app() as http:
+        async with open_stream(harness, http, 'GET', '/sse') as stream:
+            body = await stream.drain()
+            assert not stream.ended
+
+    assert [event['event'] for event in stream.events()] == ['endpoint'], body
+
+
 async def test_http_streamable_without_accept(harness, http_app, golden, normalize):
     async with http_app() as http:
-        initialize = await http.post_mcp(initialize_request(harness, 1), {'accept': None})
+        initialize = await http.post_mcp(initialize_request(1), {'accept': None})
         tools_list = await http.post_mcp(rpc(2, 'tools/list'), {'accept': None})
 
     golden(
@@ -595,7 +680,7 @@ async def test_http_sse_endpoint_and_messages(harness, http_app, golden, normali
     async with http_app() as http:
         async with sse_session(harness, http) as session:
             opened = {**session.stream.summary(), 'endpoint_event': session.endpoint}
-            handshake = await session.handshake(harness)
+            handshake = await session.handshake()
             tools_list = await session.exchange(rpc(1, 'tools/list'))
             messages_path = session.messages_path
         # The stream is gone: its messages path no longer finds the session.
@@ -626,7 +711,7 @@ async def test_http_sse_endpoint_and_messages(harness, http_app, golden, normali
 async def test_http_sse_tools_list_matches_streamable(harness, http_app):
     async with http_app() as http:
         async with sse_session(harness, http) as session:
-            await session.handshake(harness)
+            await session.handshake()
             over_sse = await session.exchange(rpc(1, 'tools/list'))
         over_streamable = await http.mcp('tools/list')
 
@@ -703,7 +788,7 @@ REBINDING_HEADERS = [
 @pytest.mark.parametrize('headers', REBINDING_HEADERS)
 async def test_http_dns_rebinding_surface(harness, http_app, golden, normalize, headers):
     async with http_app() as http:
-        initialize = await http.post_mcp(initialize_request(harness, 1), headers)
+        initialize = await http.post_mcp(initialize_request(1), headers)
         sse = await http.sse_first_event('/sse', headers)
 
     name = next(iter(headers))
@@ -857,7 +942,7 @@ async def test_sse_client_name(
     fake_opensearch.reply('GET', '/_cat/indices', CAT_INDICES)
     async with http_app(env=NO_AUTH) as http:
         async with sse_session(harness, http, case.get_headers, case.post_headers) as session:
-            await session.handshake(harness)
+            await session.handshake()
             call = await session.exchange(rpc(1, 'tools/call', LIST_INDEX_CALL))
 
     assert call['events'][-1]['data']['result']['isError'] is False
@@ -874,26 +959,27 @@ async def test_sse_client_name(
 
 
 async def test_sse_tools_call_with_header_auth(
-    harness, http_app, fake_opensearch, caplog, golden, normalize
+    harness, http_app, fake_opensearch, golden, normalize
 ):
     # Header auth over SSE: which request's headers (the GET that opened the stream or the
-    # POST carrying the call) reach the OpenSearch client.
-    caplog.set_level(logging.INFO, logger=EXECUTOR_LOGGER)
+    # POST carrying the call) reach the OpenSearch client. The GET and the POST carry
+    # different Basic users; the fake's request log shows the one it received.
     fake_opensearch.reply('GET', '/_cat/indices', CAT_INDICES)
     get_headers = {'authorization': basic('get-user', 'get-pass')}
     post_headers = {'authorization': basic('post-user', 'post-pass')}
     async with http_app(env=HEADER_AUTH) as http:
         at_startup = len(fake_opensearch.requests)
         async with sse_session(harness, http, get_headers, post_headers) as session:
-            await session.handshake(harness)
+            await session.handshake()
             call = await session.exchange(rpc(1, 'tools/call', LIST_INDEX_CALL))
 
     golden(
         f'{AREA}/request_context/sse_header_auth',
         normalize(
             {
-                'GET /sse auth user': 'get-user',
-                'POST auth user': 'post-user',
+                # What was sent, read back from the headers themselves.
+                'GET /sse auth user': basic_username(get_headers['authorization']),
+                'POST auth user': basic_username(post_headers['authorization']),
                 'tools/call events': call['events'],
                 'opensearch_requests_for_the_call': fake_opensearch.requests[at_startup:],
             }
