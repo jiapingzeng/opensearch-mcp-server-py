@@ -19,6 +19,9 @@ MAX_SIZE_LIMIT = 'max_size_limit'
 # Regex pattern for tool display name validation
 DISPLAY_NAME_PATTERN = r'^[a-zA-Z0-9_-]+$'
 
+# memory_container_id resolved by apply_custom_tool_config, used by agentic memory calls
+_resolved_memory_container_id = None
+
 
 def is_valid_display_name_pattern(name: str) -> bool:
     """Check if a display name follows the required pattern.
@@ -293,7 +296,9 @@ def apply_custom_tool_config(
     custom_registry = copy.deepcopy(tool_registry)
 
     # Apply memory_container_id defaults to agentic memory tools
+    global _resolved_memory_container_id
     container_id = get_memory_container_id_from_config(config_file_path)
+    _resolved_memory_container_id = container_id
     if container_id:
         _apply_memory_container_defaults(custom_registry, container_id)
 
@@ -326,6 +331,16 @@ def apply_custom_tool_config(
     default_tool_registry.update(custom_registry)
 
     return custom_registry
+
+
+def get_resolved_memory_container_id() -> str:
+    """Get the memory container ID that apply_custom_tool_config resolved and advertised.
+
+    Falls back to get_memory_container_id_from_config() when none was resolved.
+
+    :return: Memory container ID or empty string if not found
+    """
+    return _resolved_memory_container_id or get_memory_container_id_from_config()
 
 
 def get_memory_container_id_from_config(config_file_path: str = '') -> str:
