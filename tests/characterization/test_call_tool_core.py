@@ -1141,6 +1141,10 @@ GENERATED_CASES = [
         is_error=True,
     ),
     # ClusterHealthTool: endpoint selection without and with the {index} path param.
+    # characterization: current behaviour. The generated tools' `timeout` parameter never
+    # reaches OpenSearch: opensearch-py's transport takes it out of the query params as the
+    # client request timeout, so a string such as '5s' ends up in aiohttp.ClientTimeout and
+    # fails against a real session (the fake drops transport options). Not used here.
     Case(
         'generated/ClusterHealthTool/without_index',
         'ClusterHealthTool',
@@ -1150,7 +1154,7 @@ GENERATED_CASES = [
     Case(
         'generated/ClusterHealthTool/with_index',
         'ClusterHealthTool',
-        {'index': 'logs', 'wait_for_status': 'yellow', 'timeout': '5s'},
+        {'index': 'logs', 'wait_for_status': 'yellow', 'level': 'indices'},
         (ok('GET', '/_cluster/health/logs', CLUSTER_HEALTH),),
     ),
     Case(
@@ -1383,6 +1387,9 @@ LOG_CASES = [
         (ok('GET', '/_cat/indices', CAT_INDICES),),
     ),
     # An OpenSearch error the tool returns through log_tool_error (is_error: True).
+    # characterization: current behaviour. Such a soft error is logged with status "error"
+    # but no `error_type`, although tool_executor.py's docstring promises "Error rates by
+    # error type and tool"; only exceptions raised out of the tool get one.
     Case(
         'log/error',
         'IndexMappingTool',

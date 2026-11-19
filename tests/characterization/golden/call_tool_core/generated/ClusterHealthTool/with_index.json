@@ -2,7 +2,7 @@
   "call": {
     "arguments": {
       "index": "logs",
-      "timeout": "5s",
+      "level": "indices",
       "wait_for_status": "yellow"
     },
     "name": "ClusterHealthTool"
@@ -41,7 +41,7 @@
       "params": {
         "cluster_manager_timeout": "None",
         "expand_wildcards": "None",
-        "level": "None",
+        "level": "indices",
         "local": "None",
         "master_timeout": "None",
         "wait_for_active_shards": "None",
