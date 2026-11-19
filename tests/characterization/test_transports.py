@@ -287,13 +287,15 @@ async def test_stdio_exit_when_stdin_closes(stdio_launcher, golden, normalize, a
     golden(f'{AREA}/stdio/exit_on_stdin_close', normalize(result))
 
 
-# Where the failure line lands depends on stdout buffering, so both are set explicitly (a
-# PYTHONUNBUFFERED inherited from the environment, as some CI runners set, would move it).
+# tool_generator.py logs the failure (it does not print it), so stdout carries only JSON-RPC.
+# Both buffering modes are set explicitly (a PYTHONUNBUFFERED inherited from the environment,
+# as some CI runners set, would otherwise pick one): a regression that writes to stdout again
+# shows up in the golden whichever way stdout is buffered.
 OPENAPI_FAILING_BUFFERING = [
-    # A client starting the server on pipes: stdout is block-buffered, the stdio transport
-    # flushes its own writes, and the printed line is flushed when the process exits.
+    # A client starting the server on pipes: stdout is block-buffered and the stdio transport
+    # flushes its own writes; a stray write would be flushed when the process exits.
     pytest.param(None, id='buffered'),
-    # PYTHONUNBUFFERED=1 (as `python -u`): the line is written at once, before any JSON-RPC.
+    # PYTHONUNBUFFERED=1 (as `python -u`): a stray write would land at once, before any JSON-RPC.
     pytest.param('1', id='unbuffered'),
 ]
 
@@ -310,8 +312,9 @@ async def test_stdio_startup_with_openapi_fetch_failing(
         )
 
     tools = [tool['name'] for tool in responses[-1]['result']['tools']]
-    # characterization: current behaviour. tool_generator.py `print`s the failure to stdout,
-    # the stdio transport's channel, so a client reads a line that is not JSON-RPC.
+    # tool_generator.py logs the failure rather than printing it, so stdout (the stdio
+    # transport's channel) holds only the JSON-RPC responses, and the server still starts
+    # with the static tools.
     mode = 'unbuffered' if unbuffered else 'buffered'
     golden(
         f'{AREA}/stdio/openapi_fetch_failing_{mode}',
