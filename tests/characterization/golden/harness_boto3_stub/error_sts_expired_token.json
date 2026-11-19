@@ -1,0 +1,38 @@
+{
+  "call": [
+    "sts",
+    "GetCallerIdentity",
+    {}
+  ],
+  "calls": [
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "sts"
+      },
+      "host": "sts.eu-west-1.amazonaws.com",
+      "operation": "GetCallerIdentity",
+      "params": {},
+      "service": "sts"
+    }
+  ],
+  "exception": "ClientError",
+  "message": "An error occurred (ExpiredToken) when calling the GetCallerIdentity operation: fake ExpiredToken for sts GetCallerIdentity",
+  "response": {
+    "Error": {
+      "Code": "ExpiredToken",
+      "Message": "fake ExpiredToken for sts GetCallerIdentity",
+      "Type": "Sender"
+    },
+    "ResponseMetadata": {
+      "HTTPHeaders": {
+        "content-type": "text/xml",
+        "x-amzn-requestid": "characterization-harness-request"
+      },
+      "HTTPStatusCode": 400,
+      "RequestId": "characterization-harness-request",
+      "RetryAttempts": 0
+    }
+  }
+}

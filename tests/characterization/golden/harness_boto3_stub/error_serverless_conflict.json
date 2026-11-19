@@ -1,0 +1,62 @@
+{
+  "call": [
+    "opensearchserverless",
+    "CreateIndex",
+    {
+      "id": "k2x9memcoll",
+      "indexName": "agent-memory",
+      "indexSchema": {
+        "mappings": {
+          "properties": {
+            "memory_text": {
+              "type": "text"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "calls": [
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "aoss"
+      },
+      "host": "aoss.eu-west-1.amazonaws.com",
+      "operation": "CreateIndex",
+      "params": {
+        "id": "k2x9memcoll",
+        "indexName": "agent-memory",
+        "indexSchema": {
+          "mappings": {
+            "properties": {
+              "memory_text": {
+                "type": "text"
+              }
+            }
+          }
+        }
+      },
+      "service": "opensearchserverless"
+    }
+  ],
+  "exception": "ConflictException",
+  "message": "An error occurred (ConflictException) when calling the CreateIndex operation: fake ConflictException for opensearchserverless CreateIndex",
+  "response": {
+    "Error": {
+      "Code": "ConflictException",
+      "Message": "fake ConflictException for opensearchserverless CreateIndex"
+    },
+    "ResponseMetadata": {
+      "HTTPHeaders": {
+        "content-type": "application/x-amz-json-1.0",
+        "x-amzn-requestid": "characterization-harness-request"
+      },
+      "HTTPStatusCode": 400,
+      "RequestId": "characterization-harness-request",
+      "RetryAttempts": 0
+    },
+    "message": "fake ConflictException for opensearchserverless CreateIndex"
+  }
+}

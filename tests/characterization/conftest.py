@@ -23,15 +23,19 @@ public entry points and the MCP protocol. This module provides:
 - ``memory_enabled_session``: ``stdio_launcher`` with ``MEMORY_TOOLS_ENABLED=true``.
 - ``plant_tool``: a tool for one test, in the registry the servers above use, that raises
   or returns what the test gives it.
+- ``boto3_stub``: canned replies for boto3 calls, answered at botocore's ``before-send`` in
+  this process and in a server ``stdio_launcher`` starts.
 """
 
 import aiohttp
 import anyio
 import asyncio
 import base64
+import botocore.session
 import contextlib
 import difflib
 import errno
+import functools
 import gzip
 import httpx
 import importlib
@@ -45,10 +49,13 @@ import re
 import socket
 import sys
 import tempfile
+import threading
+import xml.etree.ElementTree as ElementTree
 import yaml
 import yarl
+from botocore.awsrequest import AWSResponse
 from contextvars import Token
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from mcp.client import Client
 from mcp.client._memory import InMemoryTransport
@@ -95,6 +102,7 @@ from tools.skills_tools import SKILLS_TOOLS_REGISTRY
 from tools.tool_params import baseToolArgs
 from tools.tools import TOOL_REGISTRY
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
 
 HERE = Path(__file__).resolve().parent
@@ -2028,6 +2036,380 @@ def plant_tool(monkeypatch) -> ToolPlanter:
 
 
 # ---------------------------------------------------------------------------
+# boto3_stub
+# ---------------------------------------------------------------------------
+
+# Static fake credentials, for a test to pass in through `env` (isolated_state clears AWS_*):
+# botocore signs with them; nothing ever checks them.
+FAKE_AWS_CREDENTIALS = {
+    'AWS_ACCESS_KEY_ID': 'CHARHARNESSFAKEKEYID',
+    'AWS_SECRET_ACCESS_KEY': 'characterization-harness-fake-secret-key',
+}
+# The request id of every stubbed reply (x-amzn-requestid), so ResponseMetadata is fixed.
+BOTO3_STUB_REQUEST_ID = 'characterization-harness-request'
+# Where the stub keeps a call's operation and parameters in botocore's per-call context.
+_BOTO3_CALL_CONTEXT_KEY = 'characterization_boto3_stub_call'
+# The wire protocols the stub writes replies in (sts: query; opensearchserverless: json;
+# opensearch: rest-json).
+BOTO3_STUB_PROTOCOLS = ('json', 'rest-json', 'query')
+
+
+class UnmatchedBoto3CallError(AssertionError):
+    """A boto3 call reached the stub with no canned reply for it."""
+
+
+@dataclass
+class Boto3Reply:
+    """The canned reply to every call of one ``(service, operation)``.
+
+    ``error_code`` ``None``: a success whose output is ``data``; else an AWS error with that
+    code and ``error_message``. ``status`` is the HTTP status of the reply.
+    """
+
+    service: str
+    operation: str
+    status: int = 200
+    data: Any = None
+    error_code: str | None = None
+    error_message: str | None = None
+
+
+class _StubRawResponse:
+    """The ``raw`` of the ``AWSResponse`` the stub returns: botocore reads the body from it."""
+
+    def __init__(self, body: bytes):
+        self._body = body
+
+    def stream(self, **kwargs):
+        yield self._body
+
+    def read(self, *args, **kwargs) -> bytes:
+        return self._body
+
+
+def _jsonable(value: Any) -> Any:
+    """``value`` (boto3 call parameters) as JSON data, for the call log."""
+    if isinstance(value, dict):
+        return {str(k): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, (bytes, bytearray)):
+        return {'bytes_base64': base64.b64encode(bytes(value)).decode('ascii')}
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return repr(value)
+
+
+def _boto3_protocol(service_model: Any) -> str:
+    return getattr(service_model, 'resolved_protocol', None) or service_model.protocol
+
+
+def _query_xml_value(element: ElementTree.Element, shape: Any, value: Any) -> None:
+    """Write ``value`` into ``element`` as the query protocol serializes ``shape``."""
+    if shape.type_name == 'structure':
+        for name, member in shape.members.items():
+            if name not in value:
+                continue
+            tag = member.serialization.get('name', name)
+            if member.type_name == 'list' and member.serialization.get('flattened'):
+                for item in value[name]:
+                    _query_xml_value(ElementTree.SubElement(element, tag), member.member, item)
+            else:
+                _query_xml_value(ElementTree.SubElement(element, tag), member, value[name])
+    elif shape.type_name == 'list':
+        tag = shape.member.serialization.get('name', 'member')
+        for item in value:
+            _query_xml_value(ElementTree.SubElement(element, tag), shape.member, item)
+    elif shape.type_name == 'map':
+        for key, item in value.items():
+            entry = ElementTree.SubElement(element, 'entry')
+            ElementTree.SubElement(entry, shape.key.serialization.get('name', 'key')).text = key
+            item_tag = shape.value.serialization.get('name', 'value')
+            _query_xml_value(ElementTree.SubElement(entry, item_tag), shape.value, item)
+    elif isinstance(value, bool):
+        element.text = 'true' if value else 'false'
+    else:
+        element.text = str(value)
+
+
+def _query_xml(reply: Boto3Reply, operation_model: Any) -> bytes:
+    """``reply`` as the XML body a query-protocol service (STS) answers with."""
+    if reply.error_code is not None:
+        root = ElementTree.Element('ErrorResponse')
+        error = ElementTree.SubElement(root, 'Error')
+        for tag, text in (
+            ('Type', 'Sender'),
+            ('Code', reply.error_code),
+            ('Message', reply.error_message),
+        ):
+            ElementTree.SubElement(error, tag).text = text
+        ElementTree.SubElement(root, 'RequestId').text = BOTO3_STUB_REQUEST_ID
+    else:
+        root = ElementTree.Element(f'{operation_model.name}Response')
+        shape = operation_model.output_shape
+        if shape is not None:
+            wrapper = shape.serialization.get('resultWrapper', f'{operation_model.name}Result')
+            _query_xml_value(ElementTree.SubElement(root, wrapper), shape, reply.data or {})
+        metadata = ElementTree.SubElement(root, 'ResponseMetadata')
+        ElementTree.SubElement(metadata, 'RequestId').text = BOTO3_STUB_REQUEST_ID
+    return ElementTree.tostring(root, encoding='utf-8')
+
+
+def boto3_reply_response(reply: Boto3Reply, operation_model: Any, url: str) -> AWSResponse:
+    """``reply`` as the HTTP response the service would send, in its protocol's wire format.
+
+    botocore parses it as any response: the client returns the output, or raises the
+    ``ClientError`` (the modeled exception class, if the code is modeled) for an error.
+    """
+    service_model = operation_model.service_model
+    protocol = _boto3_protocol(service_model)
+    headers = {'x-amzn-requestid': BOTO3_STUB_REQUEST_ID}
+    if protocol == 'query':
+        headers['content-type'] = 'text/xml'
+        body = _query_xml(reply, operation_model)
+    elif protocol in ('json', 'rest-json'):
+        if protocol == 'json':
+            json_version = service_model.metadata.get('jsonVersion', '1.0')
+            headers['content-type'] = f'application/x-amz-json-{json_version}'
+        else:
+            headers['content-type'] = 'application/json'
+        if reply.error_code is None:
+            document = reply.data if reply.data is not None else {}
+        else:
+            document = {'__type': reply.error_code, 'message': reply.error_message}
+            if protocol == 'rest-json':
+                headers['x-amzn-errortype'] = reply.error_code
+        body = json.dumps(document, ensure_ascii=False).encode('utf-8')
+    else:
+        raise UnmatchedBoto3CallError(
+            f'boto3 stub: {service_model.service_name} speaks the {protocol} protocol; the stub '
+            f'writes replies in {", ".join(BOTO3_STUB_PROTOCOLS)} only'
+        )
+    return AWSResponse(url, reply.status, headers, _StubRawResponse(body))
+
+
+class Boto3Stub:
+    """Canned replies for boto3 calls, answered at botocore's ``before-send``.
+
+    Once ``install``ed, every botocore client created (boto3's included) answers each call
+    from the reply given for its ``(service, operation)`` (the newest wins). The call still
+    runs through botocore as a real one does: parameter validation and serialization,
+    endpoint resolution, credentials and SigV4 signing, then parsing of the reply, retries
+    and the error mapping; only the HTTP exchange is canned, so no socket is opened. A call
+    botocore rejects (bad parameters, no credentials) never reaches the stub.
+
+    Each request the stub answers is recorded in ``calls`` as ``{'service', 'operation',
+    'params', 'host', 'auth'}``: the botocore service name (``session.client(name)``), the
+    API operation name, the parameters as the caller gave them (JSON data), the endpoint
+    host and how the request was signed (``{'kind': 'sigv4', 'region', 'service'}``, no
+    secret). A retried call is one record per attempt. A call with no reply is recorded in
+    ``unmatched`` too, raises ``UnmatchedBoto3CallError`` in the caller (never a success) and
+    fails the test in ``verify``. ``log(record, matched)``, if given, is called for each.
+    """
+
+    def __init__(self, log: Callable[[dict, bool], None] | None = None):
+        self.calls: list[dict] = []
+        self.unmatched: list[dict] = []
+        self._replies: list[Boto3Reply] = []
+        self._log = log
+        # The call whose request was just created and signed, per thread, for before-send.
+        self._pending = threading.local()
+        self._tag = f'characterization-boto3-stub-{id(self)}'
+        self._models: Any = None
+
+    @property
+    def env(self) -> dict:
+        """Fake static AWS credentials, for a test's ``env`` (``FAKE_AWS_CREDENTIALS``)."""
+        return dict(FAKE_AWS_CREDENTIALS)
+
+    def _operation_model(self, service: str, operation: str) -> Any:
+        if self._models is None:
+            self._models = botocore.session.Session()
+        try:
+            return self._models.get_service_model(service).operation_model(operation)
+        except Exception as failure:
+            raise ValueError(
+                f'boto3 stub: no botocore operation {service} {operation}: {failure}'
+            ) from failure
+
+    def _add(self, reply: Boto3Reply) -> None:
+        try:
+            reply.data = json.loads(json.dumps(reply.data))
+        except (TypeError, ValueError) as failure:
+            raise TypeError(
+                f'boto3 stub reply for {reply.service} {reply.operation}: give the data as JSON '
+                f'data ({failure})'
+            ) from failure
+        self._replies.append(reply)
+
+    def reply(self, service: str, operation: str, data: dict | None = None, *, status=200):
+        """Answer every ``service`` ``operation`` call with output ``data``.
+
+        ``data`` is the operation's output as JSON data, named as the client returns it
+        (``{'Arn': ..., 'Account': ..., 'UserId': ...}`` for ``sts`` ``GetCallerIdentity``),
+        without ``ResponseMetadata``, which botocore adds; only body members are written.
+        """
+        model = self._operation_model(service, operation)
+        members = set(model.output_shape.members) if model.output_shape is not None else set()
+        unknown = sorted(set(data or {}) - members)
+        if unknown:
+            raise ValueError(
+                f'boto3 stub reply for {service} {operation}: {unknown} are not members of its '
+                f'output (members: {sorted(members)})'
+            )
+        self._add(Boto3Reply(service, operation, status, data))
+
+    def error(
+        self,
+        service: str,
+        operation: str,
+        code: str,
+        message: str | None = None,
+        *,
+        status: int | None = None,
+    ) -> None:
+        """Answer every ``service`` ``operation`` call with the AWS error ``code``.
+
+        The client raises it as botocore does: a ``ClientError``, of the modeled class
+        (``client.exceptions.<code>``) when the operation models ``code``. ``status``
+        defaults to the error's modeled HTTP status, else 400. botocore retries 5xx and
+        throttling errors (one ``calls`` record per attempt, with its backoff).
+        """
+        model = self._operation_model(service, operation)
+        if status is None:
+            modeled = next((e for e in model.error_shapes if e.error_code == code), None)
+            error_trait = {} if modeled is None else modeled.metadata.get('error') or {}
+            status = error_trait.get('httpStatusCode', 400)
+        if message is None:
+            message = f'fake {code} for {service} {operation}'
+        self._add(Boto3Reply(service, operation, status, None, code, message))
+
+    def verify(self) -> None:
+        """Fail the test if any call had no canned reply."""
+        if self.unmatched:
+            listing = '\n'.join(
+                f'  {c["service"]} {c["operation"]} {json.dumps(c["params"])}'
+                for c in self.unmatched
+            )
+            pytest.fail(
+                f'boto3 stub received calls with no canned reply:\n{listing}\n'
+                'Add one with boto3_stub.reply(...) or .error(...).',
+                pytrace=False,
+            )
+
+    def spec(self) -> dict:
+        """The replies as JSON data, for a launched server (``from_spec``)."""
+        return {'replies': [asdict(reply) for reply in self._replies]}
+
+    @classmethod
+    def from_spec(cls, spec: dict, log: Callable[[dict, bool], None] | None = None) -> 'Boto3Stub':
+        """The stub a ``spec()`` describes."""
+        stub = cls(log)
+        stub._replies = [Boto3Reply(**reply) for reply in spec['replies']]
+        return stub
+
+    def install(self, patch: Callable[[Any, str, Any], Any]) -> None:
+        """Stub every botocore client created from now on.
+
+        ``patch(obj, name, value)`` sets the attribute: ``monkeypatch.setattr`` (undone after
+        the test), or ``setattr`` in a launched server. Wraps
+        ``botocore.session.Session.create_client``, which boto3's ``Session.client`` calls.
+        """
+        create_client = botocore.session.Session.create_client
+        stub = self
+
+        @functools.wraps(create_client)
+        def stubbed_create_client(session, *args, **kwargs):
+            client = create_client(session, *args, **kwargs)
+            stub.attach(client)
+            return client
+
+        patch(botocore.session.Session, 'create_client', stubbed_create_client)
+
+    def attach(self, client: Any) -> None:
+        """Register the stub's handlers on one client's events (its own copy of them)."""
+        events = client.meta.events
+        # First, so the parameters are the caller's (before botocore fills idempotency tokens).
+        events.register_first(
+            'before-parameter-build', self._on_parameter_build, unique_id=f'{self._tag}-params'
+        )
+        # Least specific, so after `request-created.<service>`: the request is signed.
+        events.register_last(
+            'request-created', self._on_request_created, unique_id=f'{self._tag}-created'
+        )
+        events.register_last('before-send', self._on_before_send, unique_id=f'{self._tag}-send')
+
+    def _find(self, service: str, operation: str) -> Boto3Reply | None:
+        return next(
+            (
+                r
+                for r in reversed(self._replies)
+                if (r.service, r.operation) == (service, operation)
+            ),
+            None,
+        )
+
+    def _on_parameter_build(self, params, model, context, **kwargs) -> None:
+        call = {
+            'service': model.service_model.service_name,
+            'operation': model.name,
+            'params': _jsonable(params),
+        }
+        context[_BOTO3_CALL_CONTEXT_KEY] = (model, call)
+
+    def _on_request_created(self, request, **kwargs) -> None:
+        # Signing (and any credential lookup it does) is over: before-send comes next.
+        self._pending.call = getattr(request, 'context', {}).get(_BOTO3_CALL_CONTEXT_KEY)
+
+    def _on_before_send(self, request, **kwargs) -> AWSResponse:
+        pending, self._pending.call = getattr(self._pending, 'call', None), None
+        if pending is None:
+            raise UnmatchedBoto3CallError(
+                f'boto3 stub: {kwargs.get("event_name")} reached before-send with no call '
+                'recorded for it'
+            )
+        model, call = pending
+        headers = {
+            str(k): v.decode('latin-1') if isinstance(v, bytes) else v
+            for k, v in request.headers.items()
+        }
+        record = {**call, 'host': urlsplit(request.url).netloc, 'auth': _auth_kind(None, headers)}
+        reply = self._find(call['service'], call['operation'])
+        self.calls.append(record)
+        if reply is None:
+            self.unmatched.append(record)
+        if self._log is not None:
+            self._log(record, reply is not None)
+        if reply is None:
+            raise UnmatchedBoto3CallError(
+                f'boto3 stub: no canned reply for {call["service"]} {call["operation"]} '
+                f'{json.dumps(call["params"])}; give one with boto3_stub.reply(...) or '
+                'boto3_stub.error(...)'
+            )
+        return boto3_reply_response(reply, model, request.url)
+
+
+@pytest.fixture
+def boto3_stub(monkeypatch) -> Boto3Stub:
+    """Canned replies for boto3 calls, in this process and in servers ``stdio_launcher`` starts.
+
+    ``boto3_stub.reply(service, operation, data)`` and ``.error(service, operation, code,
+    message=None, status=None)`` give the replies; ``calls`` and ``unmatched`` record what
+    was sent (see ``Boto3Stub``). Every botocore client created during the test is stubbed;
+    without this fixture nothing is. Credentials are not provided: pass
+    ``boto3_stub.env`` (fake static keys) in through a session's ``env``. A server launched
+    by ``stdio_launcher`` (``memory_enabled_session``) gets the replies given so far and
+    logs its calls, which join ``calls`` when it exits. A call with no reply fails the test.
+    """
+    stub = Boto3Stub()
+    stub.install(monkeypatch.setattr)
+    yield stub
+    stub.verify()
+
+
+# ---------------------------------------------------------------------------
 # stdio_launcher / memory_enabled_session
 # ---------------------------------------------------------------------------
 
@@ -2342,6 +2724,10 @@ class StdioServerProcess:
         """Requests the launched server's fake OpenSearch received so far (as ``requests``)."""
         return [e['record'] for e in read_launcher_log(self.log_path) if e['kind'] == 'request']
 
+    def boto3_calls(self) -> list[dict]:
+        """Calls the launched server's boto3 stub received so far (as ``Boto3Stub.calls``)."""
+        return [e['record'] for e in read_launcher_log(self.log_path) if e['kind'] == 'boto3']
+
     def entry(self) -> dict | None:
         """How the launched process entered the server, once it has (else ``None``).
 
@@ -2380,7 +2766,9 @@ def _launcher_env(env: dict | None, table_path: Path, log_path: Path) -> dict:
 
 
 @pytest.fixture
-def stdio_launcher(fake_opensearch, pinned_openapi, no_network, tmp_path, plant_tool) -> Callable:
+def stdio_launcher(
+    fake_opensearch, pinned_openapi, no_network, tmp_path, plant_tool, request
+) -> Callable:
     """Factory running the real entry point in a subprocess through ``stdio_launcher.py``.
 
     Use as ``async with stdio_launcher(*args, env=None, cwd=None, entry='main') as server:``;
@@ -2398,9 +2786,14 @@ def stdio_launcher(fake_opensearch, pinned_openapi, no_network, tmp_path, plant_
     ``STDIO_TIMEOUT_SECONDS``); the requests its fake received are added to
     ``fake_opensearch.requests`` (and unmatched ones to ``unmatched``, which fails the test),
     and any network access it attempted fails the test as ``no_network`` does.
+    When the test uses ``boto3_stub``, its replies given so far are copied in at launch too
+    (``Boto3Stub.spec``) and the launched server's boto3 calls join ``boto3_stub.calls`` (and
+    ``unmatched``) on exit; without it the launched server's boto3 is not stubbed.
     See ``StdioServerProcess`` for the helpers.
     """
     launches = itertools.count(1)
+    # Only a test that asked for the stub gets one, here as in this process.
+    stub = request.getfixturevalue('boto3_stub') if 'boto3_stub' in request.fixturenames else None
 
     @contextlib.asynccontextmanager
     async def launch(
@@ -2417,8 +2810,11 @@ def stdio_launcher(fake_opensearch, pinned_openapi, no_network, tmp_path, plant_
         log_path = workdir / 'fake_opensearch_log.jsonl'
         with open(table_path, 'w', encoding='utf-8', newline='\n') as f:
             json.dump(fake_table(fake_opensearch, pinned_openapi), f)
+        launch_spec = {'entry': entry, 'planted_tools': plant_tool.specs()}
+        if stub is not None:
+            launch_spec['boto3_stub'] = stub.spec()
         with open(workdir / LAUNCH_SPEC_FILE, 'w', encoding='utf-8', newline='\n') as f:
-            json.dump({'entry': entry, 'planted_tools': plant_tool.specs()}, f)
+            json.dump(launch_spec, f)
         log_path.touch()
         process = await asyncio.create_subprocess_exec(
             sys.executable,
@@ -2443,6 +2839,11 @@ def stdio_launcher(fake_opensearch, pinned_openapi, no_network, tmp_path, plant_
                         fake_opensearch.unmatched.append(entry['record'])
                 elif entry['kind'] == 'network':
                     no_network.append(f'launched server: {entry["attempt"]}')
+                elif entry['kind'] == 'boto3':
+                    # Logged only by a stub launched for a test that uses boto3_stub.
+                    stub.calls.append(entry['record'])
+                    if not entry['matched']:
+                        stub.unmatched.append(entry['record'])
 
     return launch
 
