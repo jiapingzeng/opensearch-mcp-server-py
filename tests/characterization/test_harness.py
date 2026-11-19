@@ -3,11 +3,14 @@
 
 """Smoke tests for the characterization harness itself (see conftest.py and README.md)."""
 
+import asyncio
 import copy
 import importlib
+import json
 import logging
 import os
 import pytest
+import socket
 import sys
 import tools as tools_package
 from datetime import datetime, timezone
@@ -49,16 +52,44 @@ def test_golden_existing_file_is_never_overwritten(golden, tmp_path, monkeypatch
     monkeypatch.setenv('CHAR_GOLDEN_WRITE', '1')
     golden('probe/existing', {'b': 1, 'a': 'é'})
     path = tmp_path / 'probe' / 'existing.json'
-    original = path.read_text(encoding='utf-8')
-    # Canonical form: sorted keys, 2-space indent, non-ASCII kept, trailing newline.
-    assert original == '{\n  "a": "é",\n  "b": 1\n}\n'
+    original = path.read_bytes()
+    # Canonical form: sorted keys, 2-space indent, non-ASCII kept, trailing newline; UTF-8
+    # with LF line endings on every OS.
+    assert original == '{\n  "a": "é",\n  "b": 1\n}\n'.encode('utf-8')
 
     with pytest.raises(pytest.fail.Exception) as excinfo:
         golden('probe/existing', {'b': 2, 'a': 'é'})
 
     assert '-  "b": 1' in str(excinfo.value)
     assert '+  "b": 2' in str(excinfo.value)
-    assert path.read_text(encoding='utf-8') == original
+    assert path.read_bytes() == original
+
+
+def test_golden_crlf_checkout_fails_with_line_ending_hint(golden, tmp_path):
+    # What a checkout with core.autocrlf=true would write without the directory's .gitattributes.
+    golden.directory = tmp_path
+    path = tmp_path / 'probe' / 'crlf.json'
+    path.parent.mkdir()
+    path.write_bytes(b'{\r\n  "a": 1\r\n}\r\n')
+
+    with pytest.raises(pytest.fail.Exception, match='CRLF line endings'):
+        golden('probe/crlf', {'a': 1})
+
+
+def test_golden_files_are_lf_only_utf8(golden):
+    # Goldens must compare the same on Linux, macOS and Windows.
+    files = sorted(golden.directory.rglob('*.json'))
+    assert files
+    for path in files:
+        content = path.read_bytes()
+        assert b'\r' not in content, path
+        assert content.decode('utf-8').endswith('}\n'), path
+
+
+@pytest.mark.parametrize('name', ['/abs', 'a/../b', 'a/b.json', 'a\\b', 'C:/a'])
+def test_golden_rejects_names_that_differ_between_os(golden, name):
+    with pytest.raises(ValueError, match='invalid golden name'):
+        golden.path(name)
 
 
 def test_golden_missing_file_fails_without_write_env(golden, tmp_path, monkeypatch):
@@ -118,6 +149,85 @@ def test_normalize_replaces_only_volatile_values(normalize, tmp_path):
         'static': data['static'],
     }
     assert data['schema']['required'] == ['index', 'body', 'id']
+
+
+def test_normalize_windows_temp_paths(normalize):
+    # What tmp_path and tempfile give on a Windows runner: drive letter, backslashes, the
+    # system temp directory under its 8.3 short name and pytest's base temp resolved.
+    basetemp = r'C:\Users\runneradmin\AppData\Local\Temp\pytest-of-runneradmin\pytest-0'
+    normalizer = type(normalize)(basetemp, temp_dirs=[r'C:\Users\RUNNER~1\AppData\Local\Temp'])
+    test_dir = basetemp + r'\test_windows_temp_paths0'
+    data = {
+        'config': test_dir + r'\config.yml',
+        'nested': test_dir + r'\sub\dir\config.yml',
+        'message': f'cannot read {test_dir}\\config.yml: not found',
+        'json_escaped': json.dumps({'path': test_dir + r'\config.yml'}),
+        'forward_slashes': test_dir.replace('\\', '/') + '/config.yml',
+        'lower_case_drive': 'c' + test_dir[1:] + r'\config.yml',
+        'test_dir': test_dir,
+        'mkstemp': r'C:\Users\RUNNER~1\AppData\Local\Temp\tmpab12_xyz\out.json',
+        # Not under a temp directory: left alone, backslashes included.
+        'other': r'C:\Program Files\OpenSearch\config.yml',
+    }
+
+    assert normalizer(data) == {
+        'config': '<TMP>/config.yml',
+        'nested': '<TMP>/sub/dir/config.yml',
+        'message': 'cannot read <TMP>/config.yml: not found',
+        'json_escaped': '{"path": "<TMP>/config.yml"}',
+        'forward_slashes': '<TMP>/config.yml',
+        'lower_case_drive': '<TMP>/config.yml',
+        'test_dir': '<TMP>',
+        'mkstemp': '<TMP>/out.json',
+        'other': r'C:\Program Files\OpenSearch\config.yml',
+    }
+
+
+def test_normalize_posix_temp_paths_keep_backslashes(normalize):
+    # POSIX paths only split on "/": a backslash after one is text (e.g. an escape), kept.
+    normalizer = type(normalize)('/tmp/pytest-of-ci/pytest-3', temp_dirs=['/var/folders/x/T'])
+    assert normalizer(
+        {
+            'config': '/tmp/pytest-of-ci/pytest-3/test_a0/config.yml\\n',
+            'mkstemp': '/var/folders/x/T/tmpab12_xyz/out.json',
+        }
+    ) == {'config': '<TMP>/config.yml\\n', 'mkstemp': '<TMP>/out.json'}
+
+
+# --- no_network --------------------------------------------------------------
+
+
+def test_no_network_lets_loopback_socketpair_through(no_network, monkeypatch):
+    # Windows' asyncio event loop makes its self-pipe with this fallback, which connects to
+    # 127.0.0.1; pytest-asyncio creates the loop after the guard is in place.
+    first, second = socket._fallback_socketpair()
+    with first, second:
+        first.sendall(b'ping')
+        assert second.recv(4) == b'ping'
+
+    # The Windows path end to end: socket.socketpair *is* the fallback there.
+    monkeypatch.setattr(socket, 'socketpair', socket._fallback_socketpair)
+    loop = asyncio.new_event_loop()
+    try:
+        assert loop.run_until_complete(asyncio.sleep(0, result='ran')) == 'ran'
+    finally:
+        loop.close()
+    assert no_network == []
+
+
+def test_no_network_blocks_lookups_and_connects_off_this_machine(no_network):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        with pytest.raises(OSError, match='network access is disabled'):
+            sock.connect(('192.0.2.1', 9200))  # TEST-NET-1: documentation only, never routed.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        with pytest.raises(OSError, match='network access is disabled'):
+            sock.connect_ex(('192.0.2.1', 9200))
+    with pytest.raises(OSError, match='network access is disabled'):
+        socket.getaddrinfo('localhost', 9200)
+
+    assert len(no_network) == 3
+    # Consumed here; left in place, the guard's teardown would fail this test.
+    no_network.clear()
 
 
 # --- fake_opensearch / pinned_openapi ---------------------------------------

@@ -17,7 +17,8 @@ uv run --offline python -m pytest tests/characterization -q
 ```
 
 Nothing in this directory touches the network: OpenSearch is faked, the OpenAPI spec comes
-from `fixtures/openapi/`, and any DNS lookup or socket connection fails the test.
+from `fixtures/openapi/`, and any DNS lookup or connection off this machine fails the test.
+The tests run the same on Linux, macOS and Windows (the project CI runs all three).
 
 ## The rule
 
@@ -36,10 +37,15 @@ an existing golden, not even with `CHAR_GOLDEN_WRITE=1`.
    ```sh
    CHAR_GOLDEN_WRITE=1 uv run --offline python -m pytest tests/characterization -q -k <test>
    ```
+   In PowerShell: `$env:CHAR_GOLDEN_WRITE = '1'` before the same command, and
+   `Remove-Item Env:CHAR_GOLDEN_WRITE` after.
 3. Read the new file: it is the behaviour you are pinning. Run again without the variable,
    then commit the test and the golden together.
 
-Goldens are canonical JSON: sorted keys, two-space indent, non-ASCII kept, trailing newline.
+Goldens are canonical JSON: sorted keys, two-space indent, non-ASCII kept, trailing newline,
+UTF-8 with LF line endings. They are compared byte for byte, so they must read the same on
+every OS: `.gitattributes` here checks `golden/` and `fixtures/` out with LF even where
+`core.autocrlf` is on (Git for Windows' default), and a golden name uses `/` only.
 On a mismatch the failure shows a unified diff (golden vs actual).
 
 ## Fixtures (`conftest.py`)
@@ -48,7 +54,8 @@ On a mismatch the failure shows a unified diff (golden vs actual).
 - `normalize(data)`: copy of `data` with run-to-run values replaced by placeholders:
   recent timestamps (`<TIMESTAMP>`), log durations (`<DURATION>`), UUIDs (`<UUID>`),
   session ids (`<SESSION_ID>`), ephemeral loopback ports (`<PORT>`), pytest/tempfile
-  paths (`<TMP>`), memory-monitor figures (`<MEMORY>`, `<PID>`), and the order of
+  paths (`<TMP>`, on Windows too: `\` or `/` separators, any drive-letter case, the path
+  below `<TMP>` written with `/`), memory-monitor figures (`<MEMORY>`, `<PID>`), and the order of
   JSON-schema `required` lists (built from a set, so sorted). Each rule is narrow and
   documented in `Normalizer`; nothing else is altered.
 - `fake_opensearch`: fake cluster behind the aiohttp session opensearch-py's connections
@@ -74,7 +81,9 @@ On a mismatch the failure shows a unified diff (golden vs actual).
   loudly if they still differ. `isolated_state.snapshot()` takes the same snapshot the
   fixture restores; `isolated_state.isolation(monkeypatch, url)` is the fixture's own
   setup and teardown as a context manager.
-- `no_network` (autouse): fails the test on any DNS lookup or non-Unix socket connection.
+- `no_network` (autouse): fails the test on any DNS lookup or connection off this machine.
+  Unix sockets and loopback IP literals (127.0.0.0/8, `::1`) are let through, because
+  asyncio's event loop on Windows makes its self-pipe with a loopback `socketpair()`.
 - `mcp_session(mode='single', config_file='', cli_overrides=None, env=None)`:
   `async with mcp_session() as session:` builds the server and connects a client.
   `session.list_tools()` / `session.call_tool(name, args)` return results dumped with

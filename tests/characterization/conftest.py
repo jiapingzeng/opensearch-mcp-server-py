@@ -13,7 +13,7 @@ public entry points and the MCP protocol. This module provides:
 - ``pinned_openapi`` / ``openapi_unavailable``: committed OpenAPI fixtures instead of GitHub.
 - ``isolated_state`` (autouse): resets and restores every piece of module state
   the server mutates, and the environment it reads.
-- ``no_network`` (autouse): any socket connection or DNS lookup fails the test.
+- ``no_network`` (autouse): any DNS lookup or connection off this machine fails the test.
 - ``mcp_session``: build the server with ``create_mcp_server`` and talk to it in-process.
 """
 
@@ -25,6 +25,7 @@ import contextlib
 import difflib
 import errno
 import gzip
+import ipaddress
 import json
 import logging
 import os
@@ -109,7 +110,14 @@ class Golden:
 
     def path(self, name: str) -> Path:
         parts = PurePosixPath(name).parts
-        if not parts or name.startswith('/') or '..' in parts or name.endswith('.json'):
+        # "/" is the only separator, so a name maps to the same file on every OS.
+        if (
+            not parts
+            or name.startswith('/')
+            or '..' in parts
+            or name.endswith('.json')
+            or any(char in name for char in '\\:')
+        ):
             raise ValueError(f'invalid golden name {name!r}: use a relative name like "area/case"')
         return self.directory.joinpath(*parts).with_name(parts[-1] + '.json')
 
@@ -128,9 +136,18 @@ class Golden:
             with open(path, 'x', encoding='utf-8', newline='\n') as f:
                 f.write(actual)
             return
-        expected = path.read_text(encoding='utf-8')
+        # Read untranslated (newline='\n'): the comparison is byte for byte on every OS.
+        with open(path, encoding='utf-8', newline='\n') as f:
+            expected = f.read()
         if expected == actual:
             return
+        if expected.replace('\r\n', '\n') == actual:
+            pytest.fail(
+                f'golden {path} has CRLF line endings; goldens are LF-only. The checkout '
+                'converted them: tests/characterization/.gitattributes sets eol=lf, so check '
+                'that it is in place and re-checkout the file.',
+                pytrace=False,
+            )
         diff = ''.join(
             difflib.unified_diff(
                 expected.splitlines(keepends=True),
@@ -215,20 +232,56 @@ class Normalizer:
     ]
 
     # Ports: a loopback/any-address host with a port in the ephemeral range (Linux and
-    # macOS), which is what a test gets when it binds port 0.
+    # macOS; Windows' 49152-65535 lies inside it), which is what a test gets when it binds
+    # port 0.
     LOOPBACK_PORT = re.compile(r'(?<![\w.])(127\.0\.0\.1|localhost|0\.0\.0\.0|\[::1\]):(\d{5})\b')
     EPHEMERAL_PORTS = range(32768, 65536)
 
-    def __init__(self, pytest_basetemp: Path | None = None):
-        # Temp paths: pytest's per-test directory and tempfile.mkdtemp/mkstemp names become
-        # <TMP>; the path below them (the file a test created) is kept.
-        prefixes = []
+    # A Windows path starts with a drive letter ("C:") or a UNC prefix ("\\").
+    WINDOWS_PATH = re.compile(r'[A-Za-z]:|\\\\')
+
+    def __init__(
+        self,
+        pytest_basetemp: os.PathLike | str | None = None,
+        temp_dirs: list[str] | None = None,
+    ):
+        # Temp paths: pytest's per-test directory (the base temp plus one component) and
+        # tempfile.mkdtemp/mkstemp names ("tmp" + 8 characters) in the system temp directory
+        # (as named, and resolved: macOS's /var -> /private/var, Windows' 8.3 short names)
+        # become <TMP>. The path below them (the file a test created) is kept.
+        # Windows paths match "\" or "/" as the separator (runs of them too, as in
+        # JSON-escaped text), case-insensitively as Windows compares paths, and the path kept
+        # below <TMP> is written with "/", so a golden reads the same on every OS.
+        if temp_dirs is None:
+            system_tmp = tempfile.gettempdir()
+            temp_dirs = [system_tmp, os.path.realpath(system_tmp)]
+        rules = []
         if pytest_basetemp is not None:
-            prefixes.append(re.escape(str(pytest_basetemp)) + r'(?:/[^/\s\'"]+)?')
-        for tmp in sorted({tempfile.gettempdir(), os.path.realpath(tempfile.gettempdir())}):
-            prefixes.append(re.escape(tmp) + r'/tmp[A-Za-z0-9_]{8}')
-        self._temp_rules = [(re.compile(prefix), '<TMP>') for prefix in prefixes]
+            rules.append(self._temp_rule(str(pytest_basetemp), r'(?:{sep}{name})?'))
+        for tmp in temp_dirs:
+            rules.append(self._temp_rule(str(tmp), r'{sep}tmp[A-Za-z0-9_]{{8}}'))
+        # Longest base first, so /private/var/... is replaced before /var/... can match in it.
+        rules.sort(key=lambda rule: len(rule[0]), reverse=True)
+        self._temp_rules = [(pattern, replacement) for _, pattern, replacement in rules]
         self._now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    @classmethod
+    def _temp_rule(cls, base: str, child: str) -> tuple[str, re.Pattern, Any]:
+        """``(base, pattern, replacement)`` turning ``base`` + ``child`` into ``<TMP>``.
+
+        ``child`` is a regex template: ``{sep}`` is a path separator, ``{name}`` one path
+        component.
+        """
+        base = base.rstrip('\\/') or base
+        if not cls.WINDOWS_PATH.match(base):
+            child = child.format(sep='/', name=r'[^/\s\'"]+')
+            return base, re.compile(re.escape(base) + child), '<TMP>'
+        sep, name = r'[\\/]+', r'[^\\/\s\'"]+'
+        prefix = sep.join(re.escape(part) for part in re.split(r'[\\/]+', base))
+        # The path below <TMP>, captured so its separators can be rewritten as "/".
+        below = f'((?:{sep}{name})*)'
+        pattern = re.compile(prefix + child.format(sep=sep, name=name) + below, re.IGNORECASE)
+        return base, pattern, lambda match: '<TMP>' + re.sub(sep, '/', match.group(1))
 
     def __call__(self, data: Any) -> Any:
         self._now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -652,9 +705,34 @@ def openapi_unavailable(pinned_openapi) -> PinnedOpenApi:
 # ---------------------------------------------------------------------------
 
 
+def _stays_on_this_machine(sock: socket.socket, address: Any) -> bool:
+    """Whether connecting ``sock`` to ``address`` cannot leave the machine.
+
+    True for Unix sockets and for loopback IP literals (127.0.0.0/8, ::1, ::ffff:127.0.0.0/104).
+    A host name is never accepted here: it would be resolved by the C library, out of reach of
+    the getaddrinfo guard.
+    """
+    if sock.family == getattr(socket, 'AF_UNIX', None):
+        return True
+    if sock.family not in (socket.AF_INET, socket.AF_INET6) or not isinstance(address, tuple):
+        return False
+    try:
+        ip = ipaddress.ip_address(address[0])
+    except (IndexError, TypeError, ValueError):
+        return False
+    return (getattr(ip, 'ipv4_mapped', None) or ip).is_loopback
+
+
 @pytest.fixture(autouse=True)
 def no_network(monkeypatch):
-    """Fail the test if anything resolves a host name or opens a network connection."""
+    """Fail the test if anything resolves a host name or connects off this machine.
+
+    Connections to Unix sockets and loopback IP literals are let through: on Windows,
+    asyncio's event loop builds its self-pipe with ``socket.socketpair()``, whose fallback
+    connects to 127.0.0.1, and pytest-asyncio creates the loop after this guard is in place.
+    Nothing reaches a real OpenSearch that way: the fake answers at a ``.invalid`` host,
+    without sockets, and DNS lookups stay blocked, so no host name resolves to loopback.
+    """
     attempts: list[str] = []
     real_connect = socket.socket.connect
     real_connect_ex = socket.socket.connect_ex
@@ -667,12 +745,12 @@ def no_network(monkeypatch):
         raise blocked(f'getaddrinfo({host!r})')
 
     def guarded_connect(sock, address):
-        if sock.family == getattr(socket, 'AF_UNIX', None):
+        if _stays_on_this_machine(sock, address):
             return real_connect(sock, address)
         raise blocked(f'connect({address!r})')
 
     def guarded_connect_ex(sock, address):
-        if sock.family == getattr(socket, 'AF_UNIX', None):
+        if _stays_on_this_machine(sock, address):
             return real_connect_ex(sock, address)
         raise blocked(f'connect_ex({address!r})')
 
