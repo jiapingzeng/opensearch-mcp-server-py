@@ -1,0 +1,117 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [],
+  "region_log": [
+    {
+      "function": "get_aws_region_single_mode",
+      "level": "DEBUG",
+      "message": "Using default boto3 session region: ap-northeast-1"
+    },
+    {
+      "function": "get_aws_region_single_mode",
+      "level": "DEBUG",
+      "message": "Using default boto3 session region: ap-northeast-1"
+    },
+    {
+      "function": "get_aws_region_single_mode",
+      "level": "DEBUG",
+      "message": "Using default boto3 session region: ap-northeast-1"
+    }
+  ],
+  "requests": [
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "ap-northeast-1",
+        "service": "es"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/",
+      "signed_by": "profile:char-noregion"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "ap-northeast-1",
+        "service": "es"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/",
+      "signed_by": "profile:char-noregion"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "ap-northeast-1",
+        "service": "es"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices",
+      "signed_by": "profile:char-noregion"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Indices:\n[\"logs-2020.01.01\"]",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "setup": {
+    "aws_files": {
+      "aws_config_default_region": [
+        "[default]",
+        "region = ap-northeast-1",
+        "",
+        "[profile char-noregion]",
+        "output = json",
+        "",
+        "[profile char-west]",
+        "region = eu-west-1"
+      ],
+      "aws_credentials": [
+        "[default]",
+        "aws_access_key_id = AKIACHARDEFAULT00001",
+        "aws_secret_access_key = char-default-secret",
+        "",
+        "[char-noregion]",
+        "aws_access_key_id = AKIACHARNOREGION0001",
+        "aws_secret_access_key = char-noregion-secret",
+        "",
+        "[char-west]",
+        "aws_access_key_id = AKIACHARWEST00000001",
+        "aws_secret_access_key = char-west-secret"
+      ]
+    },
+    "clusters": null,
+    "env": {
+      "AWS_CONFIG_FILE": "<TMP>/aws_config_default_region",
+      "AWS_SHARED_CREDENTIALS_FILE": "<TMP>/aws_credentials"
+    },
+    "mode": "single",
+    "profile": "char-noregion"
+  }
+}
