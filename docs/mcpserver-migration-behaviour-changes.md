@@ -185,6 +185,50 @@ the cluster with the wait timeout they asked for. No config or client action is 
 
 **Upstream**: Not opened yet: the user decides.
 
+### Memory tools: the memory index is created on a managed domain
+
+**What changed**: Before, on an Amazon OpenSearch Service managed domain, the memory tools'
+auto-create of the memory index (`_ensure_memory_index`, on a `SaveMemoryTool` call while
+the index does not exist) called the boto3 `opensearch` client's `create_index` with
+`domainName`, `indexName` and `indexSchema` (the schema as a JSON string), names the API
+does not have: botocore rejected the call before signing or sending it, so the index was
+never created and the save failed with `Error saving memory: Parameter validation failed:
+...`. Now the call sends `DomainName`, `IndexName` and `IndexSchema` (the schema document),
+reaches the service, and the memory is saved; an answer that the index already exists
+still counts as success, and any other error still fails the save. The serverless
+(`opensearchserverless`) call is unchanged.
+
+**Why**: Bug fix: the memory index was never auto-created on a managed domain. Found by the
+memory and skills characterization (08), finding (13).
+
+**Who is affected**: Users of the memory tools (`MEMORY_TOOLS_ENABLED=true`) on a managed
+domain whose memory index does not exist yet; the first save now creates it. The call now
+reaches AWS, so it needs AWS credentials allowed to create the index on the domain (without
+credentials the save fails with `Unable to locate credentials`). No other config or client
+action is needed.
+
+**Tests and goldens**: Unit tests in `tests/tools/test_memory_tools.py` (a real boto3
+client with botocore's `Stubber`). Golden changed (the error text goes from `Parameter
+validation failed: ...` to `Unable to locate credentials`: the harness has no AWS
+credentials, so the now valid call fails at signing, still before anything is sent):
+- `call_tool_memory_skills/SaveMemoryTool/index_auto_create_domain.json`
+
+Golden deleted (it pinned the rejection, the same for every reply):
+- `gaps_memory_index/managed_domain_create_index_rejected.json`
+
+Goldens added (one per stub reply: the stub receives one `CreateIndex` call with
+`DomainName`, `IndexName` and `IndexSchema`, and the memory is indexed):
+- `gaps_memory_index/managed_domain_create_index_created.json`
+- `gaps_memory_index/managed_domain_create_index_already_exists.json`
+- `gaps_memory_index/managed_domain_create_index_already_exists_message.json`
+
+The module docstring of `tests/characterization/test_gaps_memory_index.py` and the
+comment above the `index_auto_create_domain` case in
+`tests/characterization/test_call_tool_memory_skills.py` still describe the rejection; they
+are left as they are for a follow-up.
+
+**Upstream**: Not opened yet: the user decides.
+
 ## Migration steps (issue #34)
 
 Each migration step adds one line here.

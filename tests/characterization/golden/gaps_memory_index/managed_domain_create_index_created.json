@@ -1,0 +1,112 @@
+{
+  "boto3_calls": [
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "es"
+      },
+      "host": "es.eu-west-1.amazonaws.com",
+      "operation": "CreateIndex",
+      "params": {
+        "DomainName": "agent-domain",
+        "IndexName": "agent-memory",
+        "IndexSchema": {
+          "mappings": {
+            "properties": {
+              "agent_id": {
+                "type": "keyword"
+              },
+              "created_at": {
+                "type": "date"
+              },
+              "memory_text": {
+                "semantic_enrichment": {
+                  "language_options": "english",
+                  "status": "ENABLED"
+                },
+                "type": "text"
+              },
+              "session_id": {
+                "type": "keyword"
+              },
+              "tags": {
+                "type": "keyword"
+              },
+              "updated_at": {
+                "type": "date"
+              },
+              "user_id": {
+                "type": "keyword"
+              }
+            }
+          }
+        }
+      },
+      "service": "opensearch"
+    }
+  ],
+  "boto3_replies": [
+    {
+      "data": {
+        "Status": "CREATED"
+      },
+      "kind": "Ok",
+      "operation": "CreateIndex",
+      "service": "opensearch"
+    }
+  ],
+  "call": {
+    "arguments": {
+      "memory": "User prefers vegetarian food",
+      "user_id": "user-123"
+    },
+    "name": "SaveMemoryTool"
+  },
+  "logs": [
+    {
+      "level": "INFO",
+      "logger": "tools.memory_tools",
+      "message": "Created memory index \"agent-memory\" on domain agent-domain"
+    }
+  ],
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "HEAD",
+      "params": {},
+      "path": "/agent-memory"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "created_at": "<TIMESTAMP>",
+        "memory_text": "User prefers vegetarian food",
+        "updated_at": "<TIMESTAMP>",
+        "user_id": "user-123"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/agent-memory/_doc"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Memory saved (id: mem-7Kx2):\n\"User prefers vegetarian food\"",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

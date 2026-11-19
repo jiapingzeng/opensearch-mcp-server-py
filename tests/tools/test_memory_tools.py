@@ -767,3 +767,160 @@ class TestWriteFilterBypass:
         assert 'DeleteMemoryTool' in registry
         assert 'SearchMemoryTool' in registry
         assert 'SomeWriteTool' not in registry  # No GET, no bypass → removed
+
+
+class TestEnsureMemoryIndexCreateIndex:
+    """``_ensure_memory_index``'s boto3 ``create_index`` call, checked against botocore's model.
+
+    Each test uses a real boto3 client (fake static keys) with ``botocore.stub.Stubber``:
+    botocore validates the parameters against the installed service model before the stubbed
+    reply is returned, and nothing is sent over the network.
+    """
+
+    REGION = 'eu-west-1'
+    DOMAIN = 'agent-domain'
+    COLLECTION_ID = 'k2x9memcoll'
+    INDEX = 'agent-memory'
+
+    @pytest.fixture(autouse=True)
+    def _env(self, monkeypatch):
+        for name in (
+            'OPENSEARCH_URL',
+            'AWS_OPENSEARCH_SERVERLESS',
+            'AWS_OPENSEARCH_COLLECTION_ID',
+            'MEMORY_INDEX_NAME',
+        ):
+            monkeypatch.delenv(name, raising=False)
+        monkeypatch.setenv('AWS_OPENSEARCH_DOMAIN_NAME', self.DOMAIN)
+
+    def _stubbed(self, service):
+        """A boto3 session whose ``client(service)`` is a stubbed real client.
+
+        Returns the session, the activated stubber and the list of the parameters each
+        ``create_index`` call was made with (recorded before botocore validates them).
+        """
+        import boto3
+        from botocore.stub import Stubber
+
+        session = boto3.Session(
+            aws_access_key_id='testing',
+            aws_secret_access_key='testing',
+            region_name=self.REGION,
+        )
+        client = session.client(service, region_name=self.REGION)
+        calls = []
+        event_service = client.meta.service_model.service_id.hyphenize()
+        client.meta.events.register(
+            f'before-parameter-build.{event_service}.CreateIndex',
+            lambda params, **kwargs: calls.append(dict(params)),
+        )
+        stubber = Stubber(client)
+        stubber.activate()
+        session.client = Mock(return_value=client)
+        return session, stubber, calls
+
+    async def _ensure(self, session):
+        """Run ``_ensure_memory_index`` with the memory index missing and ``session``."""
+        from tools.memory_tools import _ensure_memory_index
+        from tools.tool_params import baseToolArgs
+
+        os_client = AsyncMock()
+        os_client.__aenter__ = AsyncMock(return_value=os_client)
+        os_client.__aexit__ = AsyncMock(return_value=False)
+        os_client.indices.exists = AsyncMock(return_value=False)
+        args = baseToolArgs(opensearch_cluster_name='', aws_region=self.REGION)
+        with (
+            patch('opensearch.client.get_opensearch_client', return_value=os_client),
+            patch('tools.memory_tools._get_boto3_session', return_value=session),
+        ):
+            return await _ensure_memory_index(args)
+
+    def _domain_call(self):
+        from tools.memory_tools import MEMORY_INDEX_SCHEMA
+
+        return {
+            'DomainName': self.DOMAIN,
+            'IndexName': self.INDEX,
+            'IndexSchema': MEMORY_INDEX_SCHEMA,
+        }
+
+    def test_stub_validates_parameters(self):
+        """The stubbed client rejects the parameter names the API does not have."""
+        from botocore.exceptions import ParamValidationError
+
+        session, stubber, _ = self._stubbed('opensearch')
+        stubber.add_response('create_index', {'Status': 'CREATED'})
+        with pytest.raises(ParamValidationError):
+            session.client('opensearch').create_index(
+                domainName=self.DOMAIN, indexName=self.INDEX, indexSchema='{}'
+            )
+
+    async def test_managed_domain_create_index_validates_and_is_sent(self):
+        """Managed domain: create_index passes botocore's validation and reaches the service.
+
+        Before the fix, the call used domainName/indexName/indexSchema (a JSON string) and
+        botocore raised ParamValidationError before sending it.
+        """
+        session, stubber, calls = self._stubbed('opensearch')
+        stubber.add_response('create_index', {'Status': 'CREATED'})
+
+        await self._ensure(session)
+
+        # The reply is only returned once the call has passed validation.
+        stubber.assert_no_pending_responses()
+        assert calls == [self._domain_call()]
+
+    @pytest.mark.parametrize(
+        'code, message',
+        [
+            ('ResourceAlreadyExistsException', 'Index exists'),
+            ('ValidationException', 'Index agent-memory already exists'),
+        ],
+        ids=['already_exists', 'already_exists_message'],
+    )
+    async def test_managed_domain_already_exists_is_swallowed(self, code, message):
+        """Managed domain: an already-exists answer still counts as success."""
+        session, stubber, calls = self._stubbed('opensearch')
+        stubber.add_client_error('create_index', service_error_code=code, service_message=message)
+
+        await self._ensure(session)
+
+        stubber.assert_no_pending_responses()
+        assert calls == [self._domain_call()]
+
+    async def test_managed_domain_other_error_is_raised(self):
+        """Managed domain: any other error from create_index is still raised."""
+        from botocore.exceptions import ClientError
+
+        session, stubber, calls = self._stubbed('opensearch')
+        stubber.add_client_error(
+            'create_index',
+            service_error_code='ValidationException',
+            service_message='Invalid index schema',
+        )
+
+        with pytest.raises(ClientError, match='Invalid index schema'):
+            await self._ensure(session)
+
+        assert calls == [self._domain_call()]
+
+    async def test_serverless_create_index_is_unchanged(self, monkeypatch):
+        """Serverless: create_index still sends id, indexName and the schema dict."""
+        from tools.memory_tools import MEMORY_INDEX_SCHEMA
+
+        monkeypatch.setenv('AWS_OPENSEARCH_SERVERLESS', 'true')
+        monkeypatch.setenv('AWS_OPENSEARCH_COLLECTION_ID', self.COLLECTION_ID)
+        session, stubber, calls = self._stubbed('opensearchserverless')
+        stubber.add_response('create_index', {})
+
+        with patch('tools.memory_tools._ensure_aoss_data_access_policy'):
+            await self._ensure(session)
+
+        stubber.assert_no_pending_responses()
+        assert calls == [
+            {
+                'id': self.COLLECTION_ID,
+                'indexName': self.INDEX,
+                'indexSchema': MEMORY_INDEX_SCHEMA,
+            }
+        ]

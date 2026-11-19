@@ -404,9 +404,9 @@ async def _ensure_memory_index(args: baseToolArgs) -> None:
         client = session.client('opensearch', region_name=region)
         try:
             client.create_index(
-                domainName=domain_name,
-                indexName=index_name,
-                indexSchema=json.dumps(MEMORY_INDEX_SCHEMA),
+                DomainName=domain_name,
+                IndexName=index_name,
+                IndexSchema=MEMORY_INDEX_SCHEMA,
             )
             logger.info(f'Created memory index "{index_name}" on domain {domain_name}')
         except client.exceptions.ConflictException:
