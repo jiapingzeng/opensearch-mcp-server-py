@@ -1,0 +1,31 @@
+{
+  "applied": {
+    "error": {
+      "message": "Argument 'foo' does not exist on tool 'ListClustersTool'.",
+      "type": "ValueError"
+    },
+    "logs": []
+  },
+  "config": "tools:\n  ListClustersTool:\n    args:\n      foo: x\n",
+  "mode": "multi",
+  "server": {
+    "error": {
+      "message": "Argument 'foo' does not exist on tool 'ListClustersTool'.",
+      "type": "ValueError"
+    },
+    "logs": [
+      {
+        "level": "INFO",
+        "logger": "root",
+        "message": "Total clusters found in config file: 0"
+      },
+      {
+        "level": "INFO",
+        "logger": "root",
+        "message": "Loaded clusters: []"
+      }
+    ],
+    "tool_names": null,
+    "tools": null
+  }
+}

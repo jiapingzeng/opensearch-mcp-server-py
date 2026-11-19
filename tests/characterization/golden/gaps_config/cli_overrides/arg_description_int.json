@@ -1,0 +1,34 @@
+{
+  "applied": {
+    "error": {
+      "message": "Description for argument 'index' in tool 'ListIndexTool' must be a string.",
+      "type": "ValueError"
+    },
+    "logs": []
+  },
+  "argv": [
+    "--tool.ListIndexTool.args.index.description=123"
+  ],
+  "mode": "single",
+  "nested_config": {
+    "ListIndexTool": {
+      "args": {
+        "index": {
+          "description": 123
+        }
+      }
+    }
+  },
+  "overrides": {
+    "tool.ListIndexTool.args.index.description": "123"
+  },
+  "server": {
+    "error": {
+      "message": "Description for argument 'index' in tool 'ListIndexTool' must be a string.",
+      "type": "ValueError"
+    },
+    "logs": [],
+    "tool_names": null,
+    "tools": null
+  }
+}

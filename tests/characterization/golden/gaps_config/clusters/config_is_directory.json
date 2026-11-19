@@ -1,0 +1,17 @@
+{
+  "load_clusters_error": {
+    "message": "OS error reading YAML file <TMP>/config_dir: [Errno 21] Is a directory: '<TMP>/config_dir'",
+    "type": "OSError"
+  },
+  "load_clusters_logs": [],
+  "server": {
+    "clusters": [],
+    "error": {
+      "message": "OS error reading YAML file <TMP>/config_dir: [Errno 21] Is a directory: '<TMP>/config_dir'",
+      "type": "OSError"
+    },
+    "logs": [],
+    "tool_names": null,
+    "tools": null
+  }
+}

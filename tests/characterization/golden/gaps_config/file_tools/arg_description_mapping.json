@@ -1,0 +1,20 @@
+{
+  "applied": {
+    "error": {
+      "message": "Description for argument 'index' in tool 'ListIndexTool' must be a string.",
+      "type": "ValueError"
+    },
+    "logs": []
+  },
+  "config": "tools:\n  ListIndexTool:\n    args:\n      index:\n        description: nested\n",
+  "mode": "single",
+  "server": {
+    "error": {
+      "message": "Description for argument 'index' in tool 'ListIndexTool' must be a string.",
+      "type": "ValueError"
+    },
+    "logs": [],
+    "tool_names": null,
+    "tools": null
+  }
+}

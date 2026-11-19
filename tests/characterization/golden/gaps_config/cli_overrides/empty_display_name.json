@@ -1,0 +1,81 @@
+{
+  "applied": {
+    "args_model_description_changes": {},
+    "global_registry_changes": {
+      "ListIndexTool.display_name": ""
+    },
+    "logs": [],
+    "resolved_changes": {
+      "ListIndexTool.display_name": ""
+    }
+  },
+  "argv": [
+    "--tool.ListIndexTool.display_name="
+  ],
+  "mode": "single",
+  "nested_config": {
+    "ListIndexTool": {
+      "display_name": ""
+    }
+  },
+  "overrides": {
+    "tool.ListIndexTool.display_name": ""
+  },
+  "server": {
+    "error": null,
+    "logs": [
+      {
+        "level": "INFO",
+        "logger": "root",
+        "message": "Connected OpenSearch version: 3.1.0"
+      },
+      {
+        "level": "INFO",
+        "logger": "root",
+        "message": "Applied tool filter from environment variables"
+      },
+      {
+        "level": "INFO",
+        "logger": "root",
+        "message": "Enabled tools: ['', 'IndexMappingTool', 'SearchIndexTool', 'GetShardsTool', 'GenericOpenSearchApiTool', 'ClusterHealthTool', 'CountTool', 'ExplainTool', 'MsearchTool']"
+      }
+    ],
+    "tool_names": [
+      "",
+      "IndexMappingTool",
+      "SearchIndexTool",
+      "GetShardsTool",
+      "GenericOpenSearchApiTool",
+      "ClusterHealthTool",
+      "CountTool",
+      "ExplainTool",
+      "MsearchTool"
+    ],
+    "tools": [
+      {
+        "description": "Lists indices in the OpenSearch cluster. If an index name or pattern is specified, return only information about the provided index or index pattern. The include_detail flag controls output: if False, returns only index name(s); if True (default), returns full metadata.",
+        "inputSchema": {
+          "description": "Arguments for the ListIndicesTool.",
+          "properties": {
+            "include_detail": {
+              "default": true,
+              "description": "Whether to include detailed information. If False, returns only index name(s). If True, returns full metadata.",
+              "title": "Include Detail",
+              "type": "boolean"
+            },
+            "index": {
+              "default": "",
+              "description": "The name of the index or index pattern to get information for.",
+              "title": "Index",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "ListIndicesArgs",
+          "type": "object"
+        },
+        "name": ""
+      }
+    ]
+  }
+}
