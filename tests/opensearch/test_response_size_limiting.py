@@ -673,7 +673,7 @@ class TestConnectionFailuresSendEachTryOnce:
     """
 
     @pytest.mark.parametrize('make_error', CONNECTION_FAILURES.values(), ids=CONNECTION_FAILURES)
-    async def test_connection_refused_makes_one_request_per_try(self, make_error, caplog):
+    async def test_connection_failure_makes_one_request_per_try(self, make_error, caplog):
         caplog.set_level(logging.WARNING)
         session = _FailingSession(lambda _kind: make_error())
         raised = await _raised(_transport(BufferedAsyncHttpConnection, session))
@@ -746,6 +746,42 @@ class TestConnectionFailuresSendEachTryOnce:
         assert (
             'Streaming request failed (RuntimeError: not a connection failure), '
             'falling back to parent implementation'
+        ) in caplog.text
+
+    @pytest.mark.parametrize('source', ['session_creation', 'auth_callable'])
+    async def test_timeout_before_the_request_is_sent_still_falls_back(self, source, caplog):
+        """A failure before the request is built has no request to retry: it falls back, as today.
+
+        ``asyncio.TimeoutError`` is the builtin ``TimeoutError`` on Python 3.11+.
+        """
+        caplog.set_level(logging.WARNING, logger='opensearch.connection')
+        session = _FailingSession(lambda _kind: None)
+        pending = [asyncio.TimeoutError()]
+
+        def fail_once(where):
+            if source == where and pending:
+                raise pending.pop()
+
+        class _Connection(BufferedAsyncHttpConnection):
+            async def _create_aiohttp_session(self):
+                fail_once('session_creation')
+                self.session = session
+
+        def auth(**_kwargs):
+            fail_once('auth_callable')
+            return {}
+
+        transport = AsyncTransport(
+            [{'host': 'localhost', 'port': 9200}], connection_class=_Connection, http_auth=auth
+        )
+        assert await transport.perform_request('GET', '/_cat/indices') == []
+        await transport.close()
+
+        # The streaming request was never sent; the fallback's request answered.
+        assert not pending
+        assert session.requests == ['parent']
+        assert (
+            'Streaming request failed (TimeoutError: ), falling back to parent implementation'
         ) in caplog.text
 
     async def test_connection_failure_without_redirects_is_still_reraised(self):

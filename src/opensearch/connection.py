@@ -128,6 +128,7 @@ class BufferedAsyncHttpConnection(AsyncHttpConnection):
             f'Making size-limited request: {method} {url} (max_size={self.max_response_size})'
         )
         original_url = url
+        start = None
         try:
             # Import required modules
             import aiohttp
@@ -280,8 +281,9 @@ class BufferedAsyncHttpConnection(AsyncHttpConnection):
             if not self.follow_redirects:
                 raise
             # A connection failure: raise it as the parent does, so the transport retries
-            # it, instead of the fallback sending the same request a second time.
-            if isinstance(e, (aiohttp.ClientError, asyncio.TimeoutError)):
+            # it, instead of the fallback sending the same request a second time. Only once
+            # the request is built (start is set); a failure before that still falls back.
+            if start is not None and isinstance(e, (aiohttp.ClientError, asyncio.TimeoutError)):
                 duration = self.loop.time() - start
                 self.log_request_fail(method, str(url), url_path, orig_body, duration, exception=e)
                 if isinstance(e, aiohttp.ServerFingerprintMismatch):

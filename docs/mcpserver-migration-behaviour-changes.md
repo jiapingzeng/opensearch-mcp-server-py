@@ -113,6 +113,51 @@ they now get the filtered result they asked for. No config or client action is n
 
 **Upstream**: Not opened yet: the user decides.
 
+### Fix 26: a connection failure is sent once per transport try, not twice
+
+**What changed**: Before, when a request failed at the connection level (refused, reset,
+timed out, or a certificate fingerprint mismatch), `BufferedAsyncHttpConnection` sent it
+again through opensearch-py's own connection, so each of the transport's four tries reached
+the host twice: eight requests instead of four. Now such a failure raises the error
+opensearch-py's connection raises for it (`ConnectionError`, `ConnectionTimeout` or
+`SSLError`) and the transport retries it as usual. The error the tool returns and the
+`opensearch_request` error log event are unchanged; the "Streaming request failed (...),
+falling back to parent implementation" warning is no longer logged for these failures. Any
+other unexpected error, and any failure before the request is built, still falls back as
+before.
+
+**Why**: Bug fix: every connection failure doubled the requests sent to an unreachable or
+overloaded cluster. Found by the call_tool characterization (06).
+
+**Who is affected**: Deployments whose cluster is unreachable, resets connections or times
+out; the cluster now gets half the requests. No config or client action is needed.
+
+**Tests and goldens**: Unit tests in `tests/opensearch/test_response_size_limiting.py`.
+Golden changed (eight `/_cat/indices` requests become four):
+- `call_tool_core/errors/connection_failure.json`
+
+The harness hook `fake_opensearch.fail_streaming` reached the fallback with a connection
+error, which no longer falls back, so it now fails the streaming attempt with a
+`RuntimeError`. Its goldens change only in the fallback warning's exception
+(`ClientConnectionError: fake: connection reset during streaming` becomes
+`RuntimeError: fake: unexpected failure during streaming`); this is a harness change, not a
+server behaviour change:
+- `gaps_fallback/limit_bytes_utf16_over.json`
+- `gaps_fallback/limit_bytes_utf8_at_limit.json`
+- `gaps_fallback/limit_other_bytearray_over.json`
+- `gaps_fallback/limit_str_at_limit.json`
+- `gaps_fallback/limit_str_over.json`
+- `gaps_fallback/measured_bytes_utf16.json`
+- `gaps_fallback/measured_other_bytearray.json`
+- `gaps_fallback/measured_other_tuple.json`
+- `gaps_fallback/measured_str.json`
+- `harness_gap_hooks/fail_streaming_bytes.json`
+- `harness_gap_hooks/fail_streaming_other.json`
+- `harness_gap_hooks/fail_streaming_status_404.json`
+- `harness_gap_hooks/fail_streaming_str.json`
+
+**Upstream**: Not opened yet: the user decides.
+
 ## Migration steps (issue #34)
 
 Each migration step adds one line here.
