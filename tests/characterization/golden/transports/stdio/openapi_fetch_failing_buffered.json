@@ -25,9 +25,6 @@
     {
       "id": 2,
       "jsonrpc": "result"
-    },
-    {
-      "text": "Error generating tools: fake: cannot connect to host raw.githubusercontent.com:443"
     }
   ],
   "tool_names": [

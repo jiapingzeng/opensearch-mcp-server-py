@@ -3,6 +3,7 @@
 
 import aiohttp
 import json
+import logging
 import os
 import ssl
 import yaml
@@ -13,6 +14,8 @@ from mcp.types import TextContent
 from pydantic import BaseModel, create_model
 from typing import Any, Dict, List
 
+
+logger = logging.getLogger(__name__)
 
 # Constants
 BASE_URL = 'https://raw.githubusercontent.com/opensearch-project/opensearch-api-specification/refs/heads/main/spec/namespaces'
@@ -312,6 +315,6 @@ async def generate_tools_from_openapi() -> Dict[str, Dict[str, Any]]:
                 TOOL_REGISTRY[tool_name] = generate_tool_from_group(base_name, endpoints)
 
     except Exception as e:
-        print(f'Error generating tools: {e}')
+        logger.error(f'Error generating tools: {e}')
 
     return TOOL_REGISTRY
