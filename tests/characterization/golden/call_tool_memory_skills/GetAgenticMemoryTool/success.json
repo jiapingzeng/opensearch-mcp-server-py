@@ -1,0 +1,42 @@
+{
+  "arguments": {
+    "id": "XyEuiJkBeh2gPPwzjYWM",
+    "memory_container_id": "HudqiJkB1SltqOcZusVU",
+    "type": "working"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_plugins/_ml/memory_containers/HudqiJkB1SltqOcZusVU/memories/working/XyEuiJkBeh2gPPwzjYWM"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Memory XyEuiJkBeh2gPPwzjYWM (working):\n{\"memory_container_id\":\"HudqiJkB1SltqOcZusVU\",\"payload_type\":\"conversational\",\"messages\":[{\"role\":\"user\",\"content\":[{\"text\":\"I'm Bob, I really like swimming.\",\"type\":\"text\"}]}],\"namespace\":{\"user_id\":\"bob\"},\"namespace_size\":1,\"tags\":{\"topic\":\"personal info\"},\"infer\":true,\"created_time\":1577836800000,\"last_updated_time\":1577836800000}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "GetAgenticMemoryTool"
+}

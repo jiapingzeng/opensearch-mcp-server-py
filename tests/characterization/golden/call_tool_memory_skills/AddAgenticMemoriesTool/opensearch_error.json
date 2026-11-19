@@ -1,0 +1,111 @@
+{
+  "arguments": {
+    "infer": true,
+    "memory_container_id": "HudqiJkB1SltqOcZusVU",
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "I'm Bob, I really like swimming.",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "Cool, nice. Hope you enjoy your life.",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      }
+    ],
+    "metadata": {
+      "branch": {
+        "branch_name": "high",
+        "root_event_id": "228nadfs879mtgk"
+      },
+      "status": "checkpoint"
+    },
+    "namespace": {
+      "user_id": "bob"
+    },
+    "payload_type": "conversational",
+    "tags": {
+      "topic": "personal info"
+    }
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "infer": true,
+        "messages": [
+          {
+            "content": [
+              {
+                "text": "I'm Bob, I really like swimming.",
+                "type": "text"
+              }
+            ],
+            "role": "user"
+          },
+          {
+            "content": [
+              {
+                "text": "Cool, nice. Hope you enjoy your life.",
+                "type": "text"
+              }
+            ],
+            "role": "assistant"
+          }
+        ],
+        "metadata": {
+          "branch": {
+            "branch_name": "high",
+            "root_event_id": "228nadfs879mtgk"
+          },
+          "status": "checkpoint"
+        },
+        "namespace": {
+          "user_id": "bob"
+        },
+        "payload_type": "conversational",
+        "tags": {
+          "topic": "personal info"
+        }
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/_plugins/_ml/memory_containers/HudqiJkB1SltqOcZusVU/memories"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error adding memories: RequestError(400, '{\"error\":{\"root_cause\":[{\"type\":\"illegal_argument_exception\",\"reason\":\"Namespace [user_id] does not match any strategy namespace of the memory container\"}],\"type\":\"illegal_argument_exception\",\"reason\":\"Namespace [user_id] does not match any strategy namespace of the memory container\"},\"status\":400}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "AddAgenticMemoriesTool"
+}

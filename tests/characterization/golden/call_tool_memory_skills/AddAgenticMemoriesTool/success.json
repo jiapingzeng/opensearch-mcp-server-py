@@ -1,0 +1,111 @@
+{
+  "arguments": {
+    "infer": true,
+    "memory_container_id": "HudqiJkB1SltqOcZusVU",
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "I'm Bob, I really like swimming.",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "Cool, nice. Hope you enjoy your life.",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      }
+    ],
+    "metadata": {
+      "branch": {
+        "branch_name": "high",
+        "root_event_id": "228nadfs879mtgk"
+      },
+      "status": "checkpoint"
+    },
+    "namespace": {
+      "user_id": "bob"
+    },
+    "payload_type": "conversational",
+    "tags": {
+      "topic": "personal info"
+    }
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "infer": true,
+        "messages": [
+          {
+            "content": [
+              {
+                "text": "I'm Bob, I really like swimming.",
+                "type": "text"
+              }
+            ],
+            "role": "user"
+          },
+          {
+            "content": [
+              {
+                "text": "Cool, nice. Hope you enjoy your life.",
+                "type": "text"
+              }
+            ],
+            "role": "assistant"
+          }
+        ],
+        "metadata": {
+          "branch": {
+            "branch_name": "high",
+            "root_event_id": "228nadfs879mtgk"
+          },
+          "status": "checkpoint"
+        },
+        "namespace": {
+          "user_id": "bob"
+        },
+        "payload_type": "conversational",
+        "tags": {
+          "topic": "personal info"
+        }
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/_plugins/_ml/memory_containers/HudqiJkB1SltqOcZusVU/memories"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Memories added:\n{\"session_id\":\"XSEuiJkBeh2gPPwzjYVh\",\"working_memory_id\":\"XyEuiJkBeh2gPPwzjYWM\"}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "AddAgenticMemoriesTool"
+}

@@ -1,0 +1,42 @@
+{
+  "arguments": {
+    "id": "XyEuiJkBeh2gPPwzjYWM",
+    "memory_container_id": "HudqiJkB1SltqOcZusVU",
+    "type": "working"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "DELETE",
+      "params": {},
+      "path": "/_plugins/_ml/memory_containers/HudqiJkB1SltqOcZusVU/memories/working/XyEuiJkBeh2gPPwzjYWM"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error deleting memory: NotFoundError(404, '{\"error\":{\"root_cause\":[{\"type\":\"status_exception\",\"reason\":\"Memory XyEuiJkBeh2gPPwzjYWM not found\"}],\"type\":\"status_exception\",\"reason\":\"Memory XyEuiJkBeh2gPPwzjYWM not found\"},\"status\":404}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "DeleteAgenticMemoryByIDTool"
+}

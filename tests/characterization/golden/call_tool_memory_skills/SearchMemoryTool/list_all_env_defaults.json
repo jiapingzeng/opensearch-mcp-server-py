@@ -1,0 +1,64 @@
+{
+  "arguments": {
+    "query": "*"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "HEAD",
+      "params": {},
+      "path": "/team-memory"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "_source": true,
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "user_id": "user-123"
+                }
+              }
+            ],
+            "must": {
+              "match_all": {}
+            }
+          }
+        },
+        "size": 10,
+        "sort": [
+          {
+            "created_at": {
+              "order": "desc"
+            }
+          }
+        ]
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/team-memory/_search"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Found 1 matching memories:\n[{\"id\":\"mem-7Kx2\",\"memory\":\"User prefers vegetarian food and is allergic to nuts\",\"score\":2.4,\"created_at\":\"2020-01-01T00:00:00+00:00\",\"user_id\":\"user-123\",\"session_id\":\"session-42\",\"tags\":[\"preference\",\"dietary\"]}]",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "SearchMemoryTool"
+}

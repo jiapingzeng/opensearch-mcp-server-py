@@ -1,0 +1,53 @@
+{
+  "arguments": {
+    "baselineTimeRangeEnd": "2020-01-01 09:30:00",
+    "baselineTimeRangeStart": "2020-01-01 09:00:00",
+    "index": "logs-app",
+    "selectionTimeRangeEnd": "2020-01-01 10:30:00",
+    "selectionTimeRangeStart": "2020-01-01 10:00:00",
+    "size": 100,
+    "timeField": "@timestamp"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "_source": true,
+        "query": {
+          "bool": {
+            "must": [
+              {
+                "range": {
+                  "@timestamp": {
+                    "format": "strict_date_optional_time||epoch_millis",
+                    "gte": "2020-01-01T10:00:00.000Z",
+                    "lte": "2020-01-01T10:30:00.000Z"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "size": 100
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/logs-app/_search"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error executing DataDistributionTool: NotFoundError(404, '{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [logs-app]\",\"index\":\"logs-app\",\"index_uuid\":\"_na_\",\"resource.id\":\"logs-app\",\"resource.type\":\"index_or_alias\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [logs-app]\",\"index\":\"logs-app\",\"index_uuid\":\"_na_\",\"resource.id\":\"logs-app\",\"resource.type\":\"index_or_alias\"},\"status\":404}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "DataDistributionTool"
+}

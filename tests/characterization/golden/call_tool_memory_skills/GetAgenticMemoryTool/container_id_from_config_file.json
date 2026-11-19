@@ -1,0 +1,30 @@
+{
+  "arguments": {
+    "id": "XyEuiJkBeh2gPPwzjYWM",
+    "type": "working"
+  },
+  "listed_schema": {
+    "memory_container_id": {
+      "default": "HudqiJkB1SltqOcZusVU",
+      "description": "The ID of the memory container.",
+      "title": "Memory Container Id",
+      "type": "string"
+    },
+    "required": [
+      "id",
+      "type"
+    ]
+  },
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Missing required field: 'memory_container_id'\n\nProvided: {'type': 'working', 'id': 'XyEuiJkBeh2gPPwzjYWM'}",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "GetAgenticMemoryTool"
+}

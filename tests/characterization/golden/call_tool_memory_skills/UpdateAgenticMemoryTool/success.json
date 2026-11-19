@@ -1,0 +1,53 @@
+{
+  "arguments": {
+    "id": "DcxjTpkBvwXRq366C1Zz",
+    "memory": "User's name is Bob Smith",
+    "memory_container_id": "HudqiJkB1SltqOcZusVU",
+    "tags": {
+      "topic": "personal info",
+      "updated": "true"
+    },
+    "type": "long-term"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "memory": "User's name is Bob Smith",
+        "tags": {
+          "topic": "personal info",
+          "updated": "true"
+        }
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "PUT",
+      "params": {},
+      "path": "/_plugins/_ml/memory_containers/HudqiJkB1SltqOcZusVU/memories/long-term/DcxjTpkBvwXRq366C1Zz"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Memory updated:\n{\"_index\":\".plugins-ml-am-default-memory-long-term\",\"_id\":\"DcxjTpkBvwXRq366C1Zz\",\"_version\":2,\"result\":\"updated\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":5,\"_primary_term\":1}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "UpdateAgenticMemoryTool"
+}

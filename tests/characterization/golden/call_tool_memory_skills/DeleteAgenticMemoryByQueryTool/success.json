@@ -1,0 +1,52 @@
+{
+  "arguments": {
+    "memory_container_id": "HudqiJkB1SltqOcZusVU",
+    "query": {
+      "match": {
+        "owner_id": "admin"
+      }
+    },
+    "type": "working"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "match": {
+            "owner_id": "admin"
+          }
+        }
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/_plugins/_ml/memory_containers/HudqiJkB1SltqOcZusVU/memories/working/_delete_by_query"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Memories deleted by query:\n{\"took\":12,\"timed_out\":false,\"total\":2,\"deleted\":2,\"batches\":1,\"version_conflicts\":0,\"noops\":0,\"retries\":{\"bulk\":0,\"search\":0},\"throttled_millis\":0,\"requests_per_second\":-1.0,\"throttled_until_millis\":0,\"failures\":[]}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "DeleteAgenticMemoryByQueryTool"
+}

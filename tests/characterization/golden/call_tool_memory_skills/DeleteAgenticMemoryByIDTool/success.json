@@ -1,0 +1,42 @@
+{
+  "arguments": {
+    "id": "XyEuiJkBeh2gPPwzjYWM",
+    "memory_container_id": "HudqiJkB1SltqOcZusVU",
+    "type": "working"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "DELETE",
+      "params": {},
+      "path": "/_plugins/_ml/memory_containers/HudqiJkB1SltqOcZusVU/memories/working/XyEuiJkBeh2gPPwzjYWM"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Memory deleted:\n{\"_index\":\".plugins-ml-am-default-memory-working\",\"_id\":\"XyEuiJkBeh2gPPwzjYWM\",\"_version\":3,\"result\":\"deleted\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":6,\"_primary_term\":1}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "DeleteAgenticMemoryByIDTool"
+}

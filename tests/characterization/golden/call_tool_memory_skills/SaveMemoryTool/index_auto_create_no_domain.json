@@ -1,0 +1,32 @@
+{
+  "arguments": {
+    "memory": "User prefers vegetarian food and is allergic to nuts",
+    "session_id": "session-42",
+    "tags": "preference, dietary,",
+    "user_id": "user-123"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "HEAD",
+      "params": {},
+      "path": "/agent-memory"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error saving memory: Cannot determine OpenSearch domain name from OPENSEARCH_URL. Set AWS_OPENSEARCH_DOMAIN_NAME environment variable.",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "SaveMemoryTool"
+}

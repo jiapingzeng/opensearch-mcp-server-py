@@ -1,0 +1,203 @@
+{
+  "arguments": {
+    "baselineTimeRangeEnd": "2020-01-01 09:30:00",
+    "baselineTimeRangeStart": "2020-01-01 09:00:00",
+    "index": "metrics-app",
+    "selectionTimeRangeEnd": "2020-01-01 10:30:00",
+    "selectionTimeRangeStart": "2020-01-01 10:00:00",
+    "timeField": "@timestamp",
+    "topN": 5
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/metrics-app/_mapping"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "bool": {
+            "must": [
+              {
+                "range": {
+                  "@timestamp": {
+                    "format": "strict_date_optional_time||epoch_millis",
+                    "gte": "2020-01-01T10:00:00.000Z",
+                    "lte": "2020-01-01T10:30:00.000Z"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/metrics-app/_count"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "bool": {
+            "must": [
+              {
+                "range": {
+                  "@timestamp": {
+                    "format": "strict_date_optional_time||epoch_millis",
+                    "gte": "2020-01-01T09:00:00.000Z",
+                    "lte": "2020-01-01T09:30:00.000Z"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/metrics-app/_count"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "aggs": {
+          "cpu_pct": {
+            "percentiles": {
+              "field": "cpu_pct",
+              "percents": [
+                50,
+                90
+              ]
+            }
+          },
+          "errors": {
+            "percentiles": {
+              "field": "errors",
+              "percents": [
+                50,
+                90
+              ]
+            }
+          },
+          "latency": {
+            "percentiles": {
+              "field": "latency",
+              "percents": [
+                50,
+                90
+              ]
+            }
+          }
+        },
+        "query": {
+          "bool": {
+            "must": [
+              {
+                "range": {
+                  "@timestamp": {
+                    "format": "strict_date_optional_time||epoch_millis",
+                    "gte": "2020-01-01T10:00:00.000Z",
+                    "lte": "2020-01-01T10:30:00.000Z"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "size": 0
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/metrics-app/_search"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "aggs": {
+          "cpu_pct": {
+            "percentiles": {
+              "field": "cpu_pct",
+              "percents": [
+                50,
+                90
+              ]
+            }
+          },
+          "errors": {
+            "percentiles": {
+              "field": "errors",
+              "percents": [
+                50,
+                90
+              ]
+            }
+          },
+          "latency": {
+            "percentiles": {
+              "field": "latency",
+              "percents": [
+                50,
+                90
+              ]
+            }
+          }
+        },
+        "query": {
+          "bool": {
+            "must": [
+              {
+                "range": {
+                  "@timestamp": {
+                    "format": "strict_date_optional_time||epoch_millis",
+                    "gte": "2020-01-01T09:00:00.000Z",
+                    "lte": "2020-01-01T09:30:00.000Z"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "size": 0
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/metrics-app/_search"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "MetricChangeAnalysisTool result:\n{\"percentileAnalysis\":[{\"field\":\"latency\",\"changeScore\":0.9162907318741551,\"selectionPercentiles\":{\"p50\":250.0,\"p90\":900.0},\"baselinePercentiles\":{\"p50\":120.0,\"p90\":300.0},\"logRatios\":{\"p50\":0.7339691750802005,\"p90\":1.0986122886681098}},{\"field\":\"cpu_pct\",\"changeScore\":0.1359668577418209,\"selectionPercentiles\":{\"p50\":45.0,\"p90\":70.0},\"baselinePercentiles\":{\"p50\":40.0,\"p90\":60.0},\"logRatios\":{\"p50\":0.11778303565638346,\"p90\":0.15415067982725836}},{\"field\":\"errors\",\"changeScore\":0.0,\"selectionPercentiles\":{\"p50\":0.0,\"p90\":2.0},\"baselinePercentiles\":{\"p50\":0.0,\"p90\":0.0},\"logRatios\":{\"p50\":0.0,\"p90\":10.0}}]}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "MetricChangeAnalysisTool"
+}

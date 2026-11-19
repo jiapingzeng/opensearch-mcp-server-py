@@ -1,0 +1,81 @@
+{
+  "arguments": {
+    "query": "dietary preferences",
+    "size": 5,
+    "user_id": "user-123"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "HEAD",
+      "params": {},
+      "path": "/agent-memory"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "_source": true,
+        "query": {
+          "script_score": {
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "term": {
+                      "user_id": "user-123"
+                    }
+                  }
+                ],
+                "must": {
+                  "match": {
+                    "memory_text": "dietary preferences"
+                  }
+                }
+              }
+            },
+            "script": {
+              "lang": "painless",
+              "params": {
+                "half_life_hours": 168.0,
+                "now_ms": "<TIMESTAMP>",
+                "offset_hours": 24.0
+              },
+              "source": "double relevance = _score;long now = params.now_ms;long created = doc['created_at'].value.toInstant().toEpochMilli();double ageHours = (now - created) / 3600000.0;double decay = Math.exp(-0.693 * Math.max(0, ageHours - params.offset_hours) / params.half_life_hours);return relevance * decay;"
+            }
+          }
+        },
+        "size": 5,
+        "sort": [
+          {
+            "_score": {
+              "order": "desc"
+            }
+          }
+        ]
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/agent-memory/_search"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Found 2 matching memories:\n[{\"id\":\"mem-7Kx2\",\"memory\":\"User prefers vegetarian food and is allergic to nuts\",\"score\":2.4,\"created_at\":\"2020-01-01T00:00:00+00:00\",\"user_id\":\"user-123\",\"session_id\":\"session-42\",\"tags\":[\"preference\",\"dietary\"]},{\"id\":\"mem-9Pq1\",\"memory\":\"User likes spicy Thai curries\",\"score\":0.8,\"created_at\":\"2020-01-02T00:00:00+00:00\",\"user_id\":\"user-123\",\"agent_id\":\"food-assistant\"}]",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "SearchMemoryTool"
+}

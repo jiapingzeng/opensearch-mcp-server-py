@@ -1,0 +1,62 @@
+{
+  "arguments": {
+    "memory_container_id": "HudqiJkB1SltqOcZusVU",
+    "query": {
+      "match_all": {}
+    },
+    "sort": [
+      {
+        "created_time": {
+          "order": "desc"
+        }
+      }
+    ],
+    "type": "sessions"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "match_all": {}
+        },
+        "sort": [
+          {
+            "created_time": {
+              "order": "desc"
+            }
+          }
+        ]
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_plugins/_ml/memory_containers/HudqiJkB1SltqOcZusVU/memories/sessions/_search"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Search results (sessions):\n{\"took\":4,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":1,\"relation\":\"eq\"},\"max_score\":0.0,\"hits\":[{\"_index\":\".plugins-ml-am-default-memory-sessions\",\"_id\":\"CcxjTpkBvwXRq366A1aE\",\"_score\":null,\"_source\":{\"memory_container_id\":\"HudqiJkB1SltqOcZusVU\",\"summary\":\"This is a test session\",\"namespace\":{\"user_id\":\"bob\"},\"created_time\":1577836800000,\"last_updated_time\":1577836800000},\"sort\":[1577836800000]}]}}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "SearchAgenticMemoryTool"
+}

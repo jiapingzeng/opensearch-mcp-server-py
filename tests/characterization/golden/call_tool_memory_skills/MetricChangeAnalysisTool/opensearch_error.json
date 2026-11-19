@@ -1,0 +1,68 @@
+{
+  "arguments": {
+    "baselineTimeRangeEnd": "2020-01-01 09:30:00",
+    "baselineTimeRangeStart": "2020-01-01 09:00:00",
+    "filter": "{\"wildcard\": {\"_id\": \"req-*\"}}",
+    "index": "metrics-app",
+    "selectionTimeRangeEnd": "2020-01-01 10:30:00",
+    "selectionTimeRangeStart": "2020-01-01 10:00:00",
+    "timeField": "@timestamp",
+    "topN": 5
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/metrics-app/_mapping"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "bool": {
+            "must": [
+              {
+                "range": {
+                  "@timestamp": {
+                    "format": "strict_date_optional_time||epoch_millis",
+                    "gte": "2020-01-01T10:00:00.000Z",
+                    "lte": "2020-01-01T10:30:00.000Z"
+                  }
+                }
+              },
+              {
+                "wildcard": {
+                  "_id": "req-*"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/metrics-app/_count"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error executing MetricChangeAnalysisTool: filter cannot use wildcard/prefix queries on the metadata field '_id' — these queries are only supported on keyword or text fields. Rewrite the filter to target a business field, for example: {\"wildcard\": {\"serviceName\": \"ts-auth-service*\"}} or {\"term\": {\"serviceName\": \"ts-auth-service\"}}.",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "MetricChangeAnalysisTool"
+}
