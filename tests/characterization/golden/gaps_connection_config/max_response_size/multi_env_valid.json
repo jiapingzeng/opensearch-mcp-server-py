@@ -1,0 +1,86 @@
+{
+  "call": {
+    "arguments": {
+      "include_detail": false,
+      "opensearch_cluster_name": "plain-cluster"
+    },
+    "name": "ListIndexTool"
+  },
+  "connections": [
+    {
+      "ca_certs": null,
+      "client_cert": null,
+      "client_key": null,
+      "follow_redirects": true,
+      "host": "http://fake-opensearch.invalid:9200",
+      "http_auth": null,
+      "max_response_size": 4096,
+      "timeout": 30,
+      "url_prefix": "",
+      "use_ssl": false,
+      "verify_certs": true
+    },
+    {
+      "ca_certs": null,
+      "client_cert": null,
+      "client_key": null,
+      "follow_redirects": true,
+      "host": "http://fake-opensearch.invalid:9200",
+      "http_auth": null,
+      "max_response_size": 4096,
+      "timeout": 30,
+      "url_prefix": "",
+      "use_ssl": false,
+      "verify_certs": true
+    }
+  ],
+  "logs": [],
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Indices:\n[\"logs-2020.01.01\"]",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "setup": {
+    "clusters": {
+      "plain-cluster": {
+        "opensearch_no_auth": true,
+        "opensearch_url": "http://fake-opensearch.invalid:9200"
+      }
+    },
+    "env": {
+      "OPENSEARCH_MAX_RESPONSE_SIZE": "4096"
+    },
+    "mode": "multi"
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "connections": [],
+  "logs": [
+    {
+      "level": "ERROR",
+      "logger": "opensearch.helper",
+      "message": "Error getting OpenSearch version: Invalid OpenSearch URL format: [unparseable URL redacted]"
+    },
+    {
+      "level": "ERROR",
+      "logger": "opensearch.helper",
+      "message": "Error getting OpenSearch version: Invalid OpenSearch URL format: [unparseable URL redacted]"
+    },
+    {
+      "event_type": "tool_error",
+      "exception_type": "ConfigurationError",
+      "index": "",
+      "level": "ERROR",
+      "logger": "tools.tool_logging",
+      "message": "Tool error: ListIndexTool - listing indices (ConfigurationError)",
+      "status": "error",
+      "tool_name": "ListIndexTool"
+    },
+    {
+      "client_name": "unknown",
+      "duration_ms": "<DURATION>",
+      "event_type": "tool_execution",
+      "level": "ERROR",
+      "logger": "mcp_server_opensearch.tool_executor",
+      "message": "Tool execution failed: ListIndexTool (<DURATION>ms)",
+      "status": "error",
+      "tool_key": "ListIndexTool",
+      "tool_name": "ListIndexTool"
+    }
+  ],
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: Invalid OpenSearch URL format: [unparseable URL redacted]",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "OPENSEARCH_NO_AUTH": "true",
+      "OPENSEARCH_URL": "fake-opensearch.invalid:9200"
+    },
+    "mode": "single"
+  }
+}

@@ -1,0 +1,124 @@
+{
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "connections": [
+    {
+      "ca_certs": null,
+      "client_cert": "<TMP>/client-cert.pem",
+      "client_key": "<TMP>/client-key.pem",
+      "follow_redirects": true,
+      "host": "https://fake-opensearch.invalid:9200",
+      "http_auth": null,
+      "max_response_size": null,
+      "timeout": 30,
+      "url_prefix": "",
+      "use_ssl": true,
+      "verify_certs": false
+    },
+    {
+      "ca_certs": null,
+      "client_cert": "<TMP>/client-cert.pem",
+      "client_key": "<TMP>/client-key.pem",
+      "follow_redirects": true,
+      "host": "https://fake-opensearch.invalid:9200",
+      "http_auth": null,
+      "max_response_size": null,
+      "timeout": 30,
+      "url_prefix": "",
+      "use_ssl": true,
+      "verify_certs": false
+    },
+    {
+      "ca_certs": null,
+      "client_cert": "<TMP>/client-cert.pem",
+      "client_key": "<TMP>/client-key.pem",
+      "follow_redirects": true,
+      "host": "https://fake-opensearch.invalid:9200",
+      "http_auth": null,
+      "max_response_size": null,
+      "timeout": 30,
+      "url_prefix": "",
+      "use_ssl": true,
+      "verify_certs": false
+    }
+  ],
+  "logs": [
+    {
+      "level": "WARNING",
+      "logger": "opensearch.client",
+      "message": "OpenSearch mTLS is configured with SSL verification disabled and no CA bundle"
+    },
+    {
+      "level": "WARNING",
+      "logger": "opensearch.client",
+      "message": "OpenSearch mTLS is configured with SSL verification disabled and no CA bundle"
+    },
+    {
+      "level": "WARNING",
+      "logger": "opensearch.client",
+      "message": "OpenSearch mTLS is configured with SSL verification disabled and no CA bundle"
+    }
+  ],
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "https://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "https://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "https://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Indices:\n[\"logs-2020.01.01\"]",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "OPENSEARCH_CLIENT_CERT_PATH": "<TMP>/client-cert.pem",
+      "OPENSEARCH_CLIENT_KEY_PATH": "<TMP>/client-key.pem",
+      "OPENSEARCH_NO_AUTH": "true",
+      "OPENSEARCH_SSL_VERIFY": "false",
+      "OPENSEARCH_URL": "https://fake-opensearch.invalid:9200"
+    },
+    "mode": "single"
+  }
+}

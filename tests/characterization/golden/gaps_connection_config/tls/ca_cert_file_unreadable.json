@@ -1,0 +1,62 @@
+{
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "connections": [],
+  "logs": [
+    {
+      "level": "ERROR",
+      "logger": "opensearch.helper",
+      "message": "Error getting OpenSearch version: OpenSearch CA certificate file is not readable: <TMP>/unreadable-ca.pem"
+    },
+    {
+      "level": "ERROR",
+      "logger": "opensearch.helper",
+      "message": "Error getting OpenSearch version: OpenSearch CA certificate file is not readable: <TMP>/unreadable-ca.pem"
+    },
+    {
+      "event_type": "tool_error",
+      "exception_type": "ConfigurationError",
+      "index": "",
+      "level": "ERROR",
+      "logger": "tools.tool_logging",
+      "message": "Tool error: ListIndexTool - listing indices (ConfigurationError)",
+      "status": "error",
+      "tool_name": "ListIndexTool"
+    },
+    {
+      "client_name": "unknown",
+      "duration_ms": "<DURATION>",
+      "event_type": "tool_execution",
+      "level": "ERROR",
+      "logger": "mcp_server_opensearch.tool_executor",
+      "message": "Tool execution failed: ListIndexTool (<DURATION>ms)",
+      "status": "error",
+      "tool_key": "ListIndexTool",
+      "tool_name": "ListIndexTool"
+    }
+  ],
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: OpenSearch CA certificate file is not readable: <TMP>/unreadable-ca.pem",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "OPENSEARCH_CA_CERT_PATH": "<TMP>/unreadable-ca.pem",
+      "OPENSEARCH_NO_AUTH": "true",
+      "OPENSEARCH_URL": "https://fake-opensearch.invalid:9200"
+    },
+    "mode": "single"
+  }
+}
