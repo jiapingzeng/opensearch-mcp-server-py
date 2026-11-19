@@ -49,6 +49,13 @@ from datetime import datetime, timedelta, timezone
 from mcp.client import Client
 from mcp.client._memory import InMemoryTransport
 from mcp.shared.exceptions import MCPError
+from mcp.shared.inbound import (
+    MCP_METHOD_HEADER,
+    MCP_NAME_HEADER,
+    MCP_PROTOCOL_VERSION_HEADER,
+    NAME_BEARING_METHODS,
+    encode_header_value,
+)
 from mcp.shared.message import SessionMessage
 from mcp.types import CallToolResult, ListToolsResult
 from mcp_server_opensearch import (
@@ -1267,7 +1274,6 @@ MCP_POST_HEADERS = {
     'accept': 'application/json, text/event-stream',
     'content-type': 'application/json',
 }
-MCP_PROTOCOL_VERSION_HEADER = 'mcp-protocol-version'
 SSE_TIMEOUT_SECONDS = 10
 
 
@@ -1366,13 +1372,12 @@ class HttpReply:
 
 
 def _merge_headers(defaults: dict, overrides: dict | None) -> dict:
-    """``defaults`` updated with ``overrides`` (names compared lower-cased; ``None`` drops one)."""
+    """``defaults`` updated with ``overrides``, names lower-cased.
+
+    A ``None`` value is kept: it tells ``HttpApp`` to send no such header at all.
+    """
     headers = {name.lower(): value for name, value in defaults.items()}
-    for name, value in (overrides or {}).items():
-        if value is None:
-            headers.pop(name.lower(), None)
-        else:
-            headers[name.lower()] = value
+    headers.update((name.lower(), value) for name, value in (overrides or {}).items())
     return headers
 
 
@@ -1459,6 +1464,27 @@ class HttpApp:
         self.app = app
         self.client = client
 
+    def build_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers: dict | None = None,
+        content: str | bytes | None = None,
+    ) -> httpx.Request:
+        """The request ``request()`` sends: httpx's defaults, then ``headers`` on top.
+
+        A header given as ``None`` is not sent at all, even one httpx adds by default
+        (``accept``, ``accept-encoding``, ``connection``, ``user-agent``, ``host``).
+        """
+        headers = {name.lower(): value for name, value in (headers or {}).items()}
+        sent = {name: value for name, value in headers.items() if value is not None}
+        request = self.client.build_request(method, path, headers=sent, content=content)
+        for name, value in headers.items():
+            if value is None:
+                request.headers.pop(name, None)
+        return request
+
     async def request(
         self,
         method: str,
@@ -1467,9 +1493,13 @@ class HttpApp:
         headers: dict | None = None,
         content: str | bytes | None = None,
     ) -> HttpReply:
-        """Send one HTTP request to the app; return its (complete) response."""
+        """Send one HTTP request to the app; return its (complete) response.
+
+        ``headers`` are added to httpx's defaults; ``None`` as a value sends no such header.
+        """
+        request = self.build_request(method, path, headers=headers, content=content)
         with anyio.fail_after(RAW_TIMEOUT_SECONDS):
-            response = await self.client.request(method, path, headers=headers, content=content)
+            response = await self.client.send(request)
         return HttpReply(response.status_code, _reply_headers(response.headers.raw), response.text)
 
     async def get(self, path: str, headers: dict | None = None) -> HttpReply:
@@ -1481,7 +1511,8 @@ class HttpApp:
         """POST ``message`` to ``/mcp`` with a streamable-HTTP client's headers.
 
         ``message`` is a JSON-RPC message (or a list of them), sent as JSON; a str or bytes is
-        sent as it is. ``headers`` are added to ``MCP_POST_HEADERS``; ``None`` drops one.
+        sent as it is. ``headers`` are added to ``MCP_POST_HEADERS`` (and httpx's defaults);
+        ``None`` as a value sends no such header (``{'accept': None}``: no Accept at all).
         """
         content = message if isinstance(message, (str, bytes)) else json.dumps(message)
         return await self.request(
@@ -1500,14 +1531,22 @@ class HttpApp:
         """Send one JSON-RPC request to ``/mcp``; return the one JSON-RPC message it gets back.
 
         The app is stateless (as ``serve`` builds it), so no ``initialize`` is needed first.
-        ``protocol_version`` is sent as the ``mcp-protocol-version`` header (none by default);
-        a modern version (2026-07-28) also merges the per-request ``_meta`` envelope into
-        ``params``, as ``mcp_session``'s ``raw`` does.
+        ``protocol_version`` is sent as the ``mcp-protocol-version`` header (none by default).
+        A modern version (2026-07-28) is sent as the SDK client sends it: the per-request
+        ``_meta`` envelope merged into ``params`` (as ``mcp_session``'s ``raw`` does), plus the
+        ``mcp-method`` header and, for ``tools/call``, ``prompts/get`` and ``resources/read``,
+        ``mcp-name``. ``Mcp-Param-*`` headers are not derived: pass them in ``headers``, which
+        override these (``None`` sends no such header).
         """
         if protocol_version is not None:
-            headers = {MCP_PROTOCOL_VERSION_HEADER: protocol_version, **(headers or {})}
+            routing = {MCP_PROTOCOL_VERSION_HEADER: protocol_version}
             if protocol_version in MODERN_PROTOCOL_VERSIONS:
                 params = _with_request_envelope(params, protocol_version)
+                routing[MCP_METHOD_HEADER] = method
+                name_key = NAME_BEARING_METHODS.get(method)
+                if name_key is not None and isinstance(name := params.get(name_key), str):
+                    routing[MCP_NAME_HEADER] = encode_header_value(name)
+            headers = {**routing, **(headers or {})}
         message = {'jsonrpc': '2.0', 'id': request_id, 'method': method}
         if params is not None:
             message['params'] = params
@@ -1524,7 +1563,7 @@ class HttpApp:
         sent all of it, which an open event stream never does, so this calls the app's ASGI
         interface itself, with the scope httpx would build for the request.
         """
-        request = self.client.build_request('GET', path, headers=headers)
+        request = self.build_request('GET', path, headers=headers)
         scope = _asgi_scope(request)
         start: dict = {}
         chunks: asyncio.Queue = asyncio.Queue()
@@ -1714,8 +1753,13 @@ class StdioServerProcess:
     Messages are newline-delimited JSON, as the stdio transport writes them; the CR of a
     Windows CRLF is stripped from every line. ``list_tools``, ``call_tool`` and ``raw`` return
     what ``mcp_session``'s helpers return; ``request``/``notify``/``send``/``receive`` work
-    on raw JSON-RPC. One process is one connection: the handshake (``initialize``) runs once,
-    on first need, and a session cannot change protocol version after it.
+    on raw JSON-RPC, and ``sent`` lists every message written to stdin.
+
+    One process is one connection, so the handshake runs once: at the version the test
+    first initializes with (``initialize(version)`` or ``raw('initialize', ...)``), or at
+    ``DEFAULT_PROTOCOL_VERSION`` when a helper needs it first. ``list_tools``, ``call_tool``
+    and ``raw`` without a version then use that version, as ``mcp_session``'s helpers use
+    the one negotiated; asking ``raw`` for another handshake version fails the test.
     """
 
     def __init__(self, process: asyncio.subprocess.Process, log_path: Path):
@@ -1728,8 +1772,13 @@ class StdioServerProcess:
         self.killed = False
         self._stderr = bytearray()
         self._messages: asyncio.Queue = asyncio.Queue()
+        # Every JSON-RPC message written to stdin with send(), in order.
+        self.sent: list[Any] = []
         self._next_id = 0
+        # The version the handshake ran at, and whether notifications/initialized is still due
+        # (raw('initialize') sends the request alone, as mcp_session's raw does).
         self._handshake_version: str | None = None
+        self._initialized_due = False
         self._readers = [
             asyncio.create_task(self._read_stdout()),
             asyncio.create_task(self._read_stderr()),
@@ -1769,6 +1818,7 @@ class StdioServerProcess:
 
     async def send(self, message: Any) -> None:
         """Write one JSON-RPC message to the server's stdin."""
+        self.sent.append(message)
         await self.send_line(json.dumps(message, ensure_ascii=False))
 
     async def receive(self, timeout: float = STDIO_TIMEOUT_SECONDS) -> Any:
@@ -1814,24 +1864,42 @@ class StdioServerProcess:
     ) -> dict:
         """Run the handshake: ``initialize``, then ``notifications/initialized`` if it succeeded.
 
-        Returns the raw ``initialize`` response.
+        Returns the raw ``initialize`` response. ``params`` replaces the default params
+        (offering ``protocol_version``); the session's version is the one they offer.
         """
-        response = await self.request('initialize', params or _initialize_params(protocol_version))
-        if 'result' in response:
+        response = await self._initialize(protocol_version, params)
+        if self._initialized_due:
             await self.notify('notifications/initialized')
-            self._handshake_version = protocol_version
+            self._initialized_due = False
         return response
 
-    async def _handshake(self, protocol_version: str) -> dict | None:
-        """Make sure the handshake ran at ``protocol_version``; the error response if it failed."""
+    async def _initialize(self, protocol_version: str, params: dict | None) -> dict:
+        """Send ``initialize`` alone; on success, record the session's version."""
+        params = params or _initialize_params(protocol_version)
+        response = await self.request('initialize', params)
+        if 'result' in response:
+            self._handshake_version = params.get('protocolVersion', protocol_version)
+            self._initialized_due = True
+        return response
+
+    async def _handshake(self, protocol_version: str | None = None) -> dict | None:
+        """Make sure the handshake ran (at ``protocol_version``, if given).
+
+        Runs it at ``protocol_version`` (or ``DEFAULT_PROTOCOL_VERSION``) if it has not run;
+        completes it if ``raw('initialize')`` left ``notifications/initialized`` due. Returns
+        the error response if ``initialize`` failed.
+        """
         if self._handshake_version is None:
-            response = await self.initialize(protocol_version)
+            response = await self.initialize(protocol_version or DEFAULT_PROTOCOL_VERSION)
             return response if 'error' in response else None
-        if self._handshake_version != protocol_version:
+        if protocol_version is not None and protocol_version != self._handshake_version:
             raise AssertionError(
                 f'this stdio session was initialized at {self._handshake_version}; '
                 f'launch another one for {protocol_version}'
             )
+        if self._initialized_due:
+            await self.notify('notifications/initialized')
+            self._initialized_due = False
         return None
 
     async def raw(
@@ -1839,22 +1907,23 @@ class StdioServerProcess:
     ) -> dict:
         """Raw JSON-RPC response (``result`` or ``error``), as ``mcp_session``'s ``raw``.
 
-        ``initialize`` is sent as it is (no ``notifications/initialized``). A modern version
-        sends the request alone with the per-request ``_meta`` envelope; a handshake version
-        (the default) runs the handshake first, once per process.
+        ``initialize`` is sent alone (``notifications/initialized`` follows only before the next
+        request that needs the handshake), offering ``protocol_version`` or the default.
+        A modern version sends the request alone with the per-request ``_meta`` envelope.
+        Otherwise the request goes on the session's handshake (see the class docstring):
+        without ``protocol_version``, at the version the session was initialized at.
         """
-        version = protocol_version or DEFAULT_PROTOCOL_VERSION
         if method == 'initialize':
-            return await self.request(method, params or _initialize_params(version))
-        if version in MODERN_PROTOCOL_VERSIONS:
-            return await self.request(method, _with_request_envelope(params, version))
-        failed = await self._handshake(version)
+            return await self._initialize(protocol_version or DEFAULT_PROTOCOL_VERSION, params)
+        if protocol_version in MODERN_PROTOCOL_VERSIONS:
+            return await self.request(method, _with_request_envelope(params, protocol_version))
+        failed = await self._handshake(protocol_version)
         if failed is not None:
             return failed
         return await self.request(method, params)
 
     async def _result(self, method: str, params: dict | None = None) -> dict:
-        failed = await self._handshake(DEFAULT_PROTOCOL_VERSION)
+        failed = await self._handshake()
         response = failed or await self.request(method, params)
         if 'error' in response:
             error = response['error']

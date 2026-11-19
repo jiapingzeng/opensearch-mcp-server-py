@@ -107,11 +107,16 @@ On a mismatch the failure shows a unified diff (golden vs actual).
   (no socket; requests go to `http://127.0.0.1:9900`). `http.get(path)` and
   `http.post_mcp(message, headers=None)` return an `HttpReply` (`status`, `headers`, `text`,
   `events` parsed from `text/event-stream`, `messages`, `message()`, and `summary()` for
-  goldens); `http.mcp(method, params=None, headers=None, protocol_version=None)` returns the
-  one JSON-RPC message the POST gets back; `http.sse_first_event('/sse')` opens the SSE
-  stream, reads its first event (10 s timeout) and disconnects. `ctx.request` is `None` over
-  stdio and in-memory, so anything header-based (header auth, `x-mcp-client-name`) is
-  reachable only through `http_app`.
+  goldens). `headers` go on top of httpx's defaults (and, for `post_mcp`, the
+  streamable-HTTP `accept`/`content-type`); a header given as `None` is not sent at all,
+  even one httpx adds by default (`{'accept': None}`: no Accept header).
+  `http.mcp(method, params=None, headers=None, protocol_version=None)` returns the one
+  JSON-RPC message the POST gets back; `protocol_version` sets `mcp-protocol-version`, and
+  a modern version (2026-07-28) is stamped as the SDK client does it: `_meta` envelope,
+  `mcp-method` and, for name-bearing methods, `mcp-name` (`headers` override them).
+  `http.sse_first_event('/sse')` opens the SSE stream, reads its first event (10 s timeout)
+  and disconnects. `ctx.request` is `None` over stdio and in-memory, so anything
+  header-based (header auth, `x-mcp-client-name`) is reachable only through `http_app`.
 - `stdio_launcher(*args, env=None, cwd=None)`: `async with stdio_launcher('--mode', 'multi')
   as server:` runs `stdio_launcher.py` with `sys.executable` (no shell): it installs the same
   fake OpenSearch, pinned OpenAPI and network guard in the subprocess, then calls
@@ -120,11 +125,15 @@ On a mismatch the failure shows a unified diff (golden vs actual).
   `fake_opensearch`'s routes (data bodies only, no callables) and version and the
   `pinned_openapi` setting are copied in at launch, as a JSON reply table whose path is in
   `CHAR_FAKE_OPENSEARCH_TABLE`. `server.initialize()`, `request(method, params)`, `notify`,
-  `send`/`receive` speak raw JSON-RPC (`\r\n` stripped); `list_tools()`, `call_tool()` and
-  `raw()` return what `mcp_session`'s do; `stderr`, `stdout_lines`, `returncode` and
-  `opensearch_requests()` show what the process did. On exit stdin is closed and the server
-  waited for; its fake's requests are added to `fake_opensearch.requests` (unmatched ones
-  fail the test) and its blocked network attempts fail the test.
+  `send`/`receive` speak raw JSON-RPC (`\r\n` stripped; `sent` lists what was written);
+  `list_tools()`, `call_tool()` and `raw()` return what `mcp_session`'s do. One process is
+  one connection: the handshake runs once, at the version the test first initializes with
+  (`initialize(version)`, or `raw('initialize', ...)`, whose `notifications/initialized`
+  follows before the next request), else at `2025-11-25`; the helpers then use that
+  version. `stderr`, `stdout_lines`, `returncode` and `opensearch_requests()` show what the
+  process did. On exit stdin is closed and the server waited for; its fake's requests are
+  added to `fake_opensearch.requests` (unmatched ones fail the test) and its blocked
+  network attempts fail the test.
 - `memory_enabled_session(mode='single', config_file='', env=None)`: `stdio_launcher` with
   `MEMORY_TOOLS_ENABLED=true`, so the memory tools are registered; same helpers as
   `mcp_session`. Memory tools are registered when `tools.memory_tools` is imported and

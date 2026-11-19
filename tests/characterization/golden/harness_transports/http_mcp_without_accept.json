@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "content-length": "142",
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": -32600,
+      "message": "Not Acceptable: Client must accept both application/json and text/event-stream"
+    },
+    "id": null,
+    "jsonrpc": "2.0"
+  },
+  "status": 406
+}
