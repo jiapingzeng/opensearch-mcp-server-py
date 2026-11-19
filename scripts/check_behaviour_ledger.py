@@ -4,10 +4,11 @@
 """Check that every behaviour change is recorded in the behaviour-change ledger.
 
 A behaviour change is a modified or deleted characterization golden. When there is one,
-the ledger and CHANGELOG.md must be changed too, and the ledger must name every modified or
-deleted golden (its path relative to the golden directory, or its full repo path). An added
-golden is new characterization: it needs no name, and a change that only adds goldens passes.
-A rename is its old path deleted and its new path added, so the old path must be named.
+the ledger and CHANGELOG.md must be changed too, and the ledger must name every golden the
+change touches, whether added, modified or deleted (its path relative to the golden
+directory, or its full repo path). A rename is its old path deleted and its new path added,
+so both paths must be named. A change that only adds goldens is new characterization and
+passes without a ledger entry. The check runs per change: one task branch against its base.
 
 Usage: python scripts/check_behaviour_ledger.py [--base REF] [--require-entry]
 """
@@ -55,27 +56,49 @@ def check(changes: list[tuple[str, str]], ledger_text: str, require_entry: bool)
     if behaviour_change:
         if CHANGELOG not in changed:
             problems.append(f'missing: {CHANGELOG} is not changed')
-        changed_goldens = {path for status, path in goldens if status in ('M', 'D')}
-        for name in sorted(path[len(GOLDEN_DIR) :] for path in changed_goldens):
+        for name in sorted({path[len(GOLDEN_DIR) :] for _, path in goldens}):
             if not _named(name, ledger_text):
                 problems.append(f'golden not named in {LEDGER}: {name}')
     return problems
 
 
 def summary(changes: list[tuple[str, str]], base: str) -> str:
-    """Return the success line: how many distinct golden paths changed since base."""
-    paths = {path.replace('\\', '/') for _, path in changes}
-    goldens = len({path for path in paths if path.startswith(GOLDEN_DIR)})
-    if not goldens:
+    """Return the success line: how many distinct golden paths changed since base.
+
+    Only a behaviour change (a modified or deleted golden) has its goldens checked against
+    the ledger, so only then does the line say the ledger covers them.
+    """
+    changes = [(status, path.replace('\\', '/')) for status, path in changes]
+    goldens = [(status, path) for status, path in changes if path.startswith(GOLDEN_DIR)]
+    count = len({path for _, path in goldens})
+    if not count:
         return f'no characterization goldens changed since {base}'
-    return f'{goldens} golden(s) changed since {base}; the behaviour ledger covers them'
+    if any(status in ('M', 'D') for status, _ in goldens):
+        return f'{count} golden(s) changed since {base}; the behaviour ledger covers them'
+    return (
+        f'{count} golden(s) added since {base} and none modified or deleted; '
+        'new characterization is not a behaviour change'
+    )
+
+
+class GitCouldNotRun(Exception):
+    """The git subprocess could not be started (an OSError, such as git not installed)."""
 
 
 def _git(root: Path, *args: str) -> str:
-    """Run git with args in root and return its stdout."""
-    result = subprocess.run(
-        ['git', *args], cwd=root, capture_output=True, text=True, encoding='utf-8', check=True
-    )
+    """Run git with args in root and return its stdout.
+
+    Raises:
+        subprocess.CalledProcessError: git ran and failed.
+        GitCouldNotRun: git could not be started; only the subprocess call is covered, so
+            an OSError anywhere else is not mistaken for a missing git.
+    """
+    try:
+        result = subprocess.run(
+            ['git', *args], cwd=root, capture_output=True, text=True, encoding='utf-8', check=True
+        )
+    except OSError as e:
+        raise GitCouldNotRun(e) from e
     return result.stdout
 
 
@@ -109,13 +132,14 @@ def main() -> int:
         '--require-entry', action='store_true', help='the ledger must change in any case'
     )
     args = parser.parse_args()
+    cwd = Path.cwd()
     try:
-        root = Path(_git(Path.cwd(), 'rev-parse', '--show-toplevel').strip())
+        root = Path(_git(cwd, 'rev-parse', '--show-toplevel').strip())
         changes = collect_changes(root, args.base)
     except subprocess.CalledProcessError as e:
         print(f'git failed: {" ".join(e.cmd)}: {e.stderr.strip()}', file=sys.stderr)
         return 2
-    except OSError as e:
+    except GitCouldNotRun as e:
         print(f'git could not run: {e}', file=sys.stderr)
         return 2
     ledger = root / LEDGER
