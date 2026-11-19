@@ -1,0 +1,40 @@
+{
+  "arguments": {
+    "judgment_id": "jl-manual"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "DELETE",
+      "params": {},
+      "path": "/_plugins/_search_relevance/judgments/jl-manual"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Judgment list jl-manual deleted:\n{\"_index\":\"search-relevance-judgment\",\"_id\":\"jl-manual\",\"_version\":2,\"result\":\"deleted\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":7,\"_primary_term\":1}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "DeleteJudgmentListTool"
+}

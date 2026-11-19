@@ -1,0 +1,40 @@
+{
+  "arguments": {
+    "experiment_id": "exp-abc123"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "DELETE",
+      "params": {},
+      "path": "/_plugins/_search_relevance/experiments/exp-abc123"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Experiment exp-abc123 deleted:\n{\"_index\":\"search-relevance-experiment\",\"_id\":\"exp-abc123\",\"_version\":2,\"result\":\"deleted\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":7,\"_primary_term\":1}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "DeleteExperimentTool"
+}

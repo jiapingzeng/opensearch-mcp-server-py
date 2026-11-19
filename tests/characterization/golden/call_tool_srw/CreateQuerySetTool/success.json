@@ -1,0 +1,56 @@
+{
+  "arguments": {
+    "name": "product-queries",
+    "queries": "[\"laptop\", {\"queryText\": \"wireless headphones\"}, 42]"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "description": "Query set: product-queries",
+        "name": "product-queries",
+        "querySetQueries": [
+          {
+            "queryText": "laptop"
+          },
+          {
+            "queryText": "wireless headphones"
+          },
+          {
+            "queryText": "42"
+          }
+        ],
+        "sampling": "manual"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "PUT",
+      "params": {},
+      "path": "/_plugins/_search_relevance/query_sets"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Query set created:\n{\"_id\":\"qs-new\",\"result\":\"created\"}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "CreateQuerySetTool"
+}

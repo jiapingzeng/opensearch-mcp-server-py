@@ -1,0 +1,52 @@
+{
+  "arguments": {
+    "query_body": {
+      "query": {
+        "term": {
+          "type": "IMPORT_JUDGMENT"
+        }
+      }
+    }
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "term": {
+            "type": "IMPORT_JUDGMENT"
+          }
+        }
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/_plugins/_search_relevance/judgments/_search"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error searching judgments: RequestError(400, '{\"error\":{\"root_cause\":[{\"type\":\"x_content_parse_exception\",\"reason\":\"[1:20] [term] unknown field [typo]\"}],\"type\":\"x_content_parse_exception\",\"reason\":\"[1:20] [term] unknown field [typo]\"},\"status\":400}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "SearchJudgmentsTool"
+}

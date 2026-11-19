@@ -1,0 +1,40 @@
+{
+  "arguments": {
+    "experiment_id": "exp-abc123"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_plugins/_search_relevance/experiments/exp-abc123"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Experiment exp-abc123:\n{\"_id\":\"exp-abc123\",\"_source\":{\"id\":\"exp-abc123\",\"type\":\"PAIRWISE_COMPARISON\",\"status\":\"COMPLETED\",\"querySetId\":\"qs-laptops\",\"searchConfigurationList\":[\"sc-baseline\",\"sc-candidate\"],\"size\":10,\"timestamp\":\"2020-01-01T00:00:00Z\",\"results\":[{\"queryText\":\"laptop\",\"metrics\":[{\"metric\":\"jaccard\",\"value\":0.43}]}]}}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "GetExperimentTool"
+}
