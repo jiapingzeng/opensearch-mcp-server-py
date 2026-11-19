@@ -52,12 +52,17 @@ On a mismatch the failure shows a unified diff (golden vs actual).
 
 - `golden(name, data)`: compare `data` with `golden/<name>.json`.
 - `normalize(data)`: copy of `data` with run-to-run values replaced by placeholders:
-  recent timestamps (`<TIMESTAMP>`), log durations (`<DURATION>`), UUIDs (`<UUID>`),
-  session ids (`<SESSION_ID>`), ephemeral loopback ports (`<PORT>`), pytest/tempfile
-  paths (`<TMP>`, on Windows too: `\` or `/` separators, any drive-letter case, the path
-  below `<TMP>` written with `/`), memory-monitor figures (`<MEMORY>`, `<PID>`), and the order of
-  JSON-schema `required` lists (built from a set, so sorted). Each rule is narrow and
-  documented in `Normalizer`; nothing else is altered.
+  recent timestamps (`<TIMESTAMP>`, see "Timestamps and canned data" below), log
+  durations (`<DURATION>`), UUIDs (`<UUID>`), session ids (`<SESSION_ID>`), ephemeral
+  loopback ports (`<PORT>`), pytest/tempfile paths (`<TMP>`, on Windows too: `\` or `/`
+  separators, any drive-letter case, the path below `<TMP>` written with `/`),
+  memory-monitor figures (`<MEMORY>`, `<PID>`), and the order of JSON-schema `required`
+  lists (built from a set, so sorted). Each rule is narrow and documented in `Normalizer`;
+  nothing else is altered.
+  A temp path must end at a path boundary (a separator, a quote, whitespace or the end of
+  the text): base `.../pytest-3` never matches inside `.../pytest-30`, and a tempfile name
+  is `tmp` plus 8 characters, so `mkstemp(suffix='.yml')` names are not replaced; put such
+  files under `tmp_path` or a `mkdtemp()` directory.
 - `fake_opensearch`: fake cluster behind the aiohttp session opensearch-py's connections
   use, so the server's connection class, auth and error mapping run unchanged.
   `reply(method, path, body)`, `error(method, path, status, body=None)`,
@@ -95,3 +100,26 @@ On a mismatch the failure shows a unified diff (golden vs actual).
 
 Goldens assume the test process starts without `MEMORY_TOOLS_ENABLED=true`: the memory
 tool registry is decided when `tools.memory_tools` is imported.
+
+## Timestamps and canned data
+
+The normalizer turns a timestamp into `<TIMESTAMP>` only when it lies within two days of
+the moment of normalizing:
+
+- strings: ISO 8601 / RFC 3339 timestamps (and logging's `2026-11-19 10:00:00,123`) and
+  HTTP dates (`Wed, 19 Nov 2026 10:00:00 GMT`), anywhere in any string;
+- ints: epoch seconds or milliseconds, only as the value of a dict key that names a time.
+  Compared case-insensitively, the key is `now`, `time`, `date`, `timestamp` or `epoch`,
+  contains `time` or `date`, or ends with `_at`, `_ms`, `_ts` or `_epoch`: `now_ms`,
+  `created_at`, `start_time`, `last_updated_time` and `timestamp` match; `size`, `count`,
+  `bytes` and `doc_count` do not. Any other int, including a list item (it has no key),
+  is kept as it is, however close to now it reads.
+
+So canned data (files under `fixtures/` and the fake replies written inline in test files)
+must use fixed dates far from today, for example `2020-01-01T00:00:00Z`, and no int under
+a timestamp key that could read as a current epoch (use e.g. `1577836800`, that same
+date). A date near today would be recorded as `<TIMESTAMP>` on one day and as itself a few
+days later, which reads as a behaviour change. `test_fixtures_hold_no_dates_near_now`
+fails, naming the file and the value, on any ISO 8601 or HTTP date in `fixtures/` within
+400 days of now, and on any int under a timestamp key within 400 days of now as epoch
+seconds or milliseconds.

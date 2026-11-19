@@ -4,24 +4,31 @@
 """Smoke tests for the characterization harness itself (see conftest.py and README.md)."""
 
 import asyncio
+import contextvars
 import copy
 import importlib
 import json
 import logging
 import os
 import pytest
+import re
 import socket
 import sys
 import tools as tools_package
-from datetime import datetime, timezone
+import yaml
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 from mcp_server_opensearch import clusters_information, global_state
-from mcp_server_opensearch.client_context import client_name_var
+from mcp_server_opensearch.client_context import client_name_var, request_context_var
 from mcp_server_opensearch.clusters_information import ClusterInfo, add_cluster
 from mcp_server_opensearch.logging_config import configure_logging
+from pathlib import Path
 from tools import tool_filter
 from tools.tool_params import ListIndicesArgs
 from tools.tools import TOOL_REGISTRY
 
+
+FIXTURE_DIR = Path(__file__).resolve().parent / 'fixtures'
 
 # --- the server through the MCP protocol -----------------------------------
 
@@ -192,6 +199,170 @@ def test_normalize_posix_temp_paths_keep_backslashes(normalize):
             'mkstemp': '/var/folders/x/T/tmpab12_xyz/out.json',
         }
     ) == {'config': '<TMP>/config.yml\\n', 'mkstemp': '<TMP>/out.json'}
+
+
+# Epoch ints only under timestamp keys (spec step 1). 1795000000 is 2026-11-18 11:06:40 UTC:
+# the tests pin the normalizer's clock there, so they test the same thing on any day.
+EPOCH = 1795000000
+EPOCH_MOMENT = datetime.fromtimestamp(EPOCH, timezone.utc).replace(tzinfo=None)
+FAR_EPOCH = 1577836800  # 2020-01-01T00:00:00Z
+
+# Keys that name a time: as listed, containing "time"/"date", ending in _at/_ms/_ts/_epoch,
+# in any case.
+TIMESTAMP_KEY_EXAMPLES = [
+    'now',
+    'time',
+    'date',
+    'timestamp',
+    'epoch',
+    'now_ms',
+    'created_at',
+    'start_time',
+    'last_updated_time',
+    'event_ts',
+    'start_epoch',
+    'update_date',
+    'startTime',
+    'lastModifiedDate',
+    'Timestamp',
+    'NOW_MS',
+    'Created_At',
+]
+NON_TIMESTAMP_KEY_EXAMPLES = ['size', 'count', 'bytes', 'doc_count', 'store_size', 'took', 'id']
+
+
+def _normalizer_at(normalize, moment: datetime):
+    """A normalizer (no temp rules) whose clock reads ``moment`` (naive UTC)."""
+
+    class PinnedClock(type(normalize)):
+        @staticmethod
+        def _clock() -> datetime:
+            return moment
+
+    return PinnedClock(temp_dirs=[])
+
+
+def test_normalize_epoch_int_kept_under_size_replaced_under_now_ms(normalize):
+    # Step 5: 1795000000 reads as now in epoch seconds; as a byte count it is kept.
+    normalizer = _normalizer_at(normalize, EPOCH_MOMENT)
+    assert normalizer({'size': EPOCH, 'now_ms': EPOCH * 1000}) == {
+        'size': EPOCH,
+        'now_ms': '<TIMESTAMP>',
+    }
+
+    # The same on the real clock: today's epoch in seconds and milliseconds.
+    now = datetime.now(timezone.utc)
+    seconds, millis = int(now.timestamp()), int(now.timestamp() * 1000)
+    assert normalize({'size': seconds, 'bytes': millis, 'now_ms': millis}) == {
+        'size': seconds,
+        'bytes': millis,
+        'now_ms': '<TIMESTAMP>',
+    }
+
+
+@pytest.mark.parametrize('key', TIMESTAMP_KEY_EXAMPLES)
+def test_normalize_epoch_int_under_timestamp_key_replaced(normalize, key):
+    # Step 1 / step 5: each key that names a time, as epoch seconds and as milliseconds.
+    normalizer = _normalizer_at(normalize, EPOCH_MOMENT)
+    assert type(normalize).is_timestamp_key(key)
+    assert normalizer({key: EPOCH}) == {key: '<TIMESTAMP>'}
+    assert normalizer({'nested': {key: EPOCH * 1000}}) == {'nested': {key: '<TIMESTAMP>'}}
+    # Far from now, an int under a timestamp key is kept like any other value.
+    assert normalizer({key: FAR_EPOCH, 'x': {key: FAR_EPOCH * 1000}}) == {
+        key: FAR_EPOCH,
+        'x': {key: FAR_EPOCH * 1000},
+    }
+
+
+@pytest.mark.parametrize('key', NON_TIMESTAMP_KEY_EXAMPLES)
+def test_normalize_epoch_int_under_other_key_kept(normalize, key):
+    # Step 1 / step 5: sizes, counts and ids keep their value, however close to now it reads.
+    normalizer = _normalizer_at(normalize, EPOCH_MOMENT)
+    assert not type(normalize).is_timestamp_key(key)
+    data = {key: EPOCH, 'nested': {key: EPOCH * 1000}}
+    assert normalizer(data) == data
+
+
+def test_normalize_epoch_int_without_key_kept_strings_unchanged(normalize):
+    # Step 1: list items and bare ints have no key, so they stay; bools are never timestamps.
+    # The ISO 8601 and HTTP date rules for strings apply under any key, as before.
+    normalizer = _normalizer_at(normalize, EPOCH_MOMENT)
+    data = {
+        'now_ms': [EPOCH * 1000, EPOCH],
+        'values': [EPOCH, {'size': EPOCH}],
+        'timestamp': True,
+    }
+    assert normalizer(data) == data
+    assert normalizer([EPOCH]) == [EPOCH]
+    assert normalizer(EPOCH) == EPOCH
+    assert normalizer(
+        {
+            'size': f'{EPOCH_MOMENT:%Y-%m-%dT%H:%M:%S}Z',
+            'message': f'at {format_datetime(EPOCH_MOMENT.replace(tzinfo=timezone.utc), usegmt=True)}',
+            'old': '2020-01-01T00:00:00Z',
+        }
+    ) == {'size': '<TIMESTAMP>', 'message': 'at <TIMESTAMP>', 'old': '2020-01-01T00:00:00Z'}
+
+
+def test_normalize_posix_temp_base_ends_at_path_boundary(normalize):
+    # Step 2: base ".../pytest-3" must not match the start of ".../pytest-30" ("<TMP>0/...").
+    normalizer = type(normalize)('/tmp/pytest-of-u/pytest-3', temp_dirs=['/tmp'])
+    data = {
+        'longer': '/tmp/pytest-of-u/pytest-30/test_a0/config.yml',
+        'longer_alone': '/tmp/pytest-of-u/pytest-30',
+        'longer_tempfile': '/tmp/tmpab12_xyz9/out.json',
+        'base': '/tmp/pytest-of-u/pytest-3/test_a0/config.yml',
+        'base_alone': '/tmp/pytest-of-u/pytest-3',
+        'base_spaced': 'in /tmp/pytest-of-u/pytest-3 now',
+        'base_quoted': "open('/tmp/pytest-of-u/pytest-3')",
+        'base_json': json.dumps({'path': '/tmp/pytest-of-u/pytest-3'}),
+        'tempfile': '/tmp/tmpab12_xyz/out.json',
+    }
+
+    assert normalizer(data) == {
+        'longer': data['longer'],
+        'longer_alone': data['longer_alone'],
+        'longer_tempfile': data['longer_tempfile'],
+        'base': '<TMP>/config.yml',
+        'base_alone': '<TMP>',
+        'base_spaced': 'in <TMP> now',
+        'base_quoted': "open('<TMP>')",
+        'base_json': '{"path": "<TMP>"}',
+        'tempfile': '<TMP>/out.json',
+    }
+
+
+def test_normalize_windows_temp_base_ends_at_path_boundary(normalize):
+    # Step 2 on Windows, where "\" or "/" separates: "pytest-3" is not the start of "pytest-30".
+    base = r'C:\Users\runneradmin\AppData\Local\Temp\pytest-of-runneradmin\pytest-3'
+    temp = r'C:\Users\RUNNER~1\AppData\Local\Temp'
+    normalizer = type(normalize)(base, temp_dirs=[temp])
+    longer = base + '0'
+    data = {
+        'longer': longer + r'\test_a0\config.yml',
+        'longer_slashes': longer.replace('\\', '/') + '/test_a0/config.yml',
+        'longer_alone': longer,
+        'longer_tempfile': temp + r'\tmpab12_xyz9\out.json',
+        'base': base + r'\test_a0\config.yml',
+        'base_slashes': base.replace('\\', '/') + '/test_a0/config.yml',
+        'base_alone': base,
+        'base_spaced': f'in {base} now',
+        'base_json': json.dumps({'path': base}),
+        'tempfile': temp + r'\tmpab12_xyz\out.json',
+    }
+
+    assert normalizer(data) == {
+        'longer': data['longer'],
+        'longer_slashes': data['longer_slashes'],
+        'longer_alone': data['longer_alone'],
+        'longer_tempfile': data['longer_tempfile'],
+        'base': '<TMP>/config.yml',
+        'base_slashes': '<TMP>/config.yml',
+        'base_alone': '<TMP>',
+        'base_spaced': 'in <TMP> now',
+        'base_json': '{"path": "<TMP>"}',
+        'tempfile': '<TMP>/out.json',
+    }
 
 
 # --- no_network --------------------------------------------------------------
@@ -391,6 +562,48 @@ def test_isolated_state_resets_before_and_restores_after(isolated_state, fake_op
             root.removeHandler(leaked_handler)
 
 
+def test_reset_fails_for_a_token_from_another_context():
+    # The failure the isolation fallback handles (step 3), as the next two tests simulate it.
+    token = contextvars.copy_context().run(client_name_var.set, 'elsewhere')
+    with pytest.raises(ValueError):
+        client_name_var.reset(token)
+
+
+def test_isolation_fallback_restores_value_from_before_the_test(isolated_state, fake_opensearch):
+    # Step 3: when var.reset(token) fails, the variable gets back the value it had before the
+    # test (token.old_value), not its default. Setup runs in a copy of this Context, so the
+    # tokens it makes cannot be reset here, as when an async fixture's teardown runs elsewhere.
+    before_test = client_name_var.set('before-test')
+    request_token = request_context_var.set('request-before-test')
+    try:
+        with pytest.MonkeyPatch.context() as inner:
+            fixture = isolated_state.isolation(inner, fake_opensearch.url)
+            contextvars.copy_context().run(fixture.__enter__)
+            client_name_var.set('set-by-test')
+            request_context_var.set('request-set-by-test')
+            fixture.__exit__(None, None, None)
+
+        assert client_name_var.get() == 'before-test'
+        assert request_context_var.get() == 'request-before-test'
+    finally:
+        request_context_var.reset(request_token)
+        client_name_var.reset(before_test)
+
+
+def test_isolation_fallback_uses_default_when_unset_before(isolated_state, fake_opensearch):
+    # Step 3: with no value before the test (token.old_value is Token.MISSING), the default.
+    def setup_and_teardown_in_two_contexts():
+        with pytest.MonkeyPatch.context() as inner:
+            fixture = isolated_state.isolation(inner, fake_opensearch.url)
+            contextvars.Context().run(fixture.__enter__)
+            client_name_var.set('set-by-test')
+            request_context_var.set('request-set-by-test')
+            fixture.__exit__(None, None, None)
+        return client_name_var.get(), request_context_var.get()
+
+    assert contextvars.Context().run(setup_and_teardown_in_two_contexts) == ('unknown', None)
+
+
 async def test_isolated_state_pins_server_modules_other_tests_reimport(
     isolated_state, fake_opensearch, mcp_session, golden, normalize
 ):
@@ -417,3 +630,131 @@ async def test_isolated_state_pins_server_modules_other_tests_reimport(
                 golden('harness/list_tools_default', normalize(await session.list_tools()))
 
         assert sys.modules['tools.tools'] is reimported
+
+
+# --- canned data -------------------------------------------------------------
+
+# Dates in canned data must be far from today: the normalizer turns anything within two days
+# of now into <TIMESTAMP>, so a near date would record a placeholder that later reads as a
+# behaviour change. The guard (spec step 4) flags anything within this distance of now.
+NEAR_NOW = timedelta(days=400)
+ISO_DATE = re.compile(r'\b(\d{4})-(\d{2})-(\d{2})(?!\d)')
+# `key: 123`, `"key": 123` or `key=123` in a file that is not parsed as JSON or YAML.
+KEYED_INT = re.compile(r'["\']?([A-Za-z_][\w.-]*)["\']?\s*[:=]\s*(-?\d+)(?![\w.])')
+STRUCTURED_LOADERS = {
+    '.json': lambda text: [json.loads(text)],
+    '.yaml': lambda text: list(yaml.safe_load_all(text)),
+    '.yml': lambda text: list(yaml.safe_load_all(text)),
+}
+
+
+def _keyed_ints(path: Path, text: str) -> list[tuple]:
+    """(key, int) pairs: from the parsed data of a JSON or YAML file, else from the text."""
+    loader = STRUCTURED_LOADERS.get(path.suffix.lower())
+    try:
+        stack = loader(text) if loader else None
+    except (ValueError, yaml.YAMLError):
+        stack = None
+    if stack is None:
+        return [(match.group(1), int(match.group(2))) for match in KEYED_INT.finditer(text)]
+    pairs = []
+    while stack:
+        value = stack.pop()
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if isinstance(item, int) and not isinstance(item, bool):
+                    pairs.append((key, item))
+                stack.append(item)
+        elif isinstance(value, list):
+            stack.extend(value)
+    return pairs
+
+
+def near_now_values(path: Path, normalizer: type, now: datetime) -> list[str]:
+    """Dates and timestamp-key epoch ints in ``path`` within ``NEAR_NOW`` of ``now`` (naive UTC)."""
+    text = path.read_text(encoding='utf-8')
+    found = []
+
+    def near(moment: datetime) -> bool:
+        return abs(moment - now) <= NEAR_NOW
+
+    for match in ISO_DATE.finditer(text):
+        try:
+            moment = datetime(*(int(part) for part in match.groups()))
+        except ValueError:
+            continue
+        if near(moment):
+            found.append(f'ISO 8601 date {match.group(0)!r}')
+    for match in normalizer.HTTP_DATE.finditer(text):
+        moment = normalizer.http_date_moment(match)
+        if moment is not None and near(moment):
+            found.append(f'HTTP date {match.group(0)!r}')
+    for key, number in _keyed_ints(path, text):
+        if normalizer.is_timestamp_key(key) and any(
+            near(moment) for moment in normalizer.epoch_moments(number)
+        ):
+            found.append(f'epoch int {key}: {number}')
+    return found
+
+
+def test_fixtures_hold_no_dates_near_now(normalize):
+    # Step 4: every file under fixtures/ (JSON, YAML, text) keeps its dates far from today.
+    files = sorted(path for path in FIXTURE_DIR.rglob('*') if path.is_file())
+    assert files
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    problems = [
+        f'{path.relative_to(FIXTURE_DIR).as_posix()}: {value}'
+        for path in files
+        for value in near_now_values(path, type(normalize), now)
+    ]
+    assert not problems, (
+        'canned data must use fixed dates far from today, e.g. 2020-01-01T00:00:00Z '
+        '(see README.md):\n' + '\n'.join(problems)
+    )
+
+
+def test_fixture_guard_names_near_now_dates_and_epochs(normalize, tmp_path):
+    # Step 4: the guard itself finds what it must, in JSON, YAML and text, and nothing else.
+    now = datetime.now(timezone.utc)
+    soon = now + timedelta(days=300)  # inside the guard's 400 days, outside the normalizer's 2
+    later = now + timedelta(days=500)
+    seconds, millis = int(soon.timestamp()), int(soon.timestamp() * 1000)
+    iso, http = f'{soon:%Y-%m-%dT%H:%M:%S}Z', format_datetime(soon, usegmt=True)
+    date = f'{soon:%Y-%m-%d}'
+    files = {
+        'near.json': json.dumps(
+            {
+                'created_at': seconds,
+                'nested': [{'last_updated_time': seconds, 'now_ms': millis}],
+                'size': seconds,
+                'values': [millis],
+                'when': iso,
+                'old': '2020-01-01T00:00:00Z',
+                'later': f'{later:%Y-%m-%dT%H:%M:%S}Z',
+                'old_ms': FAR_EPOCH * 1000,
+            }
+        ),
+        'near.yaml': f"start_time: {seconds}\ncount: {seconds}\nheader: '{http}'\n",
+        'near.txt': f'timestamp={seconds} doc_count={seconds}\nsince 2020-01-01\n',
+        'far.json': json.dumps({'created_at': FAR_EPOCH, 'date': '2020-01-01T00:00:00Z'}),
+    }
+    for name, content in files.items():
+        (tmp_path / name).write_text(content, encoding='utf-8', newline='\n')
+
+    def found(name):
+        naive_now = now.replace(tzinfo=None)
+        return sorted(near_now_values(tmp_path / name, type(normalize), naive_now))
+
+    assert found('near.json') == sorted(
+        [
+            f'ISO 8601 date {date!r}',
+            f'epoch int created_at: {seconds}',
+            f'epoch int last_updated_time: {seconds}',
+            f'epoch int now_ms: {millis}',
+        ]
+    )
+    assert found('near.yaml') == sorted(
+        [f'HTTP date {http!r}', f'epoch int start_time: {seconds}']
+    )
+    assert found('near.txt') == [f'epoch int timestamp: {seconds}']
+    assert found('far.json') == []

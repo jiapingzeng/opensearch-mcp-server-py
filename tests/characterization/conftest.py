@@ -36,6 +36,7 @@ import sys
 import tempfile
 import yaml
 import yarl
+from contextvars import Token
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from mcp.client import Client
@@ -180,12 +181,22 @@ class Normalizer:
     """Replace volatile values with fixed placeholders; leave everything else untouched.
 
     Each rule targets a value that differs between runs, and is narrow on purpose (a
-    timestamp only counts when it is close to now, a port only when it is ephemeral), so
-    static text such as example dates or ports in tool descriptions is never rewritten.
+    timestamp only counts when it is close to now, an int only under a key that names a
+    time, a port only when it is ephemeral), so static text such as example dates or ports
+    in tool descriptions, and sizes or counts in replies, is never rewritten.
     """
 
     # Timestamps count as volatile only within this distance of the moment of normalizing.
     RECENT = timedelta(days=2)
+
+    # Epoch ints (seconds or milliseconds) count as timestamps only as the value of a dict
+    # key that names a time, compared case-insensitively: one of TIMESTAMP_KEYS, a key
+    # containing one of TIMESTAMP_KEY_PARTS or ending with one of TIMESTAMP_KEY_SUFFIXES
+    # (`now_ms`, `created_at`, `start_time`, `last_updated_time`). Any other int (`size`,
+    # `count`, `bytes`, `doc_count`, a list item) is kept, however close to now it reads.
+    TIMESTAMP_KEYS = frozenset({'now', 'time', 'date', 'timestamp', 'epoch'})
+    TIMESTAMP_KEY_PARTS = ('time', 'date')
+    TIMESTAMP_KEY_SUFFIXES = ('_at', '_ms', '_ts', '_epoch')
 
     # Fields of the server's structured log events (dicts with an `event_type`; see
     # tool_executor.py, opensearch/connection.py, logging_config.py) that vary per run.
@@ -239,6 +250,10 @@ class Normalizer:
 
     # A Windows path starts with a drive letter ("C:") or a UNC prefix ("\\").
     WINDOWS_PATH = re.compile(r'[A-Za-z]:|\\\\')
+    # What must follow a temp path: a separator, a quote, whitespace or the end of the text,
+    # so a base never matches the start of a longer name (".../pytest-3" in ".../pytest-30").
+    POSIX_PATH_END = r'(?=[/\'"\s]|\Z)'
+    WINDOWS_PATH_END = r'(?=[\\/\'"\s]|\Z)'
 
     def __init__(
         self,
@@ -252,6 +267,7 @@ class Normalizer:
         # Windows paths match "\" or "/" as the separator (runs of them too, as in
         # JSON-escaped text), case-insensitively as Windows compares paths, and the path kept
         # below <TMP> is written with "/", so a golden reads the same on every OS.
+        # A match must end at a path boundary (POSIX_PATH_END / WINDOWS_PATH_END).
         if temp_dirs is None:
             system_tmp = tempfile.gettempdir()
             temp_dirs = [system_tmp, os.path.realpath(system_tmp)]
@@ -263,29 +279,78 @@ class Normalizer:
         # Longest base first, so /private/var/... is replaced before /var/... can match in it.
         rules.sort(key=lambda rule: len(rule[0]), reverse=True)
         self._temp_rules = [(pattern, replacement) for _, pattern, replacement in rules]
-        self._now = datetime.now(timezone.utc).replace(tzinfo=None)
+        self._now = self._clock()
 
     @classmethod
     def _temp_rule(cls, base: str, child: str) -> tuple[str, re.Pattern, Any]:
         """``(base, pattern, replacement)`` turning ``base`` + ``child`` into ``<TMP>``.
 
         ``child`` is a regex template: ``{sep}`` is a path separator, ``{name}`` one path
-        component.
+        component. The match must end at a path boundary: a separator, a quote, whitespace
+        or the end of the text.
         """
         base = base.rstrip('\\/') or base
         if not cls.WINDOWS_PATH.match(base):
             child = child.format(sep='/', name=r'[^/\s\'"]+')
-            return base, re.compile(re.escape(base) + child), '<TMP>'
+            return base, re.compile(re.escape(base) + child + cls.POSIX_PATH_END), '<TMP>'
         sep, name = r'[\\/]+', r'[^\\/\s\'"]+'
         prefix = sep.join(re.escape(part) for part in re.split(r'[\\/]+', base))
         # The path below <TMP>, captured so its separators can be rewritten as "/".
         below = f'((?:{sep}{name})*)'
-        pattern = re.compile(prefix + child.format(sep=sep, name=name) + below, re.IGNORECASE)
+        pattern = re.compile(
+            prefix + child.format(sep=sep, name=name) + below + cls.WINDOWS_PATH_END,
+            re.IGNORECASE,
+        )
         return base, pattern, lambda match: '<TMP>' + re.sub(sep, '/', match.group(1))
 
+    @staticmethod
+    def _clock() -> datetime:
+        """The moment of normalizing, as naive UTC."""
+        return datetime.now(timezone.utc).replace(tzinfo=None)
+
     def __call__(self, data: Any) -> Any:
-        self._now = datetime.now(timezone.utc).replace(tzinfo=None)
+        self._now = self._clock()
         return self._walk(data)
+
+    @classmethod
+    def is_timestamp_key(cls, key: Any) -> bool:
+        """Whether an int under dict key ``key`` may be an epoch timestamp."""
+        if not isinstance(key, str):
+            return False
+        key = key.lower()
+        return (
+            key in cls.TIMESTAMP_KEYS
+            or any(part in key for part in cls.TIMESTAMP_KEY_PARTS)
+            or key.endswith(cls.TIMESTAMP_KEY_SUFFIXES)
+        )
+
+    @staticmethod
+    def epoch_moments(number: int) -> list[datetime]:
+        """``number`` read as epoch seconds and as epoch milliseconds (naive UTC), if valid."""
+        moments = []
+        for per_second in (1, 1000):
+            try:
+                moment = datetime.fromtimestamp(number / per_second, timezone.utc)
+            except (OverflowError, OSError, ValueError):
+                continue
+            moments.append(moment.replace(tzinfo=None))
+        return moments
+
+    @classmethod
+    def http_date_moment(cls, match: re.Match) -> datetime | None:
+        """The moment an ``HTTP_DATE`` match names, or None if it is no valid date."""
+        day, month, year, hour, minute, second = match.groups()
+        try:
+            return datetime(
+                int(year),
+                cls.MONTHS.index(month) + 1,
+                int(day),
+                int(hour),
+                int(minute),
+                int(second),
+            )
+        except ValueError:
+            return None
 
     def _walk(self, value: Any, key: Any = None) -> Any:
         if isinstance(value, dict):
@@ -299,7 +364,7 @@ class Normalizer:
             return type(value)(items)
         if isinstance(value, str):
             return self._string(value)
-        if isinstance(value, int) and not isinstance(value, bool):
+        if isinstance(value, int) and not isinstance(value, bool) and self.is_timestamp_key(key):
             return self._epoch(value)
         return value
 
@@ -331,25 +396,16 @@ class Normalizer:
         return '<TIMESTAMP>' if self._recent(moment) else match.group(0)
 
     def _http_date(self, match: re.Match) -> str:
-        day, month, year, hour, minute, second = match.groups()
-        month_number = self.MONTHS.index(month) + 1
-        try:
-            moment = datetime(
-                int(year), month_number, int(day), int(hour), int(minute), int(second)
-            )
-        except ValueError:
+        moment = self.http_date_moment(match)
+        if moment is None:
             return match.group(0)
         return '<TIMESTAMP>' if self._recent(moment) else match.group(0)
 
     def _epoch(self, number: int) -> Any:
-        # Timestamps: epoch seconds or milliseconds (e.g. memory search's `now_ms`).
-        for per_second in (1, 1000):
-            try:
-                moment = datetime.fromtimestamp(number / per_second, timezone.utc)
-            except (OverflowError, OSError, ValueError):
-                continue
-            if self._recent(moment.replace(tzinfo=None)):
-                return '<TIMESTAMP>'
+        # Timestamps: epoch seconds or milliseconds under a timestamp key (e.g. memory
+        # search's `now_ms`; see TIMESTAMP_KEYS).
+        if any(self._recent(moment) for moment in self.epoch_moments(number)):
+            return '<TIMESTAMP>'
         return number
 
     def _port(self, match: re.Match) -> str:
@@ -996,7 +1052,9 @@ def isolation(monkeypatch: pytest.MonkeyPatch, opensearch_url: str):
             try:
                 var.reset(token)
             except (RuntimeError, ValueError):
-                var.set(default)
+                # reset() refuses a token already used or made in another Context (as when a
+                # teardown runs elsewhere): put back the value from before the test by hand.
+                var.set(default if token.old_value is Token.MISSING else token.old_value)
 
 
 @pytest.fixture(autouse=True)
