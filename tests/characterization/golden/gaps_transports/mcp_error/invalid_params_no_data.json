@@ -1,0 +1,40 @@
+{
+  "executor_log": [
+    {
+      "client_name": "unknown",
+      "duration_ms": "<DURATION>",
+      "error_type": "MCPError",
+      "event_type": "tool_execution",
+      "level": "ERROR",
+      "logger": "mcp_server_opensearch.tool_executor",
+      "message": "Tool execution failed: CharGapPlantedMcpError (<DURATION>ms)",
+      "status": "error",
+      "tool_key": "CharGapPlantedMcpError",
+      "tool_name": "CharGapPlantedMcpError"
+    }
+  ],
+  "next_request": {
+    "method": "ping",
+    "response": {
+      "id": 2,
+      "jsonrpc": "2.0",
+      "result": {}
+    }
+  },
+  "notifications": [],
+  "request": {
+    "arguments": {},
+    "name": "CharGapPlantedMcpError"
+  },
+  "response": {
+    "error": {
+      "code": -32602,
+      "message": "characterization: invalid params"
+    },
+    "id": 1,
+    "jsonrpc": "2.0"
+  },
+  "returncode": 0,
+  "traceback_on_stderr": false,
+  "warnings": []
+}
