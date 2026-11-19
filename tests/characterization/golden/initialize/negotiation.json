@@ -1,0 +1,70 @@
+{
+  "handshake_offers_2026_07_28": {
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+      "capabilities": {
+        "experimental": {},
+        "tools": {
+          "listChanged": false
+        }
+      },
+      "protocolVersion": "2025-11-25",
+      "serverInfo": {
+        "name": "opensearch-mcp-server",
+        "version": ""
+      }
+    }
+  },
+  "handshake_offers_unknown_future_version": {
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+      "capabilities": {
+        "experimental": {},
+        "tools": {
+          "listChanged": false
+        }
+      },
+      "protocolVersion": "2025-11-25",
+      "serverInfo": {
+        "name": "opensearch-mcp-server",
+        "version": ""
+      }
+    }
+  },
+  "handshake_offers_unknown_old_version": {
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+      "capabilities": {
+        "experimental": {},
+        "tools": {
+          "listChanged": false
+        }
+      },
+      "protocolVersion": "2025-11-25",
+      "serverInfo": {
+        "name": "opensearch-mcp-server",
+        "version": ""
+      }
+    }
+  },
+  "modern_envelope_with_initialize_params": {
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+      "capabilities": {
+        "experimental": {},
+        "tools": {
+          "listChanged": false
+        }
+      },
+      "protocolVersion": "2025-11-25",
+      "serverInfo": {
+        "name": "opensearch-mcp-server",
+        "version": ""
+      }
+    }
+  }
+}

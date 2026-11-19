@@ -1,0 +1,29 @@
+{
+  "auto": {
+    "instructions": "This OpenSearch MCP server has no pre-configured endpoint. You must provide connection parameters on each tool call.\n\nEvery tool accepts these optional connection parameters:\n- opensearch_url (required): OpenSearch endpoint URL\n- opensearch_username / opensearch_password: For basic auth\n- opensearch_no_auth: Set true to skip authentication\n- aws_region: AWS region for IAM or Serverless auth\n- aws_iam_arn: IAM role ARN for role assumption\n- aws_profile: AWS profile name for credentials\n- aws_opensearch_serverless: Set true for OpenSearch Serverless\n- opensearch_ssl_verify: Set false to skip SSL verification\n- opensearch_timeout: Connection timeout in seconds\n\nProvide opensearch_url plus the appropriate auth parameters for your target cluster. Parameters not provided fall back to server environment variables (if any).",
+    "protocol_version": "2026-07-28",
+    "server_capabilities": {
+      "tools": {
+        "listChanged": false
+      }
+    },
+    "server_info": {
+      "name": "opensearch-mcp-server",
+      "version": ""
+    }
+  },
+  "legacy": {
+    "instructions": "This OpenSearch MCP server has no pre-configured endpoint. You must provide connection parameters on each tool call.\n\nEvery tool accepts these optional connection parameters:\n- opensearch_url (required): OpenSearch endpoint URL\n- opensearch_username / opensearch_password: For basic auth\n- opensearch_no_auth: Set true to skip authentication\n- aws_region: AWS region for IAM or Serverless auth\n- aws_iam_arn: IAM role ARN for role assumption\n- aws_profile: AWS profile name for credentials\n- aws_opensearch_serverless: Set true for OpenSearch Serverless\n- opensearch_ssl_verify: Set false to skip SSL verification\n- opensearch_timeout: Connection timeout in seconds\n\nProvide opensearch_url plus the appropriate auth parameters for your target cluster. Parameters not provided fall back to server environment variables (if any).",
+    "protocol_version": "2025-11-25",
+    "server_capabilities": {
+      "experimental": {},
+      "tools": {
+        "listChanged": false
+      }
+    },
+    "server_info": {
+      "name": "opensearch-mcp-server",
+      "version": ""
+    }
+  }
+}

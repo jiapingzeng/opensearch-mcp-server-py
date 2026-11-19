@@ -1,0 +1,266 @@
+{
+  "2024-11-05": {
+    "completion/complete": {
+      "error": {
+        "code": -32601,
+        "data": "completion/complete",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "logging/setLevel": {
+      "error": {
+        "code": -32601,
+        "data": "logging/setLevel",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "ping": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {}
+    },
+    "prompts/list": {
+      "error": {
+        "code": -32601,
+        "data": "prompts/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "resources/list": {
+      "error": {
+        "code": -32601,
+        "data": "resources/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "resources/templates/list": {
+      "error": {
+        "code": -32601,
+        "data": "resources/templates/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    }
+  },
+  "2025-03-26": {
+    "completion/complete": {
+      "error": {
+        "code": -32601,
+        "data": "completion/complete",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "logging/setLevel": {
+      "error": {
+        "code": -32601,
+        "data": "logging/setLevel",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "ping": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {}
+    },
+    "prompts/list": {
+      "error": {
+        "code": -32601,
+        "data": "prompts/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "resources/list": {
+      "error": {
+        "code": -32601,
+        "data": "resources/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "resources/templates/list": {
+      "error": {
+        "code": -32601,
+        "data": "resources/templates/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    }
+  },
+  "2025-06-18": {
+    "completion/complete": {
+      "error": {
+        "code": -32601,
+        "data": "completion/complete",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "logging/setLevel": {
+      "error": {
+        "code": -32601,
+        "data": "logging/setLevel",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "ping": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {}
+    },
+    "prompts/list": {
+      "error": {
+        "code": -32601,
+        "data": "prompts/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "resources/list": {
+      "error": {
+        "code": -32601,
+        "data": "resources/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "resources/templates/list": {
+      "error": {
+        "code": -32601,
+        "data": "resources/templates/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    }
+  },
+  "2025-11-25": {
+    "completion/complete": {
+      "error": {
+        "code": -32601,
+        "data": "completion/complete",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "logging/setLevel": {
+      "error": {
+        "code": -32601,
+        "data": "logging/setLevel",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "ping": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {}
+    },
+    "prompts/list": {
+      "error": {
+        "code": -32601,
+        "data": "prompts/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "resources/list": {
+      "error": {
+        "code": -32601,
+        "data": "resources/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "resources/templates/list": {
+      "error": {
+        "code": -32601,
+        "data": "resources/templates/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    }
+  },
+  "2026-07-28": {
+    "completion/complete": {
+      "error": {
+        "code": -32601,
+        "data": "completion/complete",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "logging/setLevel": {
+      "error": {
+        "code": -32601,
+        "data": "logging/setLevel",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "ping": {
+      "error": {
+        "code": -32601,
+        "data": "ping",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "prompts/list": {
+      "error": {
+        "code": -32601,
+        "data": "prompts/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "resources/list": {
+      "error": {
+        "code": -32601,
+        "data": "resources/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "resources/templates/list": {
+      "error": {
+        "code": -32601,
+        "data": "resources/templates/list",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    }
+  }
+}
