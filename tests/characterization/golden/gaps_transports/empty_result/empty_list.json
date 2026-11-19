@@ -1,0 +1,68 @@
+{
+  "in_process": {
+    "client_result": {
+      "content": [],
+      "isError": false,
+      "resultType": "complete"
+    },
+    "executor_log": [
+      {
+        "client_name": "unknown",
+        "duration_ms": "<DURATION>",
+        "event_type": "tool_execution",
+        "level": "INFO",
+        "logger": "mcp_server_opensearch.tool_executor",
+        "message": "Tool executed: CharGapPlantedReturns (<DURATION>ms)",
+        "status": "success",
+        "tool_key": "CharGapPlantedReturns",
+        "tool_name": "CharGapPlantedReturns"
+      },
+      {
+        "client_name": "unknown",
+        "duration_ms": "<DURATION>",
+        "event_type": "tool_execution",
+        "level": "INFO",
+        "logger": "mcp_server_opensearch.tool_executor",
+        "message": "Tool executed: CharGapPlantedReturns (<DURATION>ms)",
+        "status": "success",
+        "tool_key": "CharGapPlantedReturns",
+        "tool_name": "CharGapPlantedReturns"
+      }
+    ],
+    "response": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {
+        "content": [],
+        "isError": false
+      }
+    }
+  },
+  "request": {
+    "arguments": {},
+    "name": "CharGapPlantedReturns"
+  },
+  "stdio": {
+    "executor_log": [
+      {
+        "client_name": "unknown",
+        "duration_ms": "<DURATION>",
+        "event_type": "tool_execution",
+        "level": "INFO",
+        "logger": "mcp_server_opensearch.tool_executor",
+        "message": "Tool executed: CharGapPlantedReturns (<DURATION>ms)",
+        "status": "success",
+        "tool_key": "CharGapPlantedReturns",
+        "tool_name": "CharGapPlantedReturns"
+      }
+    ],
+    "response": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {
+        "content": [],
+        "isError": false
+      }
+    }
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "calls": [
+    {
+      "arguments": {
+        "include_detail": false
+      },
+      "name": "ListIndexTool"
+    }
+  ],
+  "profile_log": [
+    {
+      "level": "DEBUG",
+      "logger": "opensearch.client",
+      "message": "Using region from AWS_PROFILE 'char-east': us-east-2"
+    },
+    {
+      "level": "INFO",
+      "logger": "opensearch.client",
+      "message": "[AWS CREDS] Attempting AWS credentials authentication"
+    },
+    {
+      "level": "DEBUG",
+      "logger": "opensearch.client",
+      "message": "Using region from AWS_PROFILE 'char-east': us-east-2"
+    },
+    {
+      "level": "INFO",
+      "logger": "opensearch.client",
+      "message": "[AWS CREDS] Attempting AWS credentials authentication"
+    },
+    {
+      "level": "DEBUG",
+      "logger": "opensearch.client",
+      "message": "Using region from AWS_PROFILE 'char-east': us-east-2"
+    },
+    {
+      "level": "INFO",
+      "logger": "opensearch.client",
+      "message": "[AWS CREDS] Attempting AWS credentials authentication"
+    }
+  ],
+  "requests": [
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "us-east-2",
+        "service": "es"
+      },
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "us-east-2",
+        "service": "es"
+      },
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "us-east-2",
+        "service": "es"
+      },
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    }
+  ],
+  "responses": [
+    {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {
+        "content": [
+          {
+            "text": "Indices:\n[\"logs-2020.01.01\"]",
+            "type": "text"
+          }
+        ],
+        "isError": false
+      }
+    }
+  ],
+  "returncode": 0,
+  "setup": {
+    "args": [
+      "--mode",
+      "single",
+      "--debug",
+      "--log-format",
+      "json"
+    ],
+    "aws_files": {
+      "aws_config": [
+        "[profile char-east]",
+        "region = us-east-2",
+        "",
+        "[profile char-west]",
+        "region = eu-west-1",
+        "",
+        "[profile char-keyless]",
+        "region = us-west-2"
+      ],
+      "aws_credentials": [
+        "[char-east]",
+        "aws_access_key_id = AKIACHAREAST00000001",
+        "aws_secret_access_key = char-east-secret",
+        "",
+        "[char-west]",
+        "aws_access_key_id = AKIACHARWEST00000001",
+        "aws_secret_access_key = char-west-secret"
+      ]
+    },
+    "clusters": null,
+    "env": {
+      "AWS_CONFIG_FILE": "<TMP>/aws_config",
+      "AWS_PROFILE": "char-east",
+      "AWS_SHARED_CREDENTIALS_FILE": "<TMP>/aws_credentials"
+    }
+  }
+}

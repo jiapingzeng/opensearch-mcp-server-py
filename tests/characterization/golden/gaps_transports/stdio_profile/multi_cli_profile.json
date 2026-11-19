@@ -1,0 +1,212 @@
+{
+  "calls": [
+    {
+      "arguments": {
+        "include_detail": false,
+        "opensearch_cluster_name": "no-profile-cluster"
+      },
+      "name": "ListIndexTool"
+    },
+    {
+      "arguments": {
+        "include_detail": false,
+        "opensearch_cluster_name": "east-profile-cluster"
+      },
+      "name": "ListIndexTool"
+    }
+  ],
+  "profile_log": [
+    {
+      "level": "DEBUG",
+      "logger": "mcp_server_opensearch.global_state",
+      "message": "Set global profile to: char-west"
+    },
+    {
+      "level": "INFO",
+      "logger": "opensearch.client",
+      "message": "Initializing multi mode OpenSearch client for cluster: http://no-profile-cluster.invalid:9200"
+    },
+    {
+      "level": "DEBUG",
+      "logger": "opensearch.client",
+      "message": "Using region from AWS_PROFILE 'char-west': eu-west-1"
+    },
+    {
+      "level": "INFO",
+      "logger": "opensearch.client",
+      "message": "[AWS CREDS] Attempting AWS credentials authentication"
+    },
+    {
+      "level": "INFO",
+      "logger": "opensearch.client",
+      "message": "Initializing multi mode OpenSearch client for cluster: http://no-profile-cluster.invalid:9200"
+    },
+    {
+      "level": "DEBUG",
+      "logger": "opensearch.client",
+      "message": "Using region from AWS_PROFILE 'char-west': eu-west-1"
+    },
+    {
+      "level": "INFO",
+      "logger": "opensearch.client",
+      "message": "[AWS CREDS] Attempting AWS credentials authentication"
+    },
+    {
+      "level": "INFO",
+      "logger": "opensearch.client",
+      "message": "Initializing multi mode OpenSearch client for cluster: http://east-profile-cluster.invalid:9200"
+    },
+    {
+      "level": "DEBUG",
+      "logger": "opensearch.client",
+      "message": "Using region from cluster profile 'char-east': us-east-2"
+    },
+    {
+      "level": "INFO",
+      "logger": "opensearch.client",
+      "message": "[AWS CREDS] Attempting AWS credentials authentication"
+    },
+    {
+      "level": "INFO",
+      "logger": "opensearch.client",
+      "message": "Initializing multi mode OpenSearch client for cluster: http://east-profile-cluster.invalid:9200"
+    },
+    {
+      "level": "DEBUG",
+      "logger": "opensearch.client",
+      "message": "Using region from cluster profile 'char-east': us-east-2"
+    },
+    {
+      "level": "INFO",
+      "logger": "opensearch.client",
+      "message": "[AWS CREDS] Attempting AWS credentials authentication"
+    }
+  ],
+  "requests": [
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "es"
+      },
+      "host": "http://no-profile-cluster.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "es"
+      },
+      "host": "http://no-profile-cluster.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "us-east-2",
+        "service": "es"
+      },
+      "host": "http://east-profile-cluster.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "us-east-2",
+        "service": "es"
+      },
+      "host": "http://east-profile-cluster.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    }
+  ],
+  "responses": [
+    {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {
+        "content": [
+          {
+            "text": "Indices:\n[\"logs-2020.01.01\"]",
+            "type": "text"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "id": 2,
+      "jsonrpc": "2.0",
+      "result": {
+        "content": [
+          {
+            "text": "Indices:\n[\"logs-2020.01.01\"]",
+            "type": "text"
+          }
+        ],
+        "isError": false
+      }
+    }
+  ],
+  "returncode": 0,
+  "setup": {
+    "args": [
+      "--mode",
+      "multi",
+      "--config",
+      "<TMP>/clusters.yml",
+      "--profile",
+      "char-west",
+      "--debug",
+      "--log-format",
+      "json"
+    ],
+    "aws_files": {
+      "aws_config": [
+        "[profile char-east]",
+        "region = us-east-2",
+        "",
+        "[profile char-west]",
+        "region = eu-west-1",
+        "",
+        "[profile char-keyless]",
+        "region = us-west-2"
+      ],
+      "aws_credentials": [
+        "[char-east]",
+        "aws_access_key_id = AKIACHAREAST00000001",
+        "aws_secret_access_key = char-east-secret",
+        "",
+        "[char-west]",
+        "aws_access_key_id = AKIACHARWEST00000001",
+        "aws_secret_access_key = char-west-secret"
+      ]
+    },
+    "clusters": {
+      "east-profile-cluster": {
+        "opensearch_url": "http://east-profile-cluster.invalid:9200",
+        "profile": "char-east"
+      },
+      "no-profile-cluster": {
+        "opensearch_url": "http://no-profile-cluster.invalid:9200"
+      }
+    },
+    "env": {
+      "AWS_CONFIG_FILE": "<TMP>/aws_config",
+      "AWS_PROFILE": "char-east",
+      "AWS_SHARED_CREDENTIALS_FILE": "<TMP>/aws_credentials"
+    }
+  }
+}
