@@ -393,6 +393,18 @@ python -m pytest integration_tests/ -v --tb=short --timeout=300
 
 Tests that require missing environment variables will be automatically skipped.
 
+### Agent runner merge gate
+
+The Agent Runner merges each task only after the checks in `.agent-runner/config.json` (`ci.full`) pass. The gate runs these three commands offline, from the host's uv cache:
+
+```bash
+uv run --offline ruff format --check .
+uv run --offline ruff check .
+uv run --offline python -m pytest tests
+```
+
+These match the lint job and unit tests in `.github/workflows/ci.yml`. The tests in `integration_tests/` need a live OpenSearch cluster and credentials, so they are not part of the gate. They run only in GitHub CI, or locally as described in [Running Integration Tests Locally](#running-integration-tests-locally).
+
 ### Code Quality
 
 ```bash
