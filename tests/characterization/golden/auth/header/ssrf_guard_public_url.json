@@ -1,0 +1,144 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [],
+  "dns_lookups": [
+    "public-cluster.invalid:9200",
+    "public-cluster.invalid:9200"
+  ],
+  "events": [
+    {
+      "auth_method": "aws_creds",
+      "datasource_type": "aos",
+      "error": "AWS region is required for AWS credentials authentication",
+      "event_type": "datasource_connection",
+      "level": "ERROR",
+      "logger": "opensearch.client",
+      "message": "Datasource connection failed: aws_creds (aos)",
+      "opensearch_url": "http://fake-opensearch.invalid:9200",
+      "status": "error"
+    },
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET / -> 200 (<DURATION>ms)",
+      "response_size": 438,
+      "status": "success",
+      "status_code": 200
+    },
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/_cat/indices",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET /_cat/indices -> 200 (<DURATION>ms)",
+      "response_size": 154,
+      "status": "success",
+      "status_code": 200
+    }
+  ],
+  "requests": [
+    {
+      "allow_redirects": false,
+      "auth": {
+        "kind": "basic",
+        "username": "header-user"
+      },
+      "body": null,
+      "body_format": "none",
+      "header_names": [
+        "connection",
+        "content-type",
+        "user-agent"
+      ],
+      "host": "https://public-cluster.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/",
+      "timeout": 30,
+      "tls": {
+        "ca_certs": null,
+        "client_cert": null,
+        "client_key": null,
+        "ssl_assert_fingerprint": null,
+        "ssl_context": {
+          "check_hostname": true,
+          "verify_mode": "CERT_REQUIRED"
+        },
+        "ssl_show_warn": "<default>",
+        "use_ssl": true,
+        "verify_certs": true
+      },
+      "user_agent": "opensearch-mcp-server-py/<VERSION>"
+    },
+    {
+      "allow_redirects": false,
+      "auth": {
+        "kind": "basic",
+        "username": "header-user"
+      },
+      "body": null,
+      "body_format": "none",
+      "header_names": [
+        "connection",
+        "content-type",
+        "user-agent"
+      ],
+      "host": "https://public-cluster.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices",
+      "timeout": 30,
+      "tls": {
+        "ca_certs": null,
+        "client_cert": null,
+        "client_key": null,
+        "ssl_assert_fingerprint": null,
+        "ssl_context": {
+          "check_hostname": true,
+          "verify_mode": "CERT_REQUIRED"
+        },
+        "ssl_show_warn": "<default>",
+        "use_ssl": true,
+        "verify_certs": true
+      },
+      "user_agent": "opensearch-mcp-server-py/<VERSION>"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Indices:\n[\"logs-2020.01.01\",\"metrics\"]",
+        "type": "text"
+      }
+    ],
+    "isError": false
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "OPENSEARCH_HEADER_AUTH": "true",
+      "OPENSEARCH_SSRF_GUARD": "true"
+    },
+    "headers": {
+      "authorization": "Basic aGVhZGVyLXVzZXI6aGVhZGVyLXBhc3N3b3Jk",
+      "opensearch-url": "https://public-cluster.invalid:9200"
+    },
+    "mode": "single",
+    "profile": null,
+    "transport": "http"
+  }
+}

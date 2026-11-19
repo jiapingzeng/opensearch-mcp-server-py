@@ -1,0 +1,35 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false,
+      "opensearch_no_auth": true,
+      "opensearch_url": "http://dynamic-cluster.invalid:9200"
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [],
+  "events": [],
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: Per-call connection overrides are disabled but the request supplied: opensearch_no_auth, opensearch_url. Set OPENSEARCH_DYNAMIC_CONNECTION=true to allow them.",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "OPENSEARCH_DYNAMIC_CONNECTION": "false",
+      "OPENSEARCH_URL": null
+    },
+    "headers": null,
+    "mode": "single",
+    "profile": null,
+    "transport": "in-memory"
+  }
+}

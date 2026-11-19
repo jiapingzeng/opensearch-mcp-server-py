@@ -1,0 +1,69 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [],
+  "events": [
+    {
+      "auth_method": "aws_creds",
+      "datasource_type": "aoss",
+      "error": "AWS region is required for AWS credentials authentication",
+      "event_type": "datasource_connection",
+      "level": "ERROR",
+      "logger": "opensearch.client",
+      "message": "Datasource connection failed: aws_creds (aoss)",
+      "opensearch_url": "https://charcollection123.eu-west-3.aoss.amazonaws.com:443",
+      "status": "error"
+    },
+    {
+      "auth_method": "aws_creds",
+      "datasource_type": "aoss",
+      "error": "AWS region is required for AWS credentials authentication",
+      "event_type": "datasource_connection",
+      "level": "ERROR",
+      "logger": "opensearch.client",
+      "message": "Datasource connection failed: aws_creds (aoss)",
+      "opensearch_url": "https://charcollection123.eu-west-3.aoss.amazonaws.com:443",
+      "status": "error"
+    },
+    {
+      "auth_method": "aws_creds",
+      "datasource_type": "aoss",
+      "error": "AWS region is required for AWS credentials authentication",
+      "event_type": "datasource_connection",
+      "level": "ERROR",
+      "logger": "opensearch.client",
+      "message": "Datasource connection failed: aws_creds (aoss)",
+      "opensearch_url": "https://charcollection123.eu-west-3.aoss.amazonaws.com:443",
+      "status": "error"
+    }
+  ],
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: Failed to authenticate with AWS credentials: AWS region is required for AWS credentials authentication",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "AWS_ACCESS_KEY_ID": "AKIACHARENV000000001",
+      "AWS_OPENSEARCH_SERVERLESS": "true",
+      "AWS_SECRET_ACCESS_KEY": "char-env-secret",
+      "OPENSEARCH_URL": "https://charcollection123.eu-west-3.aoss.amazonaws.com"
+    },
+    "headers": null,
+    "mode": "single",
+    "profile": null,
+    "transport": "in-memory"
+  }
+}

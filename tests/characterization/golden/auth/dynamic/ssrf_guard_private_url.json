@@ -1,0 +1,40 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false,
+      "opensearch_password": "call-password",
+      "opensearch_url": "https://private-cluster.invalid:9200",
+      "opensearch_username": "call-user"
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [],
+  "dns_lookups": [
+    "private-cluster.invalid:9200",
+    "private-cluster.invalid:9200"
+  ],
+  "events": [],
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: Caller-supplied URL resolves to a non-public address (10.0.0.8), blocked by OPENSEARCH_SSRF_GUARD: https://private-cluster.invalid:9200",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "OPENSEARCH_SSRF_GUARD": "true",
+      "OPENSEARCH_URL": null
+    },
+    "headers": null,
+    "mode": "single",
+    "profile": null,
+    "transport": "in-memory"
+  }
+}

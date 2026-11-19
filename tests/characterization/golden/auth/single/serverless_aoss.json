@@ -1,0 +1,198 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [],
+  "events": [
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET / -> 200 (<DURATION>ms)",
+      "response_size": 438,
+      "status": "success",
+      "status_code": 200
+    },
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET / -> 200 (<DURATION>ms)",
+      "response_size": 438,
+      "status": "success",
+      "status_code": 200
+    },
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/_cat/indices",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET /_cat/indices -> 200 (<DURATION>ms)",
+      "response_size": 154,
+      "status": "success",
+      "status_code": 200
+    }
+  ],
+  "requests": [
+    {
+      "allow_redirects": true,
+      "auth": {
+        "kind": "sigv4",
+        "region": "us-west-2",
+        "service": "aoss"
+      },
+      "body": null,
+      "body_format": "none",
+      "header_names": [
+        "authorization",
+        "connection",
+        "content-type",
+        "user-agent",
+        "x-amz-content-sha256",
+        "x-amz-date"
+      ],
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/",
+      "sigv4": {
+        "identity": "env",
+        "signed_headers": [
+          "host",
+          "x-amz-date"
+        ]
+      },
+      "timeout": 30,
+      "tls": {
+        "ca_certs": null,
+        "client_cert": null,
+        "client_key": null,
+        "ssl_assert_fingerprint": null,
+        "ssl_context": null,
+        "ssl_show_warn": "<default>",
+        "use_ssl": false,
+        "verify_certs": true
+      },
+      "user_agent": "opensearch-mcp-server-py/<VERSION>"
+    },
+    {
+      "allow_redirects": true,
+      "auth": {
+        "kind": "sigv4",
+        "region": "us-west-2",
+        "service": "aoss"
+      },
+      "body": null,
+      "body_format": "none",
+      "header_names": [
+        "authorization",
+        "connection",
+        "content-type",
+        "user-agent",
+        "x-amz-content-sha256",
+        "x-amz-date"
+      ],
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/",
+      "sigv4": {
+        "identity": "env",
+        "signed_headers": [
+          "host",
+          "x-amz-date"
+        ]
+      },
+      "timeout": 30,
+      "tls": {
+        "ca_certs": null,
+        "client_cert": null,
+        "client_key": null,
+        "ssl_assert_fingerprint": null,
+        "ssl_context": null,
+        "ssl_show_warn": "<default>",
+        "use_ssl": false,
+        "verify_certs": true
+      },
+      "user_agent": "opensearch-mcp-server-py/<VERSION>"
+    },
+    {
+      "allow_redirects": true,
+      "auth": {
+        "kind": "sigv4",
+        "region": "us-west-2",
+        "service": "aoss"
+      },
+      "body": null,
+      "body_format": "none",
+      "header_names": [
+        "authorization",
+        "connection",
+        "content-type",
+        "user-agent",
+        "x-amz-content-sha256",
+        "x-amz-date"
+      ],
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices",
+      "sigv4": {
+        "identity": "env",
+        "signed_headers": [
+          "host",
+          "x-amz-date"
+        ]
+      },
+      "timeout": 30,
+      "tls": {
+        "ca_certs": null,
+        "client_cert": null,
+        "client_key": null,
+        "ssl_assert_fingerprint": null,
+        "ssl_context": null,
+        "ssl_show_warn": "<default>",
+        "use_ssl": false,
+        "verify_certs": true
+      },
+      "user_agent": "opensearch-mcp-server-py/<VERSION>"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Indices:\n[\"logs-2020.01.01\",\"metrics\"]",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "AWS_ACCESS_KEY_ID": "AKIACHARENV000000001",
+      "AWS_OPENSEARCH_SERVERLESS": "true",
+      "AWS_REGION": "us-west-2",
+      "AWS_SECRET_ACCESS_KEY": "char-env-secret"
+    },
+    "headers": null,
+    "mode": "single",
+    "profile": null,
+    "transport": "in-memory"
+  }
+}

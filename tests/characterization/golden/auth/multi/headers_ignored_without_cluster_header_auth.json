@@ -1,0 +1,146 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false,
+      "opensearch_cluster_name": "basic-cluster"
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [],
+  "events": [
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET / -> 200 (<DURATION>ms)",
+      "response_size": 438,
+      "status": "success",
+      "status_code": 200
+    },
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/_cat/indices",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET /_cat/indices -> 200 (<DURATION>ms)",
+      "response_size": 154,
+      "status": "success",
+      "status_code": 200
+    }
+  ],
+  "requests": [
+    {
+      "allow_redirects": true,
+      "auth": {
+        "kind": "basic",
+        "username": "cluster-user"
+      },
+      "body": null,
+      "body_format": "none",
+      "header_names": [
+        "connection",
+        "content-type",
+        "user-agent"
+      ],
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/",
+      "timeout": 30,
+      "tls": {
+        "ca_certs": null,
+        "client_cert": null,
+        "client_key": null,
+        "ssl_assert_fingerprint": null,
+        "ssl_context": null,
+        "ssl_show_warn": "<default>",
+        "use_ssl": false,
+        "verify_certs": true
+      },
+      "user_agent": "opensearch-mcp-server-py/<VERSION>"
+    },
+    {
+      "allow_redirects": true,
+      "auth": {
+        "kind": "basic",
+        "username": "cluster-user"
+      },
+      "body": null,
+      "body_format": "none",
+      "header_names": [
+        "connection",
+        "content-type",
+        "user-agent"
+      ],
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices",
+      "timeout": 30,
+      "tls": {
+        "ca_certs": null,
+        "client_cert": null,
+        "client_key": null,
+        "ssl_assert_fingerprint": null,
+        "ssl_context": null,
+        "ssl_show_warn": "<default>",
+        "use_ssl": false,
+        "verify_certs": true
+      },
+      "user_agent": "opensearch-mcp-server-py/<VERSION>"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Indices:\n[\"logs-2020.01.01\",\"metrics\"]",
+        "type": "text"
+      }
+    ],
+    "isError": false
+  },
+  "setup": {
+    "clusters": {
+      "aws-cluster": {
+        "opensearch_url": "http://aws-cluster.invalid:9200"
+      },
+      "basic-cluster": {
+        "opensearch_password": "cluster-password",
+        "opensearch_url": "http://fake-opensearch.invalid:9200",
+        "opensearch_username": "cluster-user"
+      },
+      "header-cluster": {
+        "opensearch_header_auth": true,
+        "opensearch_password": "cluster-password",
+        "opensearch_url": "http://header-cluster.invalid:9200",
+        "opensearch_username": "cluster-user"
+      },
+      "iam-cluster": {
+        "aws_region": "us-east-1",
+        "iam_arn": "arn:aws:iam::123456789012:role/char-role",
+        "opensearch_url": "http://iam-cluster.invalid:9200"
+      },
+      "profile-cluster": {
+        "opensearch_url": "http://profile-cluster.invalid:9200",
+        "profile": "char-a"
+      }
+    },
+    "env": {
+      "OPENSEARCH_HEADER_AUTH": "true"
+    },
+    "headers": {
+      "authorization": "Basic aGVhZGVyLXVzZXI6aGVhZGVyLXBhc3N3b3Jk"
+    },
+    "mode": "multi",
+    "profile": null,
+    "transport": "http"
+  }
+}

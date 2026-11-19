@@ -1,0 +1,58 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "aws_profile": "char-a",
+      "include_detail": false,
+      "opensearch_url": "http://dynamic-cluster.invalid:9200"
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [],
+  "events": [
+    {
+      "auth_method": "aws_creds",
+      "datasource_type": "aos",
+      "error": "AWS region is required for AWS credentials authentication",
+      "event_type": "datasource_connection",
+      "level": "ERROR",
+      "logger": "opensearch.client",
+      "message": "Datasource connection failed: aws_creds (aos)",
+      "opensearch_url": "http://dynamic-cluster.invalid:9200",
+      "status": "error"
+    },
+    {
+      "auth_method": "aws_creds",
+      "datasource_type": "aos",
+      "error": "AWS region is required for AWS credentials authentication",
+      "event_type": "datasource_connection",
+      "level": "ERROR",
+      "logger": "opensearch.client",
+      "message": "Datasource connection failed: aws_creds (aos)",
+      "opensearch_url": "http://dynamic-cluster.invalid:9200",
+      "status": "error"
+    }
+  ],
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: Failed to authenticate with AWS credentials: AWS region is required for AWS credentials authentication",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "AWS_CONFIG_FILE": "<TMP>/aws_config",
+      "OPENSEARCH_URL": null
+    },
+    "headers": null,
+    "mode": "single",
+    "profile": null,
+    "transport": "in-memory"
+  }
+}

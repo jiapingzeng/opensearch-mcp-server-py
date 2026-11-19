@@ -1,0 +1,68 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [],
+  "events": [
+    {
+      "auth_method": "iam_auth",
+      "datasource_type": "aos",
+      "error": "AWS region is required for IAM role authentication",
+      "event_type": "datasource_connection",
+      "level": "ERROR",
+      "logger": "opensearch.client",
+      "message": "Datasource connection failed: iam_auth (aos)",
+      "opensearch_url": "http://fake-opensearch.invalid:9200",
+      "status": "error"
+    },
+    {
+      "auth_method": "iam_auth",
+      "datasource_type": "aos",
+      "error": "AWS region is required for IAM role authentication",
+      "event_type": "datasource_connection",
+      "level": "ERROR",
+      "logger": "opensearch.client",
+      "message": "Datasource connection failed: iam_auth (aos)",
+      "opensearch_url": "http://fake-opensearch.invalid:9200",
+      "status": "error"
+    },
+    {
+      "auth_method": "iam_auth",
+      "datasource_type": "aos",
+      "error": "AWS region is required for IAM role authentication",
+      "event_type": "datasource_connection",
+      "level": "ERROR",
+      "logger": "opensearch.client",
+      "message": "Datasource connection failed: iam_auth (aos)",
+      "opensearch_url": "http://fake-opensearch.invalid:9200",
+      "status": "error"
+    }
+  ],
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: Failed to assume IAM role arn:aws:iam::123456789012:role/char-role: AWS region is required for IAM role authentication",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "AWS_ACCESS_KEY_ID": "AKIACHARENV000000001",
+      "AWS_IAM_ARN": "arn:aws:iam::123456789012:role/char-role",
+      "AWS_SECRET_ACCESS_KEY": "char-env-secret"
+    },
+    "headers": null,
+    "mode": "single",
+    "profile": null,
+    "transport": "in-memory"
+  }
+}
