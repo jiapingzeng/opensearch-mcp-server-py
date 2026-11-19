@@ -1,0 +1,53 @@
+{
+  "arguments": {
+    "id": "DcxjTpkBvwXRq366C1Zz",
+    "memory": "User's name is Bob Smith",
+    "memory_container_id": "HudqiJkB1SltqOcZusVU",
+    "tags": {
+      "topic": "personal info",
+      "updated": "true"
+    },
+    "type": "long-term"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "memory": "User's name is Bob Smith",
+        "tags": {
+          "topic": "personal info",
+          "updated": "true"
+        }
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "PUT",
+      "params": {},
+      "path": "/_plugins/_ml/memory_containers/HudqiJkB1SltqOcZusVU/memories/long-term/DcxjTpkBvwXRq366C1Zz"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error updating memory: NotFoundError(404, '{\"error\":{\"root_cause\":[{\"type\":\"status_exception\",\"reason\":\"Memory DcxjTpkBvwXRq366C1Zz not found\"}],\"type\":\"status_exception\",\"reason\":\"Memory DcxjTpkBvwXRq366C1Zz not found\"},\"status\":404}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "UpdateAgenticMemoryTool"
+}

@@ -1,0 +1,174 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [],
+  "events": [
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET / -> 200 (<DURATION>ms)",
+      "response_size": 438,
+      "status": "success",
+      "status_code": 200
+    },
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET / -> 200 (<DURATION>ms)",
+      "response_size": 438,
+      "status": "success",
+      "status_code": 200
+    },
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/_cat/indices",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET /_cat/indices -> 200 (<DURATION>ms)",
+      "response_size": 154,
+      "status": "success",
+      "status_code": 200
+    }
+  ],
+  "requests": [
+    {
+      "allow_redirects": true,
+      "auth": {
+        "kind": "basic",
+        "username": "env-user"
+      },
+      "body": null,
+      "body_format": "none",
+      "header_names": [
+        "connection",
+        "content-type",
+        "user-agent"
+      ],
+      "host": "https://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/",
+      "timeout": 30,
+      "tls": {
+        "ca_certs": null,
+        "client_cert": null,
+        "client_key": null,
+        "ssl_assert_fingerprint": null,
+        "ssl_context": {
+          "check_hostname": false,
+          "verify_mode": "CERT_NONE"
+        },
+        "ssl_show_warn": "<default>",
+        "use_ssl": true,
+        "verify_certs": false
+      },
+      "user_agent": "opensearch-mcp-server-py/<VERSION>"
+    },
+    {
+      "allow_redirects": true,
+      "auth": {
+        "kind": "basic",
+        "username": "env-user"
+      },
+      "body": null,
+      "body_format": "none",
+      "header_names": [
+        "connection",
+        "content-type",
+        "user-agent"
+      ],
+      "host": "https://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/",
+      "timeout": 30,
+      "tls": {
+        "ca_certs": null,
+        "client_cert": null,
+        "client_key": null,
+        "ssl_assert_fingerprint": null,
+        "ssl_context": {
+          "check_hostname": false,
+          "verify_mode": "CERT_NONE"
+        },
+        "ssl_show_warn": "<default>",
+        "use_ssl": true,
+        "verify_certs": false
+      },
+      "user_agent": "opensearch-mcp-server-py/<VERSION>"
+    },
+    {
+      "allow_redirects": true,
+      "auth": {
+        "kind": "basic",
+        "username": "env-user"
+      },
+      "body": null,
+      "body_format": "none",
+      "header_names": [
+        "connection",
+        "content-type",
+        "user-agent"
+      ],
+      "host": "https://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices",
+      "timeout": 30,
+      "tls": {
+        "ca_certs": null,
+        "client_cert": null,
+        "client_key": null,
+        "ssl_assert_fingerprint": null,
+        "ssl_context": {
+          "check_hostname": false,
+          "verify_mode": "CERT_NONE"
+        },
+        "ssl_show_warn": "<default>",
+        "use_ssl": true,
+        "verify_certs": false
+      },
+      "user_agent": "opensearch-mcp-server-py/<VERSION>"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Indices:\n[\"logs-2020.01.01\",\"metrics\"]",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "OPENSEARCH_PASSWORD": "env-password",
+      "OPENSEARCH_SSL_VERIFY": "false",
+      "OPENSEARCH_URL": "https://fake-opensearch.invalid:9200",
+      "OPENSEARCH_USERNAME": "env-user"
+    },
+    "headers": null,
+    "mode": "single",
+    "profile": null,
+    "transport": "in-memory"
+  }
+}

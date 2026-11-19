@@ -1,0 +1,54 @@
+{
+  "arguments": {
+    "baseTimeRangeEnd": "2020-01-01 09:30:00",
+    "baseTimeRangeStart": "2020-01-01 09:00:00",
+    "index": "logs-app",
+    "logFieldName": "message",
+    "selectionTimeRangeEnd": "2020-01-01 10:30:00",
+    "selectionTimeRangeStart": "2020-01-01 10:00:00",
+    "timeField": "@timestamp"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": "source=logs-app | where @timestamp>'2020-01-01T09:00:00.000Z' and @timestamp<'2020-01-01T09:30:00.000Z' | fields message | patterns message method=brain mode=aggregation variable_count_threshold=3 | fields pattern_count, patterns_field"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {
+        "format": "jdbc"
+      },
+      "path": "/_plugins/_ppl"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": "source=logs-app | where @timestamp>'2020-01-01T10:00:00.000Z' and @timestamp<'2020-01-01T10:30:00.000Z' | fields message | patterns message method=brain mode=aggregation variable_count_threshold=3 | fields pattern_count, patterns_field"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {
+        "format": "jdbc"
+      },
+      "path": "/_plugins/_ppl"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "LogPatternAnalysisTool result:\n{\"patternMapDifference\":[{\"pattern\":\"Connection timeout to <*>\",\"base\":0.005235602094240838,\"selection\":0.14634146341463414,\"lift\":27.95121951219512},{\"pattern\":\"NullPointerException at <*>\",\"base\":0.0,\"selection\":0.024390243902439025,\"lift\":null}]}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "LogPatternAnalysisTool"
+}

@@ -1,0 +1,52 @@
+{
+  "arguments": {
+    "memory_container_id": "HudqiJkB1SltqOcZusVU",
+    "query": {
+      "match": {
+        "owner_id": "admin"
+      }
+    },
+    "type": "working"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "match": {
+            "owner_id": "admin"
+          }
+        }
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/_plugins/_ml/memory_containers/HudqiJkB1SltqOcZusVU/memories/working/_delete_by_query"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error deleting memories by query: RequestError(400, '{\"error\":{\"root_cause\":[{\"type\":\"parsing_exception\",\"reason\":\"[match] query malformed, no start_object after query name\",\"line\":1,\"col\":19}],\"type\":\"parsing_exception\",\"reason\":\"[match] query malformed, no start_object after query name\",\"line\":1,\"col\":19},\"status\":400}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "DeleteAgenticMemoryByQueryTool"
+}

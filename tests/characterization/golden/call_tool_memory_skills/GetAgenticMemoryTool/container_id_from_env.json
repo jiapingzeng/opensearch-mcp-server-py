@@ -1,0 +1,53 @@
+{
+  "arguments": {
+    "id": "XyEuiJkBeh2gPPwzjYWM",
+    "type": "working"
+  },
+  "listed_schema": {
+    "memory_container_id": {
+      "default": "HudqiJkB1SltqOcZusVU",
+      "description": "The ID of the memory container.",
+      "title": "Memory Container Id",
+      "type": "string"
+    },
+    "required": [
+      "id",
+      "type"
+    ]
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_plugins/_ml/memory_containers/HudqiJkB1SltqOcZusVU/memories/working/XyEuiJkBeh2gPPwzjYWM"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Memory XyEuiJkBeh2gPPwzjYWM (working):\n{\"memory_container_id\":\"HudqiJkB1SltqOcZusVU\",\"payload_type\":\"data\"}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "GetAgenticMemoryTool"
+}

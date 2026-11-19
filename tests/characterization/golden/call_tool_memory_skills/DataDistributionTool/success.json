@@ -1,0 +1,93 @@
+{
+  "arguments": {
+    "baselineTimeRangeEnd": "2020-01-01 09:30:00",
+    "baselineTimeRangeStart": "2020-01-01 09:00:00",
+    "index": "logs-app",
+    "selectionTimeRangeEnd": "2020-01-01 10:30:00",
+    "selectionTimeRangeStart": "2020-01-01 10:00:00",
+    "size": 100,
+    "timeField": "@timestamp"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "_source": true,
+        "query": {
+          "bool": {
+            "must": [
+              {
+                "range": {
+                  "@timestamp": {
+                    "format": "strict_date_optional_time||epoch_millis",
+                    "gte": "2020-01-01T10:00:00.000Z",
+                    "lte": "2020-01-01T10:30:00.000Z"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "size": 100
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/logs-app/_search"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "_source": true,
+        "query": {
+          "bool": {
+            "must": [
+              {
+                "range": {
+                  "@timestamp": {
+                    "format": "strict_date_optional_time||epoch_millis",
+                    "gte": "2020-01-01T09:00:00.000Z",
+                    "lte": "2020-01-01T09:30:00.000Z"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "size": 100
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/logs-app/_search"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/logs-app/_mapping"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "DataDistributionTool result:\n{\"comparisonAnalysis\":[{\"field\":\"bytes\",\"divergence\":0.7,\"topChanges\":[{\"value\":\"512\",\"selectionPercentage\":0.3,\"baselinePercentage\":1.0},{\"value\":\"4096\",\"selectionPercentage\":0.7,\"baselinePercentage\":0.0}]},{\"field\":\"status\",\"divergence\":0.5,\"topChanges\":[{\"value\":\"ok\",\"selectionPercentage\":0.4,\"baselinePercentage\":0.9},{\"value\":\"error\",\"selectionPercentage\":0.6,\"baselinePercentage\":0.1}]},{\"field\":\"service\",\"divergence\":0.10000000000000003,\"topChanges\":[{\"value\":\"auth\",\"selectionPercentage\":0.5,\"baselinePercentage\":0.4},{\"value\":\"cart\",\"selectionPercentage\":0.3,\"baselinePercentage\":0.4},{\"value\":\"pay\",\"selectionPercentage\":0.2,\"baselinePercentage\":0.2}]}]}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "DataDistributionTool"
+}

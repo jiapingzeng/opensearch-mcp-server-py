@@ -1,0 +1,35 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [],
+  "events": [],
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: OpenSearch CA certificate file does not exist or is not a file: <TMP>/missing.pem",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "OPENSEARCH_CA_CERT_PATH": "<TMP>/missing.pem",
+      "OPENSEARCH_PASSWORD": "env-password",
+      "OPENSEARCH_URL": "https://fake-opensearch.invalid:9200",
+      "OPENSEARCH_USERNAME": "env-user"
+    },
+    "headers": null,
+    "mode": "single",
+    "profile": null,
+    "transport": "in-memory"
+  }
+}

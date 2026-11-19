@@ -1,0 +1,29 @@
+{
+  "arguments": {
+    "memory_id": "mem-7Kx2"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "DELETE",
+      "params": {},
+      "path": "/agent-memory/_doc/mem-7Kx2"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Memory mem-7Kx2 deleted (result: deleted).",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "DeleteMemoryTool"
+}

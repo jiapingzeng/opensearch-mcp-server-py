@@ -1,0 +1,62 @@
+{
+  "arguments": {
+    "memory_container_id": "HudqiJkB1SltqOcZusVU",
+    "query": {
+      "match_all": {}
+    },
+    "sort": [
+      {
+        "created_time": {
+          "order": "desc"
+        }
+      }
+    ],
+    "type": "sessions"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "match_all": {}
+        },
+        "sort": [
+          {
+            "created_time": {
+              "order": "desc"
+            }
+          }
+        ]
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_plugins/_ml/memory_containers/HudqiJkB1SltqOcZusVU/memories/sessions/_search"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error searching memory: AuthorizationException(403, '{\"error\":{\"root_cause\":[{\"type\":\"security_exception\",\"reason\":\"no permissions for [cluster:admin/opensearch/ml/memory_containers/search] and User [name=bob, backend_roles=[], requestedTenant=null]\"}],\"type\":\"security_exception\",\"reason\":\"no permissions for [cluster:admin/opensearch/ml/memory_containers/search] and User [name=bob, backend_roles=[], requestedTenant=null]\"},\"status\":403}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "SearchAgenticMemoryTool"
+}
