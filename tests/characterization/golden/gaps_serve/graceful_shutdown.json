@@ -1,76 +1,91 @@
 {
-  "log": [
-    {
-      "level": "INFO",
-      "logger": "uvicorn.error",
-      "message": "Started server process [<PID>]"
-    },
-    {
-      "level": "INFO",
-      "logger": "uvicorn.error",
-      "message": "Waiting for application startup."
-    },
-    {
-      "level": "INFO",
-      "logger": "mcp.server.streamable_http_manager",
-      "message": "StreamableHTTP session manager started"
-    },
-    {
-      "level": "INFO",
-      "logger": "root",
-      "message": "Application started with StreamableHTTP session manager!"
-    },
-    {
-      "level": "INFO",
-      "logger": "uvicorn.error",
-      "message": "Application startup complete."
-    },
-    {
-      "level": "INFO",
-      "logger": "uvicorn.error",
-      "message": "Uvicorn running on http://127.0.0.1:<PORT> (Press CTRL+C to quit)"
-    },
-    {
-      "level": "INFO",
-      "logger": "uvicorn.error",
-      "message": "Shutting down"
-    },
-    {
-      "level": "INFO",
-      "logger": "uvicorn.error",
-      "message": "Waiting for connections to close. (CTRL+C to force quit)"
-    },
-    {
-      "level": "ERROR",
-      "logger": "uvicorn.error",
-      "message": "Cancel 1 running task(s), timeout graceful shutdown exceeded"
-    },
-    {
-      "level": "INFO",
-      "logger": "uvicorn.error",
-      "message": "Waiting for application shutdown."
-    },
-    {
-      "level": "INFO",
-      "logger": "root",
-      "message": "Application shutting down..."
-    },
-    {
-      "level": "INFO",
-      "logger": "mcp.server.streamable_http_manager",
-      "message": "StreamableHTTP session manager shutting down"
-    },
-    {
-      "level": "INFO",
-      "logger": "uvicorn.error",
-      "message": "Application shutdown complete."
-    },
-    {
-      "level": "INFO",
-      "logger": "uvicorn.error",
-      "message": "Finished server process [<PID>]"
-    }
-  ],
+  "log": {
+    "requests": [
+      {
+        "exception": "CancelledError",
+        "level": "ERROR",
+        "logger": "uvicorn.error",
+        "message": "Exception in ASGI application\n"
+      },
+      {
+        "level": "INFO",
+        "logger": "uvicorn.access",
+        "message": "127.0.0.1:<PORT> - \"POST /mcp HTTP/1.1\" 500"
+      }
+    ],
+    "server": [
+      {
+        "level": "INFO",
+        "logger": "uvicorn.error",
+        "message": "Started server process [<PID>]"
+      },
+      {
+        "level": "INFO",
+        "logger": "uvicorn.error",
+        "message": "Waiting for application startup."
+      },
+      {
+        "level": "INFO",
+        "logger": "mcp.server.streamable_http_manager",
+        "message": "StreamableHTTP session manager started"
+      },
+      {
+        "level": "INFO",
+        "logger": "root",
+        "message": "Application started with StreamableHTTP session manager!"
+      },
+      {
+        "level": "INFO",
+        "logger": "uvicorn.error",
+        "message": "Application startup complete."
+      },
+      {
+        "level": "INFO",
+        "logger": "uvicorn.error",
+        "message": "Uvicorn running on http://127.0.0.1:<PORT> (Press CTRL+C to quit)"
+      },
+      {
+        "level": "INFO",
+        "logger": "uvicorn.error",
+        "message": "Shutting down"
+      },
+      {
+        "level": "INFO",
+        "logger": "uvicorn.error",
+        "message": "Waiting for connections to close. (CTRL+C to force quit)"
+      },
+      {
+        "level": "ERROR",
+        "logger": "uvicorn.error",
+        "message": "Cancel 1 running task(s), timeout graceful shutdown exceeded"
+      },
+      {
+        "level": "INFO",
+        "logger": "uvicorn.error",
+        "message": "Waiting for application shutdown."
+      },
+      {
+        "level": "INFO",
+        "logger": "root",
+        "message": "Application shutting down..."
+      },
+      {
+        "level": "INFO",
+        "logger": "mcp.server.streamable_http_manager",
+        "message": "StreamableHTTP session manager shutting down"
+      },
+      {
+        "level": "INFO",
+        "logger": "uvicorn.error",
+        "message": "Application shutdown complete."
+      },
+      {
+        "level": "INFO",
+        "logger": "uvicorn.error",
+        "message": "Finished server process [<PID>]"
+      }
+    ]
+  },
   "port_closed_after_serve_returned": true,
   "request": {
     "reply": [
@@ -89,19 +104,6 @@
     ],
     "sent": "POST /mcp, content-length 51, 10 bytes of the body"
   },
-  "request_log": [
-    {
-      "exception": "CancelledError",
-      "level": "ERROR",
-      "logger": "uvicorn.error",
-      "message": "Exception in ASGI application\n"
-    },
-    {
-      "level": "INFO",
-      "logger": "uvicorn.access",
-      "message": "127.0.0.1:<PORT> - \"POST /mcp HTTP/1.1\" 500"
-    }
-  ],
   "serve_called_with": {
     "host": "127.0.0.1",
     "port": 0

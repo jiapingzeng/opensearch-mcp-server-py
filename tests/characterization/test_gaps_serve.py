@@ -18,11 +18,12 @@ loopback. Pinned under ``golden/gaps_serve/``:
   the open ``GET /sse`` sees when the server shuts down under it.
 - ``<transport>/server``: what ``serve()`` gave uvicorn (host, port, graceful-shutdown timeout,
   read from the running uvicorn server), where it listened, the uvicorn and lifespan log lines
-  from start to stop, the signal re-raised after ``serve()`` returned, and that the port is
-  closed afterwards.
+  from start to stop (the server's and the requests' in two lists, without the wait lines
+  whose presence depends on timing: see ``ServeRun.lines``), the signal re-raised after
+  ``serve()`` returned, and that the port is closed afterwards.
 - ``graceful_shutdown``: the graceful-shutdown timeout as a client sees it: a request still
   being received when the server stops is cut after 10 s (the test checks the wait), and the
-  log lines of the stopping server and of that request (two lists: two tasks log at once).
+  log lines of the stopping server and of that request.
 
 A run stops as ``kill <pid>`` stops the server: ``SIGTERM`` (``signal.raise_signal``), which
 uvicorn's handler turns into a graceful shutdown. ``serve()`` must return within
@@ -59,6 +60,7 @@ import time
 import uvicorn
 from dataclasses import dataclass, field
 from mcp_server_opensearch import streaming_server
+from pathlib import Path
 from sse_starlette import sse as sse_starlette
 from typing import Any
 
@@ -104,6 +106,15 @@ LIST_INDEX_CALL = {'name': 'ListIndexTool', 'arguments': {'include_detail': Fals
 UVICORN_LOGGERS = ('uvicorn', 'uvicorn.error', 'uvicorn.access', 'uvicorn.asgi')
 LIFESPAN_LOGGERS = ('mcp.server.streamable_http_manager',)
 LIFESPAN_MODULE = 'streaming_server'
+# uvicorn's shutdown logs these only if, 0.1 s after it starts, a connection is still open or a
+# request task still runs. Whether that holds depends on timing where the client's last
+# request, or sse-starlette's watcher (it polls every 0.5 s, from when it started) ending an
+# open event stream, races that check, so a golden leaves them out unless the test makes the
+# wait certain (`ServeRun.lines(waits=True)`).
+OPTIONAL_WAIT_LINES = (
+    'Waiting for connections to close.',
+    'Waiting for background tasks to complete.',
+)
 
 # Volatile parts of those log lines: loopback addresses with a port (the server's, picked by
 # the OS, and each client connection's) and the process id uvicorn prints.
@@ -146,11 +157,10 @@ if _LOOPBACK_UNAVAILABLE is not None:
 
 @dataclass
 class LogEntry:
-    """A log record made while ``serve()`` ran: when (monotonic) and in which asyncio task."""
+    """A log record made while ``serve()`` ran, with the monotonic time it was made."""
 
     at: float
     record: logging.LogRecord
-    task: asyncio.Task | None
 
 
 def log_line(record: logging.LogRecord) -> dict:
@@ -169,6 +179,23 @@ def log_line(record: logging.LogRecord) -> dict:
         if not isinstance(error, asyncio.CancelledError):
             line['exception'] += f': {error}'
     return line
+
+
+def _is_lifespan_record(record: logging.LogRecord) -> bool:
+    """Whether the app's lifespan logged ``record`` (see ``LIFESPAN_LOGGERS``)."""
+    return record.name in LIFESPAN_LOGGERS or (
+        record.name == 'root' and record.module == LIFESPAN_MODULE
+    )
+
+
+def _logged_for_a_request(record: logging.LogRecord) -> bool:
+    """Whether uvicorn's HTTP protocol code (``uvicorn/protocols/``) logged ``record``.
+
+    That code runs per connection and request: it logs the access line and any error the app
+    raises for the request. uvicorn's start and stop are logged from elsewhere.
+    """
+    parts = Path(record.pathname).parts
+    return any(parts[i : i + 2] == ('uvicorn', 'protocols') for i in range(len(parts) - 1))
 
 
 def _running_uvicorn_server() -> uvicorn.Server | None:
@@ -197,8 +224,6 @@ class ServeRun:
     uvicorn_server: uvicorn.Server | None = None
     port: int = 0
     listening: list[dict] = field(default_factory=list)
-    # The tasks uvicorn runs the app in for requests, as `wait_requests_in_flight` saw them.
-    request_tasks: set = field(default_factory=set)
     stopped: bool = False
 
     @property
@@ -238,15 +263,18 @@ class ServeRun:
                 }
             )
 
-    async def wait_requests_in_flight(self, count: int) -> None:
-        """Wait until uvicorn runs the app for ``count`` requests (its server state's tasks)."""
+    async def wait_requests_in_flight(self, count: int) -> int:
+        """Wait until uvicorn runs the app for ``count`` requests (its server state's tasks).
+
+        Returns how many requests are in flight then.
+        """
         loop = asyncio.get_running_loop()
         deadline = loop.time() + READ_TIMEOUT
         while len(self.uvicorn_server.server_state.tasks) < count:
             if loop.time() > deadline:
                 pytest.fail(f'uvicorn did not start {count} request(s)', pytrace=False)
             await asyncio.sleep(POLL_SECONDS)
-        self.request_tasks = set(self.uvicorn_server.server_state.tasks)
+        return len(self.uvicorn_server.server_state.tasks)
 
     async def stop(self) -> None:
         """Stop ``serve()`` as ``kill <pid>`` does (SIGTERM); wait until it returns."""
@@ -254,27 +282,40 @@ class ServeRun:
         signal.raise_signal(signal.SIGTERM)
         await asyncio.wait_for(asyncio.shield(self.task), STOP_TIMEOUT)
 
-    def lines(self, *, in_request_tasks: bool | None = None) -> list[dict]:
+    def lines(self, *, waits: bool = False) -> dict:
         """The log lines a golden keeps (see ``UVICORN_LOGGERS``), from uvicorn's first on.
 
-        ``in_request_tasks`` True keeps only the lines logged in ``request_tasks``, False
-        only the others: two tasks running at once log in an order a golden cannot rely on.
+        Two lists, each in the order the lines were logged: ``requests``, the lines uvicorn's
+        HTTP protocol code logs for each request (its access line, an error in the app), and
+        ``server``, all others: the server's start and stop (``serve()`` and the app's
+        lifespan, which hand over to each other, so their order is fixed). The two are not
+        ordered with each other: a request that ends as the server stops (an event stream
+        ended by sse-starlette, a request uvicorn cancels) logs while the server's shutdown
+        goes on, at a moment that depends on timing. ``OPTIONAL_WAIT_LINES`` are left out
+        unless ``waits``.
         """
         start = next(
             (i for i, entry in enumerate(self.log) if entry.record.name in UVICORN_LOGGERS),
             len(self.log),
         )
-        return [
-            log_line(entry.record)
+        kept = [
+            entry
             for entry in self.log[start:]
-            if (
-                entry.record.name in UVICORN_LOGGERS + LIFESPAN_LOGGERS
-                or (entry.record.name == 'root' and entry.record.module == LIFESPAN_MODULE)
-            )
-            and (
-                in_request_tasks is None or (entry.task in self.request_tasks) == in_request_tasks
-            )
+            if entry.record.name in UVICORN_LOGGERS or _is_lifespan_record(entry.record)
         ]
+        if not waits:
+            kept = [
+                entry
+                for entry in kept
+                if not (
+                    entry.record.name == 'uvicorn.error'
+                    and entry.record.getMessage().startswith(OPTIONAL_WAIT_LINES)
+                )
+            ]
+        return {
+            'server': [log_line(e.record) for e in kept if not _logged_for_a_request(e.record)],
+            'requests': [log_line(e.record) for e in kept if _logged_for_a_request(e.record)],
+        }
 
     def logged_at(self, logger: str, message_start: str) -> float:
         """When the first ``logger`` record whose message starts with ``message_start`` was made."""
@@ -384,11 +425,7 @@ def serving(monkeypatch, caplog):
 
         def recording_factory(*args, **kwargs) -> logging.LogRecord:
             record = factory(*args, **kwargs)
-            try:
-                task = asyncio.current_task()
-            except RuntimeError:  # a record made outside the event loop
-                task = None
-            log.append(LogEntry(time.monotonic(), record, task))
+            log.append(LogEntry(time.monotonic(), record))
             return record
 
         def on_sigterm(signum, frame) -> None:
@@ -644,7 +681,7 @@ async def test_graceful_shutdown_timeout(serving, golden, normalize):
         try:
             writer.write(stuck_request(run.port))
             await writer.drain()
-            await run.wait_requests_in_flight(1)
+            in_flight = await run.wait_requests_in_flight(1)
             await run.stop()
             reply = await asyncio.wait_for(reader.read(), READ_TIMEOUT)
         finally:
@@ -660,7 +697,7 @@ async def test_graceful_shutdown_timeout(serving, golden, normalize):
     assert GRACEFUL_SHUTDOWN_SECONDS - 0.5 <= waited < GRACEFUL_SHUTDOWN_SECONDS + 10, waited
     assert port_closed, f'127.0.0.1:{run.port} still accepts connections after serve() returned'
     summary = run.summary(port_closed)
-    assert len(run.request_tasks) == 1, run.request_tasks
+    assert in_flight == 1, in_flight
     golden(
         f'{AREA}/graceful_shutdown',
         normalize(
@@ -673,11 +710,9 @@ async def test_graceful_shutdown_timeout(serving, golden, normalize):
                 },
                 'serve_called_with': summary['serve_called_with'],
                 'uvicorn_config': summary['uvicorn_config'],
-                # The stopping server's lines and the stuck request's are logged by two tasks
-                # at once (uvicorn cancels the request, then starts the lifespan shutdown):
-                # each list is in order, the two are not ordered with each other.
-                'log': run.lines(in_request_tasks=False),
-                'request_log': run.lines(in_request_tasks=True),
+                # The stuck request keeps its connection open through the wait, so uvicorn
+                # always logs "Waiting for connections to close." here: keep it.
+                'log': run.lines(waits=True),
                 'signals_raised_again_after_serve_returned': summary[
                     'signals_raised_again_after_serve_returned'
                 ],
