@@ -1,0 +1,46 @@
+{
+  "arguments": {
+    "index": "products",
+    "name": "baseline",
+    "query": "{\"query\":{\"multi_match\":{\"query\":\"%SearchText%\",\"fields\":[\"title\",\"description\"]}}}"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "index": "products",
+        "name": "baseline",
+        "query": "{\"query\":{\"multi_match\":{\"query\":\"%SearchText%\",\"fields\":[\"title\",\"description\"]}}}"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "PUT",
+      "params": {},
+      "path": "/_plugins/_search_relevance/search_configurations"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Search configuration created:\n{\"_id\":\"sc-baseline\",\"result\":\"created\"}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "CreateSearchConfigurationTool"
+}

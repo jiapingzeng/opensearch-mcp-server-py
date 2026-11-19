@@ -1,0 +1,47 @@
+{
+  "arguments": {
+    "name": "top-queries",
+    "query_set_size": 20,
+    "sampling": "random"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "description": "Query set: top-queries (random, size=20)",
+        "name": "top-queries",
+        "querySetSize": 20,
+        "sampling": "random"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/_plugins/_search_relevance/query_sets"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error sampling query set: NotFoundError(404, '{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [ubi_queries]\",\"index\":\"ubi_queries\",\"index_uuid\":\"_na_\",\"resource.id\":\"ubi_queries\",\"resource.type\":\"index_or_alias\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [ubi_queries]\",\"index\":\"ubi_queries\",\"index_uuid\":\"_na_\",\"resource.id\":\"ubi_queries\",\"resource.type\":\"index_or_alias\"},\"status\":404}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "SampleQuerySetTool"
+}

@@ -1,0 +1,53 @@
+{
+  "arguments": {
+    "experiment_type": "POINTWISE_EVALUATION",
+    "judgment_list_ids": "[\"jl-manual\"]",
+    "query_set_id": "qs-laptops",
+    "search_configuration_ids": "[\"sc-baseline\"]"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "judgmentList": [
+          "jl-manual"
+        ],
+        "querySetId": "qs-laptops",
+        "searchConfigurationList": [
+          "sc-baseline"
+        ],
+        "size": 10,
+        "type": "POINTWISE_EVALUATION"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "PUT",
+      "params": {},
+      "path": "/_plugins/_search_relevance/experiments"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Experiment created:\n{\"_id\":\"exp-new\",\"result\":\"created\"}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "CreateExperimentTool"
+}

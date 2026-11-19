@@ -1,0 +1,52 @@
+{
+  "arguments": {
+    "query_body": {
+      "query": {
+        "term": {
+          "type": "IMPORT_JUDGMENT"
+        }
+      }
+    }
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "term": {
+            "type": "IMPORT_JUDGMENT"
+          }
+        }
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/_plugins/_search_relevance/judgments/_search"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Judgment search results:\n{\"took\":3,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":1,\"relation\":\"eq\"},\"max_score\":1.0,\"hits\":[{\"_index\":\"search-relevance-judgment\",\"_id\":\"jl-manual\",\"_score\":1.0,\"_source\":{\"id\":\"jl-manual\",\"name\":\"manual-judgments\",\"type\":\"IMPORT_JUDGMENT\",\"status\":\"COMPLETED\",\"timestamp\":\"2020-01-01T00:00:00Z\"}}]}}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "SearchJudgmentsTool"
+}

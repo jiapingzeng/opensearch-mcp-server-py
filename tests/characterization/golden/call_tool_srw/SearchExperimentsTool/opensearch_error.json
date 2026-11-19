@@ -1,0 +1,54 @@
+{
+  "arguments": {
+    "query_body": {
+      "query": {
+        "match": {
+          "status": "COMPLETED"
+        }
+      },
+      "size": 5
+    }
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "match": {
+            "status": "COMPLETED"
+          }
+        },
+        "size": 5
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/_plugins/_search_relevance/experiments/_search"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error searching experiments: AuthorizationException(403, '{\"error\":{\"root_cause\":[{\"type\":\"security_exception\",\"reason\":\"no permissions for [indices:data/read/search] and User [name=srw-reader, backend_roles=[], requestedTenant=null]\"}],\"type\":\"security_exception\",\"reason\":\"no permissions for [indices:data/read/search] and User [name=srw-reader, backend_roles=[], requestedTenant=null]\"},\"status\":403}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "SearchExperimentsTool"
+}

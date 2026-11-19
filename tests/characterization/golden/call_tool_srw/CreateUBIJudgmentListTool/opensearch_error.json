@@ -1,0 +1,51 @@
+{
+  "arguments": {
+    "click_model": "coec",
+    "end_date": "2020-01-31",
+    "max_rank": 20,
+    "name": "ubi-judgments",
+    "start_date": "2020-01-01"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "clickModel": "coec",
+        "endDate": "2020-01-31",
+        "maxRank": 20,
+        "name": "ubi-judgments",
+        "startDate": "2020-01-01",
+        "type": "UBI_JUDGMENT"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "PUT",
+      "params": {},
+      "path": "/_plugins/_search_relevance/judgments"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error creating UBI judgment: NotFoundError(404, '{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [ubi_events]\",\"index\":\"ubi_events\",\"index_uuid\":\"_na_\",\"resource.id\":\"ubi_events\",\"resource.type\":\"index_or_alias\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [ubi_events]\",\"index\":\"ubi_events\",\"index_uuid\":\"_na_\",\"resource.id\":\"ubi_events\",\"resource.type\":\"index_or_alias\"},\"status\":404}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "CreateUBIJudgmentListTool"
+}

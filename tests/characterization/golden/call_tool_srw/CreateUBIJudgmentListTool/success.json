@@ -1,0 +1,51 @@
+{
+  "arguments": {
+    "click_model": "coec",
+    "end_date": "2020-01-31",
+    "max_rank": 20,
+    "name": "ubi-judgments",
+    "start_date": "2020-01-01"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "clickModel": "coec",
+        "endDate": "2020-01-31",
+        "maxRank": 20,
+        "name": "ubi-judgments",
+        "startDate": "2020-01-01",
+        "type": "UBI_JUDGMENT"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "PUT",
+      "params": {},
+      "path": "/_plugins/_search_relevance/judgments"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "UBI judgment created:\n{\"_id\":\"jl-ubi\",\"result\":\"created\",\"status\":\"PROCESSING\"}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "CreateUBIJudgmentListTool"
+}

@@ -1,0 +1,40 @@
+{
+  "arguments": {
+    "query_set_id": "qs-laptops"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_plugins/_search_relevance/query_sets/qs-laptops"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Query set qs-laptops:\n{\"_id\":\"qs-laptops\",\"_source\":{\"id\":\"qs-laptops\",\"name\":\"my-query-set\",\"description\":\"Test queries\",\"sampling\":\"manual\",\"timestamp\":\"2020-01-01T00:00:00Z\",\"querySetQueries\":[{\"queryText\":\"laptop\"},{\"queryText\":\"gaming laptop\"}]}}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "GetQuerySetTool"
+}

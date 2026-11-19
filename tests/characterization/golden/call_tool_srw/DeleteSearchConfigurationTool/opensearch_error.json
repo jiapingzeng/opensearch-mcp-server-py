@@ -1,0 +1,40 @@
+{
+  "arguments": {
+    "search_configuration_id": "sc-baseline"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "DELETE",
+      "params": {},
+      "path": "/_plugins/_search_relevance/search_configurations/sc-baseline"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error deleting search configuration: NotFoundError(404, '{\"error\":{\"root_cause\":[{\"type\":\"resource_not_found_exception\",\"reason\":\"SearchConfiguration not found: sc-baseline\"}],\"type\":\"resource_not_found_exception\",\"reason\":\"SearchConfiguration not found: sc-baseline\"},\"status\":404}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "DeleteSearchConfigurationTool"
+}

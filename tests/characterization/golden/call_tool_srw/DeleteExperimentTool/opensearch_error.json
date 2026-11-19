@@ -1,0 +1,40 @@
+{
+  "arguments": {
+    "experiment_id": "exp-abc123"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "DELETE",
+      "params": {},
+      "path": "/_plugins/_search_relevance/experiments/exp-abc123"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error deleting experiment: AuthorizationException(403, '{\"error\":{\"root_cause\":[{\"type\":\"security_exception\",\"reason\":\"no permissions for [cluster:admin/opensearch/search_relevance/experiment/delete] and User [name=srw-reader, backend_roles=[], requestedTenant=null]\"}],\"type\":\"security_exception\",\"reason\":\"no permissions for [cluster:admin/opensearch/search_relevance/experiment/delete] and User [name=srw-reader, backend_roles=[], requestedTenant=null]\"},\"status\":403}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "DeleteExperimentTool"
+}
