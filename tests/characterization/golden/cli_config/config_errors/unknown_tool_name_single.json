@@ -1,0 +1,22 @@
+{
+  "clusters": {},
+  "config": "tools:\n  NoSuchTool:\n    description: x\n",
+  "error": {
+    "message": "Tool 'NoSuchTool' is not a valid tool name.",
+    "type": "ValueError"
+  },
+  "logs": [
+    {
+      "level": "DEBUG",
+      "logger": "mcp_server_opensearch.global_state",
+      "message": "Set global mode to: single"
+    },
+    {
+      "level": "DEBUG",
+      "logger": "mcp_server_opensearch.global_state",
+      "message": "Set global config_file_path to: <TMP>/config.yml"
+    }
+  ],
+  "mode": "single",
+  "tool_names": null
+}

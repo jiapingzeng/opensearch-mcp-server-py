@@ -1,0 +1,22 @@
+{
+  "clusters": {},
+  "config": "",
+  "error": {
+    "message": "'NoneType' object has no attribute 'get'",
+    "type": "AttributeError"
+  },
+  "logs": [
+    {
+      "level": "DEBUG",
+      "logger": "mcp_server_opensearch.global_state",
+      "message": "Set global mode to: multi"
+    },
+    {
+      "level": "DEBUG",
+      "logger": "mcp_server_opensearch.global_state",
+      "message": "Set global config_file_path to: <TMP>/config.yml"
+    }
+  ],
+  "mode": "multi",
+  "tool_names": null
+}

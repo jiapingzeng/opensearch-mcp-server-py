@@ -1,0 +1,118 @@
+{
+  "clusters": {
+    "as_strings": {
+      "aws_region": null,
+      "iam_arn": null,
+      "is_serverless": null,
+      "max_response_size": null,
+      "opensearch_ca_cert_path": null,
+      "opensearch_client_cert_path": null,
+      "opensearch_client_key_path": null,
+      "opensearch_header_auth": null,
+      "opensearch_no_auth": null,
+      "opensearch_password": null,
+      "opensearch_url": "https://b.example.com",
+      "opensearch_username": null,
+      "profile": null,
+      "ssl_verify": false,
+      "timeout": 45
+    },
+    "defaults": {
+      "aws_region": null,
+      "iam_arn": null,
+      "is_serverless": null,
+      "max_response_size": null,
+      "opensearch_ca_cert_path": null,
+      "opensearch_client_cert_path": null,
+      "opensearch_client_key_path": null,
+      "opensearch_header_auth": null,
+      "opensearch_no_auth": null,
+      "opensearch_password": null,
+      "opensearch_url": "https://d.example.com",
+      "opensearch_username": null,
+      "profile": null,
+      "ssl_verify": null,
+      "timeout": null
+    },
+    "explicit": {
+      "aws_region": null,
+      "iam_arn": null,
+      "is_serverless": null,
+      "max_response_size": null,
+      "opensearch_ca_cert_path": null,
+      "opensearch_client_cert_path": null,
+      "opensearch_client_key_path": null,
+      "opensearch_header_auth": null,
+      "opensearch_no_auth": null,
+      "opensearch_password": null,
+      "opensearch_url": "https://a.example.com",
+      "opensearch_username": null,
+      "profile": null,
+      "ssl_verify": false,
+      "timeout": 30
+    },
+    "verify_on": {
+      "aws_region": null,
+      "iam_arn": null,
+      "is_serverless": null,
+      "max_response_size": null,
+      "opensearch_ca_cert_path": null,
+      "opensearch_client_cert_path": null,
+      "opensearch_client_key_path": null,
+      "opensearch_header_auth": null,
+      "opensearch_no_auth": null,
+      "opensearch_password": null,
+      "opensearch_url": "https://c.example.com",
+      "opensearch_username": null,
+      "profile": null,
+      "ssl_verify": true,
+      "timeout": null
+    }
+  },
+  "config": {
+    "clusters": {
+      "as_strings": {
+        "opensearch_url": "https://b.example.com",
+        "ssl_verify": "no",
+        "timeout": "45"
+      },
+      "bad_ssl_verify": {
+        "opensearch_url": "https://f.example.com",
+        "ssl_verify": "sometimes"
+      },
+      "defaults": {
+        "opensearch_url": "https://d.example.com"
+      },
+      "explicit": {
+        "opensearch_url": "https://a.example.com",
+        "ssl_verify": false,
+        "timeout": 30
+      },
+      "fractional_timeout": {
+        "opensearch_url": "https://e.example.com",
+        "timeout": 1.5
+      },
+      "verify_on": {
+        "opensearch_url": "https://c.example.com",
+        "ssl_verify": true
+      }
+    }
+  },
+  "logs": [
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Total clusters found in config file: 6"
+    },
+    {
+      "level": "ERROR",
+      "logger": "root",
+      "message": "Loading errors: [\"Error processing cluster 'fractional_timeout': 1 validation error for ClusterInfo\\ntimeout\\n  Input should be a valid integer, got a number with a fractional part [type=int_from_float, input_value=1.5, input_type=float]\\n    For further information visit https://errors.pydantic.dev/<VERSION>/v/int_from_float\", \"Error processing cluster 'bad_ssl_verify': 1 validation error for ClusterInfo\\nssl_verify\\n  Input should be a valid boolean, unable to interpret input [type=bool_parsing, input_value='sometimes', input_type=str]\\n    For further information visit https://errors.pydantic.dev/<VERSION>/v/bool_parsing\"]"
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Loaded clusters: ['explicit', 'as_strings', 'verify_on', 'defaults']"
+    }
+  ]
+}

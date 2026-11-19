@@ -1,0 +1,47 @@
+{
+  "arguments": {
+    "name": "top-queries",
+    "query_set_size": 20,
+    "sampling": "random"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "description": "Query set: top-queries (random, size=20)",
+        "name": "top-queries",
+        "querySetSize": 20,
+        "sampling": "random"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/_plugins/_search_relevance/query_sets"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Query set sampled:\n{\"_id\":\"qs-sampled\",\"result\":\"created\"}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "SampleQuerySetTool"
+}

@@ -1,0 +1,11 @@
+{
+  "sleep_seconds": [
+    1,
+    1
+  ],
+  "stderr": [
+    "<TIMESTAMP> - mcp_server_opensearch.logging_config.memory - INFO - Memory snapshot: <MEMORY> MB (pid=<PID>)",
+    ""
+  ],
+  "stdout": ""
+}

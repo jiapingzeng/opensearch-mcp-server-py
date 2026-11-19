@@ -1,0 +1,150 @@
+{
+  "answers": [
+    "https://abc123example.us-west-2.aoss.amazonaws.com",
+    "",
+    "",
+    "y",
+    "y",
+    "y"
+  ],
+  "argv": [
+    "memory",
+    "install"
+  ],
+  "error": null,
+  "exit_code": null,
+  "files": {
+    "cwd": {},
+    "home": {
+      ".claude.json": {
+        "json": {
+          "mcpServers": {
+            "opensearch-memory": {
+              "command": "old"
+            }
+          }
+        },
+        "written_as_json_dumps_indent_2": true
+      },
+      ".claude/CLAUDE.md": {
+        "text": "# Mine\n\n## OpenSearch Agent Memory\n\nold\n"
+      },
+      ".cursor/hooks.json": {
+        "json": {
+          "hooks": {
+            "stop": [
+              {
+                "command": "echo SaveMemoryTool"
+              }
+            ]
+          },
+          "version": 1
+        },
+        "written_as_json_dumps_indent_2": true
+      },
+      ".cursor/mcp.json": {
+        "json": {
+          "mcpServers": {
+            "opensearch-memory": {
+              "command": "old"
+            }
+          }
+        },
+        "written_as_json_dumps_indent_2": true
+      },
+      ".kiro/settings/mcp.json": {
+        "json": {
+          "mcpServers": {
+            "opensearch-memory": {
+              "command": "old"
+            }
+          }
+        },
+        "written_as_json_dumps_indent_2": true
+      },
+      ".kiro/steering/opensearch-memory.md": {
+        "text": "old steering\n"
+      }
+    }
+  },
+  "given_home": {
+    ".claude.json": {
+      "mcpServers": {
+        "opensearch-memory": {
+          "command": "old"
+        }
+      }
+    },
+    ".claude/CLAUDE.md": "# Mine\n\n## OpenSearch Agent Memory\n\nold\n",
+    ".cursor/hooks.json": {
+      "hooks": {
+        "stop": [
+          {
+            "command": "echo SaveMemoryTool"
+          }
+        ]
+      },
+      "version": 1
+    },
+    ".cursor/mcp.json": {
+      "mcpServers": {
+        "opensearch-memory": {
+          "command": "old"
+        }
+      }
+    },
+    ".kiro/settings/mcp.json": {
+      "mcpServers": {
+        "opensearch-memory": {
+          "command": "old"
+        }
+      }
+    },
+    ".kiro/steering/opensearch-memory.md": "old steering\n"
+  },
+  "logs": [
+    {
+      "level": "INFO",
+      "logger": "mcp_server_opensearch.install_hooks",
+      "message": "Memory hooks already installed in Cursor hooks config"
+    }
+  ],
+  "stderr": [
+    ""
+  ],
+  "stdin_left_unread": "",
+  "transcript": [
+    "",
+    "OpenSearch MCP Server — Memory Setup",
+    "========================================",
+    "",
+    "Step 1: OpenSearch Connection",
+    "------------------------------",
+    "OpenSearch Serverless endpoint URL: https://abc123example.us-west-2.aoss.amazonaws.com",
+    "AWS region [us-west-2]: ",
+    "AWS profile (leave empty for default credentials): ",
+    "",
+    "Step 2: IDE Detection",
+    "------------------------------",
+    "Detected: Kiro, Claude Code, Cursor",
+    "",
+    "Step 3: Configuration",
+    "------------------------------",
+    "Configure Kiro? [Y/n]: y",
+    "Configure Claude Code? [Y/n]: y",
+    "Configure Cursor? [Y/n]: y",
+    "",
+    "Done!",
+    "------------------------------",
+    "  MCP server already configured in <TMP>/home/.kiro/settings/mcp.json",
+    "  Steering file already exists: <TMP>/home/.kiro/steering/opensearch-memory.md",
+    "  MCP server already configured in <TMP>/home/.claude.json",
+    "  Memory instructions already in <TMP>/home/.claude/CLAUDE.md",
+    "  MCP server already configured in <TMP>/home/.cursor/mcp.json",
+    "  Cursor hooks already installed.",
+    "",
+    "Restart your IDE(s) to activate agent memory.",
+    "",
+    ""
+  ]
+}

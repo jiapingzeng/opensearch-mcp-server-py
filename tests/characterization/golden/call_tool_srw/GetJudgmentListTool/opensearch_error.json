@@ -1,0 +1,40 @@
+{
+  "arguments": {
+    "judgment_id": "jl-manual"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_plugins/_search_relevance/judgments/jl-manual"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error retrieving judgment list: NotFoundError(404, '{\"error\":{\"root_cause\":[{\"type\":\"resource_not_found_exception\",\"reason\":\"Judgment not found: jl-manual\"}],\"type\":\"resource_not_found_exception\",\"reason\":\"Judgment not found: jl-manual\"},\"status\":404}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "GetJudgmentListTool"
+}

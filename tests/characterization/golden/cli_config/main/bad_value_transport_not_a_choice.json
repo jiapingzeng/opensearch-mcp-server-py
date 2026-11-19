@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "--transport",
+    "bogus"
+  ],
+  "error": null,
+  "exit_code": 2,
+  "logging": {
+    "added_handlers": [],
+    "kept_existing_handler": true,
+    "root_level": "WARNING"
+  },
+  "serve_calls": [],
+  "stderr": [
+    "usage: opensearch-mcp-server-py [-h] [--transport {stdio,stream}]",
+    "                                [--host HOST] [--port PORT]",
+    "                                [--mode {single,multi}] [--profile PROFILE]",
+    "                                [--config CONFIG_FILE_PATH] [--debug]",
+    "                                [--log-format {text,json}]",
+    "opensearch-mcp-server-py: error: argument --transport: invalid choice: 'bogus' (choose from 'stdio', 'stream')",
+    ""
+  ],
+  "stdout": [
+    ""
+  ]
+}

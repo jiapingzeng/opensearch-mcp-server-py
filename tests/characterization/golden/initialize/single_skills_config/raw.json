@@ -1,0 +1,153 @@
+{
+  "2024-11-05": {
+    "initialize": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {
+        "capabilities": {
+          "experimental": {},
+          "tools": {
+            "listChanged": false
+          }
+        },
+        "instructions": "This server provides advanced analysis tools for anomaly investigation. These tools complement SearchIndexTool — use them together for best results:\n\n- DataDistributionTool: Discovers which categorical field values (service names, error codes, status values) shifted most between a baseline and an anomaly window. Note: this tool analyzes frequency distribution of field values, not latency or duration. For latency-based investigation, use SearchIndexTool with sort by duration.\n\n- MetricChangeAnalysisTool: Use for metric investigation. Compares percentile distributions of ALL numeric fields between a baseline and an anomaly window, returns top fields ranked by change score. Replaces manual field-by-field comparison. ALWAYS pass timeField: discover the time field and try the best to ensure it is correct. Omitting timeField, or passing a field absent from the index, causes a \"No data found\" error and leads to a wrong conclusion.\n\n- LogPatternAnalysisTool: Clusters raw log messages into patterns using ML, highlights which patterns are new or surging compared to a baseline period.\n\nImportant: Always cross-validate findings from these tools against SearchIndexTool results (e.g. traces sorted by duration, error logs) before drawing conclusions.",
+        "protocolVersion": "2024-11-05",
+        "serverInfo": {
+          "name": "opensearch-mcp-server",
+          "version": ""
+        }
+      }
+    },
+    "server/discover": {
+      "error": {
+        "code": -32601,
+        "data": "server/discover",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    }
+  },
+  "2025-03-26": {
+    "initialize": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {
+        "capabilities": {
+          "experimental": {},
+          "tools": {
+            "listChanged": false
+          }
+        },
+        "instructions": "This server provides advanced analysis tools for anomaly investigation. These tools complement SearchIndexTool — use them together for best results:\n\n- DataDistributionTool: Discovers which categorical field values (service names, error codes, status values) shifted most between a baseline and an anomaly window. Note: this tool analyzes frequency distribution of field values, not latency or duration. For latency-based investigation, use SearchIndexTool with sort by duration.\n\n- MetricChangeAnalysisTool: Use for metric investigation. Compares percentile distributions of ALL numeric fields between a baseline and an anomaly window, returns top fields ranked by change score. Replaces manual field-by-field comparison. ALWAYS pass timeField: discover the time field and try the best to ensure it is correct. Omitting timeField, or passing a field absent from the index, causes a \"No data found\" error and leads to a wrong conclusion.\n\n- LogPatternAnalysisTool: Clusters raw log messages into patterns using ML, highlights which patterns are new or surging compared to a baseline period.\n\nImportant: Always cross-validate findings from these tools against SearchIndexTool results (e.g. traces sorted by duration, error logs) before drawing conclusions.",
+        "protocolVersion": "2025-03-26",
+        "serverInfo": {
+          "name": "opensearch-mcp-server",
+          "version": ""
+        }
+      }
+    },
+    "server/discover": {
+      "error": {
+        "code": -32601,
+        "data": "server/discover",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    }
+  },
+  "2025-06-18": {
+    "initialize": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {
+        "capabilities": {
+          "experimental": {},
+          "tools": {
+            "listChanged": false
+          }
+        },
+        "instructions": "This server provides advanced analysis tools for anomaly investigation. These tools complement SearchIndexTool — use them together for best results:\n\n- DataDistributionTool: Discovers which categorical field values (service names, error codes, status values) shifted most between a baseline and an anomaly window. Note: this tool analyzes frequency distribution of field values, not latency or duration. For latency-based investigation, use SearchIndexTool with sort by duration.\n\n- MetricChangeAnalysisTool: Use for metric investigation. Compares percentile distributions of ALL numeric fields between a baseline and an anomaly window, returns top fields ranked by change score. Replaces manual field-by-field comparison. ALWAYS pass timeField: discover the time field and try the best to ensure it is correct. Omitting timeField, or passing a field absent from the index, causes a \"No data found\" error and leads to a wrong conclusion.\n\n- LogPatternAnalysisTool: Clusters raw log messages into patterns using ML, highlights which patterns are new or surging compared to a baseline period.\n\nImportant: Always cross-validate findings from these tools against SearchIndexTool results (e.g. traces sorted by duration, error logs) before drawing conclusions.",
+        "protocolVersion": "2025-06-18",
+        "serverInfo": {
+          "name": "opensearch-mcp-server",
+          "version": ""
+        }
+      }
+    },
+    "server/discover": {
+      "error": {
+        "code": -32601,
+        "data": "server/discover",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    }
+  },
+  "2025-11-25": {
+    "initialize": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {
+        "capabilities": {
+          "experimental": {},
+          "tools": {
+            "listChanged": false
+          }
+        },
+        "instructions": "This server provides advanced analysis tools for anomaly investigation. These tools complement SearchIndexTool — use them together for best results:\n\n- DataDistributionTool: Discovers which categorical field values (service names, error codes, status values) shifted most between a baseline and an anomaly window. Note: this tool analyzes frequency distribution of field values, not latency or duration. For latency-based investigation, use SearchIndexTool with sort by duration.\n\n- MetricChangeAnalysisTool: Use for metric investigation. Compares percentile distributions of ALL numeric fields between a baseline and an anomaly window, returns top fields ranked by change score. Replaces manual field-by-field comparison. ALWAYS pass timeField: discover the time field and try the best to ensure it is correct. Omitting timeField, or passing a field absent from the index, causes a \"No data found\" error and leads to a wrong conclusion.\n\n- LogPatternAnalysisTool: Clusters raw log messages into patterns using ML, highlights which patterns are new or surging compared to a baseline period.\n\nImportant: Always cross-validate findings from these tools against SearchIndexTool results (e.g. traces sorted by duration, error logs) before drawing conclusions.",
+        "protocolVersion": "2025-11-25",
+        "serverInfo": {
+          "name": "opensearch-mcp-server",
+          "version": ""
+        }
+      }
+    },
+    "server/discover": {
+      "error": {
+        "code": -32601,
+        "data": "server/discover",
+        "message": "Method not found"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    }
+  },
+  "2026-07-28": {
+    "initialize": {
+      "error": {
+        "code": -32602,
+        "data": "",
+        "message": "Invalid request parameters"
+      },
+      "id": 1,
+      "jsonrpc": "2.0"
+    },
+    "server/discover": {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {
+        "_meta": {
+          "io.modelcontextprotocol/serverInfo": {
+            "name": "opensearch-mcp-server",
+            "version": ""
+          }
+        },
+        "cacheScope": "private",
+        "capabilities": {
+          "tools": {
+            "listChanged": false
+          }
+        },
+        "instructions": "This server provides advanced analysis tools for anomaly investigation. These tools complement SearchIndexTool — use them together for best results:\n\n- DataDistributionTool: Discovers which categorical field values (service names, error codes, status values) shifted most between a baseline and an anomaly window. Note: this tool analyzes frequency distribution of field values, not latency or duration. For latency-based investigation, use SearchIndexTool with sort by duration.\n\n- MetricChangeAnalysisTool: Use for metric investigation. Compares percentile distributions of ALL numeric fields between a baseline and an anomaly window, returns top fields ranked by change score. Replaces manual field-by-field comparison. ALWAYS pass timeField: discover the time field and try the best to ensure it is correct. Omitting timeField, or passing a field absent from the index, causes a \"No data found\" error and leads to a wrong conclusion.\n\n- LogPatternAnalysisTool: Clusters raw log messages into patterns using ML, highlights which patterns are new or surging compared to a baseline period.\n\nImportant: Always cross-validate findings from these tools against SearchIndexTool results (e.g. traces sorted by duration, error logs) before drawing conclusions.",
+        "resultType": "complete",
+        "supportedVersions": [
+          "2026-07-28"
+        ],
+        "ttlMs": 0
+      }
+    }
+  }
+}

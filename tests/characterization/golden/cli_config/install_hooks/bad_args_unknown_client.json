@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "install-hooks",
+    "--client",
+    "vim"
+  ],
+  "error": null,
+  "exit_code": 2,
+  "files": {
+    "cwd": {},
+    "home": {}
+  },
+  "stderr": [
+    "usage: opensearch-mcp-server-py install-hooks [-h] --client",
+    "                                              {kiro,claude-code,cursor}",
+    "                                              [--scope {workspace,user}]",
+    "opensearch-mcp-server-py install-hooks: error: argument --client: invalid choice: 'vim' (choose from 'kiro', 'claude-code', 'cursor')",
+    ""
+  ],
+  "stdout": [
+    ""
+  ]
+}

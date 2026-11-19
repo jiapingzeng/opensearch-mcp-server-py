@@ -1,0 +1,19 @@
+{
+  "sleep_seconds": [
+    1,
+    1
+  ],
+  "stderr": [
+    {
+      "event_type": "memory_snapshot",
+      "level": "INFO",
+      "logger": "mcp_server_opensearch.logging_config.memory",
+      "memory_rss_mb": "<MEMORY>",
+      "message": "Memory snapshot: <MEMORY> MB (pid=<PID>)",
+      "pid": "<PID>",
+      "timestamp": "<TIMESTAMP>"
+    },
+    ""
+  ],
+  "stdout": ""
+}

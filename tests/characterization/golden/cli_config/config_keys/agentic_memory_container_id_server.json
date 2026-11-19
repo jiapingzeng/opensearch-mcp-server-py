@@ -1,0 +1,14 @@
+{
+  "agentic_memory_tools_listed": [],
+  "tool_names": [
+    "ListIndexTool",
+    "IndexMappingTool",
+    "SearchIndexTool",
+    "GetShardsTool",
+    "GenericOpenSearchApiTool",
+    "ClusterHealthTool",
+    "CountTool",
+    "ExplainTool",
+    "MsearchTool"
+  ]
+}

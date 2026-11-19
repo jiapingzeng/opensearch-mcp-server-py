@@ -1,0 +1,68 @@
+{
+  "allow_write_setting": false,
+  "config": {
+    "tool_filters": {
+      "enabled_categories": [
+        "search_relevance"
+      ],
+      "settings": {
+        "allow_write": false,
+        "allow_write_categories": [
+          "search_relevance"
+        ]
+      }
+    }
+  },
+  "env": {
+    "OPENSEARCH_DISABLED_TOOLS": "ListIndexTool",
+    "OPENSEARCH_NO_AUTH": "true"
+  },
+  "logs": [
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Connected OpenSearch version: 3.1.0"
+    },
+    {
+      "level": "WARNING",
+      "logger": "root",
+      "message": "Both config file and environment variables are set. Using config file."
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Applied tool filter from <TMP>/config.yml"
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Enabled tools: ['ListIndexTool', 'IndexMappingTool', 'SearchIndexTool', 'GetShardsTool', 'GetQuerySetTool', 'CreateQuerySetTool', 'SampleQuerySetTool', 'DeleteQuerySetTool', 'GetExperimentTool', 'CreateExperimentTool', 'DeleteExperimentTool', 'GenericOpenSearchApiTool', 'CreateSearchConfigurationTool', 'GetSearchConfigurationTool', 'DeleteSearchConfigurationTool', 'GetJudgmentListTool', 'CreateJudgmentListTool', 'CreateUBIJudgmentListTool', 'DeleteJudgmentListTool', 'CreateLLMJudgmentListTool', 'ClusterHealthTool', 'CountTool', 'ExplainTool', 'MsearchTool']"
+    }
+  ],
+  "tool_names": [
+    "ListIndexTool",
+    "IndexMappingTool",
+    "SearchIndexTool",
+    "GetShardsTool",
+    "GetQuerySetTool",
+    "CreateQuerySetTool",
+    "SampleQuerySetTool",
+    "DeleteQuerySetTool",
+    "GetExperimentTool",
+    "CreateExperimentTool",
+    "DeleteExperimentTool",
+    "GenericOpenSearchApiTool",
+    "CreateSearchConfigurationTool",
+    "GetSearchConfigurationTool",
+    "DeleteSearchConfigurationTool",
+    "GetJudgmentListTool",
+    "CreateJudgmentListTool",
+    "CreateUBIJudgmentListTool",
+    "DeleteJudgmentListTool",
+    "CreateLLMJudgmentListTool",
+    "ClusterHealthTool",
+    "CountTool",
+    "ExplainTool",
+    "MsearchTool"
+  ]
+}

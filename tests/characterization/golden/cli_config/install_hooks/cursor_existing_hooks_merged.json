@@ -1,0 +1,67 @@
+{
+  "argv": [
+    "install-hooks",
+    "--client",
+    "cursor"
+  ],
+  "error": null,
+  "exit_code": null,
+  "files": {
+    "cwd": {
+      ".cursor/hooks.json": {
+        "json": {
+          "hooks": {
+            "sessionStart": [
+              {
+                "command": "echo '{\"additional_context\": \"Before responding, search memory for relevant context about the topics in the current message using SearchMemoryTool. This ensures continuity across sessions.\"}'"
+              }
+            ],
+            "stop": [
+              {
+                "command": "echo mine"
+              },
+              {
+                "command": "echo '{\"followup_message\": \"Before finishing, review the conversation for important facts, decisions, user preferences, or insights that should persist. Save each as a separate memory using SaveMemoryTool with appropriate tags.\"}'",
+                "loop_limit": 1
+              }
+            ]
+          },
+          "version": 1
+        },
+        "written_as_json_dumps_indent_2": true
+      }
+    },
+    "home": {}
+  },
+  "given_cwd": {
+    ".cursor/hooks.json": {
+      "hooks": {
+        "stop": [
+          {
+            "command": "echo mine"
+          }
+        ]
+      },
+      "version": 0
+    }
+  },
+  "logs": [
+    {
+      "level": "INFO",
+      "logger": "mcp_server_opensearch.install_hooks",
+      "message": "Added Cursor memory hooks to .cursor/hooks.json"
+    }
+  ],
+  "stderr": [
+    ""
+  ],
+  "stdout": [
+    "Installing memory hooks for cursor (scope: workspace)...",
+    "Updated .cursor/hooks.json:",
+    "  Added sessionStart memory search hook to .cursor/hooks.json",
+    "  Added stop memory save hook to .cursor/hooks.json",
+    "",
+    "Restart your IDE to activate the hooks.",
+    ""
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "args_model_description_changes": {
+    "GetShardsTool.index": "Target index whose shards will be listed.",
+    "ListIndexTool.index": "Custom description for the 'index' argument in ListIndexTool.",
+    "SearchIndexTool.index": "Custom description for the 'index' argument in SearchIndexTool.",
+    "SearchIndexTool.query_dsl": "Explain what kind of query DSL JSON is expected here."
+  },
+  "global_registry_changes": {
+    "GetShardsTool.description": "A better description to get information about shards in OpenSearch.",
+    "GetShardsTool.input_schema.properties.index.description": "Target index whose shards will be listed.",
+    "ListIndexTool.description": "This is a custom description for the tool that lists indices. It's much more descriptive now!",
+    "ListIndexTool.display_name": "My_Custom_Index_Lister",
+    "ListIndexTool.input_schema.properties.index.description": "Custom description for the 'index' argument in ListIndexTool.",
+    "SearchIndexTool.display_name": "Super_Searcher",
+    "SearchIndexTool.input_schema.properties.index.description": "Custom description for the 'index' argument in SearchIndexTool.",
+    "SearchIndexTool.input_schema.properties.query_dsl.description": "Explain what kind of query DSL JSON is expected here."
+  },
+  "logs": [],
+  "resolved_changes": {
+    "GetShardsTool.description": "A better description to get information about shards in OpenSearch.",
+    "GetShardsTool.input_schema.properties.index.description": "Target index whose shards will be listed.",
+    "ListIndexTool.description": "This is a custom description for the tool that lists indices. It's much more descriptive now!",
+    "ListIndexTool.display_name": "My_Custom_Index_Lister",
+    "ListIndexTool.input_schema.properties.index.description": "Custom description for the 'index' argument in ListIndexTool.",
+    "SearchIndexTool.display_name": "Super_Searcher",
+    "SearchIndexTool.input_schema.properties.index.description": "Custom description for the 'index' argument in SearchIndexTool.",
+    "SearchIndexTool.input_schema.properties.query_dsl.description": "Explain what kind of query DSL JSON is expected here."
+  }
+}

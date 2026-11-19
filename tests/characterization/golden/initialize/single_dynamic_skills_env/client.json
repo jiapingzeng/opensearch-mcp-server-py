@@ -1,0 +1,29 @@
+{
+  "auto": {
+    "instructions": "This OpenSearch MCP server has no pre-configured endpoint. You must provide connection parameters on each tool call.\n\nEvery tool accepts these optional connection parameters:\n- opensearch_url (required): OpenSearch endpoint URL\n- opensearch_username / opensearch_password: For basic auth\n- opensearch_no_auth: Set true to skip authentication\n- aws_region: AWS region for IAM or Serverless auth\n- aws_iam_arn: IAM role ARN for role assumption\n- aws_profile: AWS profile name for credentials\n- aws_opensearch_serverless: Set true for OpenSearch Serverless\n- opensearch_ssl_verify: Set false to skip SSL verification\n- opensearch_timeout: Connection timeout in seconds\n\nProvide opensearch_url plus the appropriate auth parameters for your target cluster. Parameters not provided fall back to server environment variables (if any).\n\nThis server provides advanced analysis tools for anomaly investigation. These tools complement SearchIndexTool — use them together for best results:\n\n- DataDistributionTool: Discovers which categorical field values (service names, error codes, status values) shifted most between a baseline and an anomaly window. Note: this tool analyzes frequency distribution of field values, not latency or duration. For latency-based investigation, use SearchIndexTool with sort by duration.\n\n- MetricChangeAnalysisTool: Use for metric investigation. Compares percentile distributions of ALL numeric fields between a baseline and an anomaly window, returns top fields ranked by change score. Replaces manual field-by-field comparison. ALWAYS pass timeField: discover the time field and try the best to ensure it is correct. Omitting timeField, or passing a field absent from the index, causes a \"No data found\" error and leads to a wrong conclusion.\n\n- LogPatternAnalysisTool: Clusters raw log messages into patterns using ML, highlights which patterns are new or surging compared to a baseline period.\n\nImportant: Always cross-validate findings from these tools against SearchIndexTool results (e.g. traces sorted by duration, error logs) before drawing conclusions.",
+    "protocol_version": "2026-07-28",
+    "server_capabilities": {
+      "tools": {
+        "listChanged": false
+      }
+    },
+    "server_info": {
+      "name": "opensearch-mcp-server",
+      "version": ""
+    }
+  },
+  "legacy": {
+    "instructions": "This OpenSearch MCP server has no pre-configured endpoint. You must provide connection parameters on each tool call.\n\nEvery tool accepts these optional connection parameters:\n- opensearch_url (required): OpenSearch endpoint URL\n- opensearch_username / opensearch_password: For basic auth\n- opensearch_no_auth: Set true to skip authentication\n- aws_region: AWS region for IAM or Serverless auth\n- aws_iam_arn: IAM role ARN for role assumption\n- aws_profile: AWS profile name for credentials\n- aws_opensearch_serverless: Set true for OpenSearch Serverless\n- opensearch_ssl_verify: Set false to skip SSL verification\n- opensearch_timeout: Connection timeout in seconds\n\nProvide opensearch_url plus the appropriate auth parameters for your target cluster. Parameters not provided fall back to server environment variables (if any).\n\nThis server provides advanced analysis tools for anomaly investigation. These tools complement SearchIndexTool — use them together for best results:\n\n- DataDistributionTool: Discovers which categorical field values (service names, error codes, status values) shifted most between a baseline and an anomaly window. Note: this tool analyzes frequency distribution of field values, not latency or duration. For latency-based investigation, use SearchIndexTool with sort by duration.\n\n- MetricChangeAnalysisTool: Use for metric investigation. Compares percentile distributions of ALL numeric fields between a baseline and an anomaly window, returns top fields ranked by change score. Replaces manual field-by-field comparison. ALWAYS pass timeField: discover the time field and try the best to ensure it is correct. Omitting timeField, or passing a field absent from the index, causes a \"No data found\" error and leads to a wrong conclusion.\n\n- LogPatternAnalysisTool: Clusters raw log messages into patterns using ML, highlights which patterns are new or surging compared to a baseline period.\n\nImportant: Always cross-validate findings from these tools against SearchIndexTool results (e.g. traces sorted by duration, error logs) before drawing conclusions.",
+    "protocol_version": "2025-11-25",
+    "server_capabilities": {
+      "experimental": {},
+      "tools": {
+        "listChanged": false
+      }
+    },
+    "server_info": {
+      "name": "opensearch-mcp-server",
+      "version": ""
+    }
+  }
+}

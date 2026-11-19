@@ -1,0 +1,22 @@
+{
+  "clusters": {},
+  "config": null,
+  "error": {
+    "message": "YAML file not found: <TMP>/config.yml",
+    "type": "FileNotFoundError"
+  },
+  "logs": [
+    {
+      "level": "DEBUG",
+      "logger": "mcp_server_opensearch.global_state",
+      "message": "Set global mode to: multi"
+    },
+    {
+      "level": "DEBUG",
+      "logger": "mcp_server_opensearch.global_state",
+      "message": "Set global config_file_path to: <TMP>/config.yml"
+    }
+  ],
+  "mode": "multi",
+  "tool_names": null
+}
