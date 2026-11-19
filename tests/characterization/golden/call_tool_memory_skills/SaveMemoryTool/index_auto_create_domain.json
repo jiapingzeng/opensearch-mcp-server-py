@@ -21,7 +21,7 @@
   "result": {
     "content": [
       {
-        "text": "Error saving memory: Parameter validation failed:\nMissing required parameter in input: \"DomainName\"\nMissing required parameter in input: \"IndexName\"\nMissing required parameter in input: \"IndexSchema\"\nUnknown parameter in input: \"domainName\", must be one of: DomainName, IndexName, IndexSchema\nUnknown parameter in input: \"indexName\", must be one of: DomainName, IndexName, IndexSchema\nUnknown parameter in input: \"indexSchema\", must be one of: DomainName, IndexName, IndexSchema",
+        "text": "Error saving memory: Unable to locate credentials",
         "type": "text"
       }
     ],

@@ -510,25 +510,45 @@ async def test_serverless_policy_update_under_hash_seed(
 # ---------------------------------------------------------------------------
 
 
-# characterization: current behaviour. On a managed domain the tool calls `opensearch`
-# create_index with domainName/indexName/indexSchema where the API takes DomainName,
-# IndexName and IndexSchema: botocore's parameter validation rejects the call before it is
-# signed or sent, so the stub never sees it and whatever it would answer makes no
-# difference. The error is not a ConflictException and its text names no "already exists",
-# so the tool re-raises it: the save fails and nothing is indexed. The success log and both
-# "already exists" branches after the call are unreachable today.
+# On a managed domain the tool calls `opensearch` create_index with DomainName, IndexName
+# and IndexSchema (the schema as a document): botocore validates, signs and sends it, and
+# the stub answers. A success is logged at INFO; ResourceAlreadyExistsException, or any
+# other error whose text says "already exists", counts as success with a DEBUG record.
+# With each of these replies the memory is then indexed. One golden per reply.
+DOMAIN_OUTCOMES = {
+    'created': ('INFO', f'Created memory index "{MEMORY_INDEX}" on domain {DOMAIN}'),
+    'already_exists': ('DEBUG', f'Memory index "{MEMORY_INDEX}" already exists'),
+    'already_exists_message': ('DEBUG', f'Memory index "{MEMORY_INDEX}" already exists'),
+}
+
+
 @pytest.mark.parametrize('reply', DOMAIN_REPLIES)
-async def test_managed_domain_create_index_is_rejected_before_it_is_sent(
-    reply, memory_enabled_session, boto3_stub, fake_opensearch, no_network, golden, normalize
+async def test_managed_domain_create_index(
+    reply,
+    request,
+    memory_enabled_session,
+    boto3_stub,
+    fake_opensearch,
+    no_network,
+    golden,
+    normalize,
 ):
+    reply_id = request.node.callspec.id
     first_save_routes(fake_opensearch)
 
     recorded = await first_save(memory_enabled_session, boto3_stub, (reply,), DOMAIN_ENV)
 
-    assert boto3_stub.calls == recorded['boto3_calls'] == []
-    assert request_lines(recorded) == [f'HEAD /{MEMORY_INDEX}']
-    assert 'Parameter validation failed' in recorded['result']['content'][0]['text']
+    assert boto3_stub.calls == recorded['boto3_calls']
+    assert [(c['service'], c['operation']) for c in recorded['boto3_calls']] == [
+        ('opensearch', 'CreateIndex')
+    ]
+    params = recorded['boto3_calls'][0]['params']
+    assert sorted(params) == ['DomainName', 'IndexName', 'IndexSchema']
+    assert (params['DomainName'], params['IndexName']) == (DOMAIN, MEMORY_INDEX)
+    assert isinstance(params['IndexSchema'], dict)
+    assert request_lines(recorded) == [f'HEAD /{MEMORY_INDEX}', f'POST /{MEMORY_INDEX}/_doc']
+    assert recorded['result']['isError'] is False
+    level, message = DOMAIN_OUTCOMES[reply_id]
+    assert {'level': level, 'logger': 'tools.memory_tools', 'message': message} in recorded['logs']
     assert no_network == []
-    # One golden for every reply, so without the reply given: it never reaches the server.
-    del recorded['boto3_replies']
-    golden(f'{AREA}/managed_domain_create_index_rejected', normalize(recorded))
+    golden(f'{AREA}/managed_domain_create_index_{reply_id}', normalize(recorded))
