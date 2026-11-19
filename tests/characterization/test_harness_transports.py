@@ -3,6 +3,7 @@
 
 """Smoke tests for the transport fixtures: http_app, stdio_launcher, memory_enabled_session."""
 
+import asyncio
 import contextlib
 import httpx
 import json
@@ -101,11 +102,11 @@ async def _echo_app(scope, receive, send):
 
 
 @contextlib.asynccontextmanager
-async def _echo_http(harness):
-    """``HttpApp``'s helpers in front of ``_echo_app``, to see exactly what they send."""
-    transport = httpx.ASGITransport(app=_echo_app)
+async def _echo_http(harness, app=_echo_app):
+    """``HttpApp``'s helpers in front of ``app`` (``_echo_app``: see exactly what they send)."""
+    transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url=harness.HTTP_BASE_URL) as client:
-        yield harness.HttpApp(None, _echo_app, client)
+        yield harness.HttpApp(None, app, client)
 
 
 async def test_http_app_post_mcp_header_none_sends_no_such_header(harness):
@@ -203,6 +204,112 @@ async def test_http_app_mcp_at_protocol_versions(http_app, golden, normalize):
 
     assert handshake == default
     golden('harness_transports/http_mcp_tools_list_2026_07_28', normalize(modern))
+
+
+# --- HttpApp.open_stream: the streaming helper open_stream and sse_first_event share ---
+
+PROBE_EVENT = b'event: probe\r\ndata: 1\r\n\r\n'
+# How long `_slow_stream_app` waits before its event: well past the quiet window used below.
+SLOW_EVENT_SECONDS = 0.3
+
+
+async def _start_stream(receive, send) -> None:
+    await receive()
+    await send(
+        {
+            'type': 'http.response.start',
+            'status': 200,
+            'headers': [(b'content-type', b'text/event-stream')],
+        }
+    )
+
+
+async def _stuck_stream_app(scope, receive, send):
+    """Send one event, then never return: the disconnect is ignored."""
+    await _start_stream(receive, send)
+    await send({'type': 'http.response.body', 'body': PROBE_EVENT, 'more_body': True})
+    await asyncio.Event().wait()
+
+
+async def _failing_stream_app(scope, receive, send):
+    """Send one event, then raise once the client disconnects."""
+    await _start_stream(receive, send)
+    await send({'type': 'http.response.body', 'body': PROBE_EVENT, 'more_body': True})
+    assert (await receive())['type'] == 'http.disconnect'
+    raise RuntimeError('probe app failure')
+
+
+async def _slow_stream_app(scope, receive, send):
+    """Start the response at once, send one event only after ``SLOW_EVENT_SECONDS``."""
+    await _start_stream(receive, send)
+    await asyncio.sleep(SLOW_EVENT_SECONDS)
+    await send({'type': 'http.response.body', 'body': PROBE_EVENT, 'more_body': True})
+    await receive()
+
+
+async def test_open_stream_cleanup_failure_does_not_mask_the_block_exception(harness):
+    # The cleanup failure (the app does not return after the disconnect) must not hide the
+    # exception already leaving the block: that one is raised, the failure is its context.
+    async with _echo_http(harness, _stuck_stream_app) as http:
+        with pytest.raises(RuntimeError, match='probe block failure') as excinfo:
+            async with http.open_stream('GET', '/stream', timeout=0.2) as stream:
+                assert (await stream.next_event())['event'] == 'probe'
+                try:
+                    raise KeyError('probe earlier error')
+                except KeyError:
+                    raise RuntimeError('probe block failure')
+
+    failure = excinfo.value.__context__
+    assert repr(failure) == (
+        "AssertionError('GET /stream: the app did not return after the disconnect')"
+    )
+    # The block exception's own context is still in the chain, after the cleanup failure.
+    assert repr(failure.__context__) == "KeyError('probe earlier error')"
+
+
+async def test_open_stream_cleanup_failure_without_a_block_exception_is_raised(harness):
+    async with _echo_http(harness, _stuck_stream_app) as http:
+        with pytest.raises(AssertionError, match='GET /stream: the app did not return'):
+            async with http.open_stream('GET', '/stream', timeout=0.2):
+                pass
+
+
+async def test_open_stream_app_exception_does_not_mask_the_block_exception(harness):
+    async with _echo_http(harness, _failing_stream_app) as http:
+        with pytest.raises(RuntimeError, match='probe block failure') as excinfo:
+            async with http.open_stream('GET', '/stream'):
+                raise RuntimeError('probe block failure')
+        assert repr(excinfo.value.__context__) == "RuntimeError('probe app failure')"
+        # Without one, the app's exception is raised as itself.
+        with pytest.raises(RuntimeError, match='probe app failure'):
+            async with http.open_stream('GET', '/stream'):
+                pass
+
+
+async def test_open_stream_drain_waits_for_min_events_before_the_quiet_window(harness):
+    # The event comes after several quiet windows: min_events keeps drain waiting for it.
+    async with _echo_http(harness, _slow_stream_app) as http:
+        async with http.open_stream('GET', '/stream') as stream:
+            body = await stream.drain(quiet=SLOW_EVENT_SECONDS / 6, min_events=1)
+            assert not stream.ended
+
+    assert body == PROBE_EVENT
+    assert stream.events() == [{'event': 'probe', 'data': '1'}]
+    assert stream.summary() == {
+        'status': 200,
+        'headers': {'content-type': 'text/event-stream'},
+    }
+
+
+async def test_sse_first_event_reads_through_open_stream(harness):
+    async with _echo_http(harness, _slow_stream_app) as http:
+        opened = await http.sse_first_event('/stream')
+
+    assert opened == {
+        'status': 200,
+        'headers': {'content-type': 'text/event-stream'},
+        'event': {'event': 'probe', 'data': '1'},
+    }
 
 
 def test_parse_sse_reads_line_endings_multiline_data_and_comments(harness):

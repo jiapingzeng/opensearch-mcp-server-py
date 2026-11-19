@@ -114,8 +114,17 @@ On a mismatch the failure shows a unified diff (golden vs actual).
   JSON-RPC message the POST gets back; `protocol_version` sets `mcp-protocol-version`, and
   a modern version (2026-07-28) is stamped as the SDK client does it: `_meta` envelope,
   `mcp-method` and, for name-bearing methods, `mcp-name` (`headers` override them).
-  `http.sse_first_event('/sse')` opens the SSE stream, reads its first event (10 s timeout)
-  and disconnects. `ctx.request` is `None` over stdio and in-memory, so anything
+  `async with http.open_stream(method, path, headers=None) as stream:` drives the app's ASGI
+  interface itself (httpx returns a response only once it is complete, which an event
+  stream never is) and yields an `OpenStream` once the response starts: `status`,
+  `headers`, `body` so far, `ended`, `events()`, `summary()`, `await stream.next_event()`
+  (10 s timeout; `None` at the end of the response) and `await stream.drain()` (reads until
+  the stream is 0.5 s silent; `min_events=n` starts that window only once `n` events are
+  in). On exit the client disconnects and the app must return (10 s); an exception leaving
+  the block is raised as itself, a cleanup failure (the app not returning, or raising) is
+  chained as its `__context__`. `http.sse_first_event('/sse')` opens the SSE stream with
+  `open_stream`, reads its first event (10 s timeout) and disconnects.
+  `ctx.request` is `None` over stdio and in-memory, so anything
   header-based (header auth, `x-mcp-client-name`) is reachable only through `http_app`.
 - `stdio_launcher(*args, env=None, cwd=None)`: `async with stdio_launcher('--mode', 'multi')
   as server:` runs `stdio_launcher.py` with `sys.executable` (no shell): it installs the same

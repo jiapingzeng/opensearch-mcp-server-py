@@ -44,7 +44,7 @@ import tempfile
 import yaml
 import yarl
 from contextvars import Token
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from mcp.client import Client
 from mcp.client._memory import InMemoryTransport
@@ -1274,7 +1274,12 @@ MCP_POST_HEADERS = {
     'accept': 'application/json, text/event-stream',
     'content-type': 'application/json',
 }
+# How long an open stream helper waits for the response to start, the next event, or the
+# app to return after the disconnect.
 SSE_TIMEOUT_SECONDS = 10
+# How long a stream must stay silent before `OpenStream.drain` takes it to have sent all it
+# sends at once (an event stream's keep-alive ping comes only after 15 s).
+STREAM_QUIET_SECONDS = 0.5
 
 
 def parse_sse(text: str) -> list[dict]:
@@ -1449,6 +1454,81 @@ async def asgi_lifespan(app: Any, timeout: float = RAW_TIMEOUT_SECONDS):
         task.result()
 
 
+def _chain_context(error: BaseException, failure: BaseException) -> None:
+    """Report ``failure`` with ``error``, which stays the exception raised: as its context.
+
+    ``error``'s own context is kept at the end of ``failure``'s context chain, so the
+    traceback still shows every exception involved.
+    """
+    end = failure
+    while end.__context__ is not None and end.__context__ is not error:
+        end = end.__context__
+    end.__context__ = error.__context__
+    error.__context__ = failure
+
+
+@dataclass
+class OpenStream:
+    """A response the app is still sending (``HttpApp.open_stream``), read as it arrives.
+
+    ``status`` and ``headers`` (names lower-cased) come from the app's
+    ``http.response.start`` (``None`` and ``{}`` if the app returned without one); ``body``
+    holds what ``next_event`` and ``drain`` have read so far; ``ended`` turns True once they
+    read the end of the response (or of the app).
+    """
+
+    status: int | None = None
+    headers: dict[str, str] = field(default_factory=dict)
+    body: bytes = b''
+    ended: bool = False
+    _chunks: asyncio.Queue = field(default_factory=asyncio.Queue)
+    _started: asyncio.Event = field(default_factory=asyncio.Event)
+    _events_read: int = 0
+
+    def events(self) -> list[dict]:
+        """The SSE events in ``body`` so far (see ``parse_sse``)."""
+        # A CR at the very end may be the first half of a CRLF still in transit.
+        return parse_sse(self.body.decode('utf-8', 'replace').removesuffix('\r'))
+
+    def _add(self, chunk: bytes | None) -> None:
+        if chunk is None:
+            self.ended = True
+        else:
+            self.body += chunk
+
+    async def next_event(self, timeout: float = SSE_TIMEOUT_SECONDS) -> dict | None:
+        """The next SSE event; ``None`` if the response ends first. Fails after ``timeout``."""
+        with anyio.fail_after(timeout):
+            while len(events := self.events()) <= self._events_read:
+                if self.ended:
+                    return None
+                self._add(await self._chunks.get())
+        self._events_read += 1
+        return events[self._events_read - 1]
+
+    async def drain(self, quiet: float = STREAM_QUIET_SECONDS, *, min_events: int = 0) -> bytes:
+        """Add every chunk the app sends to ``body`` until it is ``quiet`` seconds silent.
+
+        The quiet window starts only once ``body`` holds ``min_events`` SSE events, so an
+        event the app is slow to send is not taken for silence. Stops at the end of the
+        response, and fails after ``SSE_TIMEOUT_SECONDS`` if the events never come or the app
+        never goes quiet. Returns the whole body received so far.
+        """
+        with anyio.fail_after(SSE_TIMEOUT_SECONDS):
+            while not self.ended:
+                wait = quiet if len(self.events()) >= min_events else None
+                try:
+                    chunk = await asyncio.wait_for(self._chunks.get(), wait)
+                except asyncio.TimeoutError:
+                    break
+                self._add(chunk)
+        return self.body
+
+    def summary(self) -> dict:
+        """Status and headers, as a golden records how the stream started."""
+        return {'status': self.status, 'headers': self.headers}
+
+
 class HttpApp:
     """The Starlette app ``streaming_server.serve`` runs, driven in-process with httpx.
 
@@ -1552,24 +1632,31 @@ class HttpApp:
             message['params'] = params
         return (await self.post_mcp(message, headers)).message()
 
-    async def sse_first_event(
-        self, path: str = '/sse', headers: dict | None = None, timeout: float = SSE_TIMEOUT_SECONDS
-    ) -> dict:
-        """Open ``GET path``, read until its first SSE event, then disconnect.
+    @contextlib.asynccontextmanager
+    async def open_stream(
+        self,
+        method: str,
+        path: str,
+        headers: dict | None = None,
+        *,
+        timeout: float = SSE_TIMEOUT_SECONDS,
+    ):
+        """Send ``method path`` (no body); yield an ``OpenStream`` once the response starts.
 
-        Returns ``{'status', 'headers', 'event'}``; if the response ends before any event,
-        ``event`` is ``None`` and ``text`` holds the body. Fails after ``timeout`` seconds
-        without an event. ``httpx.ASGITransport`` returns a response only once the app has
-        sent all of it, which an open event stream never does, so this calls the app's ASGI
-        interface itself, with the scope httpx would build for the request.
+        ``httpx.ASGITransport`` returns a response only once the app has sent all of it,
+        which an open event stream never does, so this calls the app's ASGI interface itself,
+        with the scope httpx would build for the request (``headers`` as for ``request()``).
+        Fails after ``timeout`` seconds without a response start. On exit the client
+        disconnects, and the app must return within ``timeout``; an exception it raises is
+        raised here. An exception leaving the block is raised as itself, with such a failure
+        chained as its ``__context__``, not instead of it.
         """
-        request = self.build_request('GET', path, headers=headers)
+        request = self.build_request(method, path, headers=headers)
         scope = _asgi_scope(request)
-        start: dict = {}
-        chunks: asyncio.Queue = asyncio.Queue()
+        stream = OpenStream()
         disconnected = asyncio.Event()
         request_sent = False
-        ended = False
+        body_ended = False
 
         async def receive() -> dict:
             nonlocal request_sent
@@ -1580,42 +1667,65 @@ class HttpApp:
             return {'type': 'http.disconnect'}
 
         async def send(message: dict) -> None:
-            nonlocal ended
+            nonlocal body_ended
             # Whatever the app sends once its response has started and ended reaches no client.
-            if message['type'] == 'http.response.start' and not start:
-                start.update(status=message['status'], headers=message.get('headers', []))
-            elif message['type'] == 'http.response.body' and start and not ended:
-                chunks.put_nowait(message.get('body', b''))
+            if message['type'] == 'http.response.start' and stream.status is None:
+                stream.status = message['status']
+                stream.headers = _reply_headers(message.get('headers', []))
+                stream._started.set()
+            elif message['type'] == 'http.response.body' and stream.status is not None:
+                if body_ended:
+                    return
+                stream._chunks.put_nowait(message.get('body', b''))
                 if not message.get('more_body', False):
-                    ended = True
-                    chunks.put_nowait(None)
+                    body_ended = True
+                    stream._chunks.put_nowait(None)
 
-        task = asyncio.create_task(self.app(scope, receive, send))
-        task.add_done_callback(lambda _: chunks.put_nowait(None))
-        body = b''
-        event = None
-        try:
-            with anyio.fail_after(timeout):
-                while event is None:
-                    chunk = await chunks.get()
-                    if chunk is None:
-                        break
-                    body += chunk
-                    # A CR at the very end may be the first half of a CRLF still in transit.
-                    events = parse_sse(body.decode('utf-8', 'replace').removesuffix('\r'))
-                    event = events[0] if events else None
-        finally:
+        def finished(_task: asyncio.Task) -> None:
+            stream._started.set()
+            stream._chunks.put_nowait(None)
+
+        async def disconnect() -> BaseException | None:
+            """Disconnect; what went wrong with the app's return, or ``None``."""
             disconnected.set()
             if not await _finish(task, timeout):
-                raise AssertionError(f'GET {path}: the app did not return after the disconnect')
-            task.result()
-        result = {
-            'status': start.get('status'),
-            'headers': _reply_headers(start.get('headers', [])),
-            'event': event,
-        }
+                return AssertionError(
+                    f'{method} {path}: the app did not return after the disconnect'
+                )
+            return None if task.cancelled() else task.exception()
+
+        task = asyncio.create_task(self.app(scope, receive, send))
+        task.add_done_callback(finished)
+        try:
+            with anyio.fail_after(timeout):
+                await stream._started.wait()
+            yield stream
+        except BaseException as error:
+            failure = await disconnect()
+            if failure is not None:
+                _chain_context(error, failure)
+            raise
+        failure = await disconnect()
+        if failure is not None:
+            raise failure
+        # CancelledError if something other than this helper cancelled the app.
+        task.result()
+
+    async def sse_first_event(
+        self, path: str = '/sse', headers: dict | None = None, timeout: float = SSE_TIMEOUT_SECONDS
+    ) -> dict:
+        """Open ``GET path`` (``open_stream``), read until its first SSE event, then disconnect.
+
+        Returns ``{'status', 'headers', 'event'}``; if the response ends before any event,
+        ``event`` is ``None`` and ``text`` holds the body. Fails after ``timeout`` seconds
+        without an event.
+        """
+        deadline = anyio.current_time() + timeout
+        async with self.open_stream('GET', path, headers, timeout=timeout) as stream:
+            event = await stream.next_event(deadline - anyio.current_time())
+        result = {'status': stream.status, 'headers': stream.headers, 'event': event}
         if event is None:
-            result['text'] = body.decode('utf-8', 'replace')
+            result['text'] = stream.body.decode('utf-8', 'replace')
         return result
 
 
