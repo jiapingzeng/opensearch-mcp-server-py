@@ -1,0 +1,13 @@
+{
+  "event": {
+    "data": "/messages/?session_id=<SESSION_ID>",
+    "event": "endpoint"
+  },
+  "headers": {
+    "cache-control": "no-store",
+    "connection": "keep-alive",
+    "content-type": "text/event-stream; charset=utf-8",
+    "x-accel-buffering": "no"
+  },
+  "status": 200
+}

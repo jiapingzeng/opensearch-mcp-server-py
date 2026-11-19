@@ -8,7 +8,9 @@ the result with a committed JSON file in `golden/`.
 
 Tests never reach into internals a migration would replace. The server is built with
 `create_mcp_server(...)` and driven with the installed SDK's in-process `Client` and
-in-memory transport, which accept both the low-level `Server` and `MCPServer`.
+in-memory transport, which accept both the low-level `Server` and `MCPServer`; through the
+Starlette app `streaming_server.serve` runs (`http_app`); or as the real entry point
+`main()` in a subprocess over stdio (`stdio_launcher`).
 
 ## Run
 
@@ -17,7 +19,8 @@ uv run --offline python -m pytest tests/characterization -q
 ```
 
 Nothing in this directory touches the network: OpenSearch is faked, the OpenAPI spec comes
-from `fixtures/openapi/`, and any DNS lookup or connection off this machine fails the test.
+from `fixtures/openapi/`, and any DNS lookup or connection off this machine fails the test,
+in a server launched as a subprocess too. `http_app` opens no socket.
 The tests run the same on Linux, macOS and Windows (the project CI runs all three).
 
 ## The rule
@@ -97,9 +100,42 @@ On a mismatch the failure shows a unified diff (golden vs actual).
   response (`result` or `error`) from a fresh connection at that protocol version
   (default `2025-11-25` via the initialize handshake; `2026-07-28` uses the per-request
   envelope); `session.client` is the SDK `Client`.
+- `http_app(mode='single', config_file='', env=None)`: `async with http_app() as http:`
+  builds the server with `create_mcp_server` and the Starlette app exactly as
+  `streaming_server.serve` does (`MCPStarletteApp(server, stateless=True).create_app()`),
+  runs its lifespan, and drives it with `httpx.AsyncClient(transport=httpx.ASGITransport(app))`
+  (no socket; requests go to `http://127.0.0.1:9900`). `http.get(path)` and
+  `http.post_mcp(message, headers=None)` return an `HttpReply` (`status`, `headers`, `text`,
+  `events` parsed from `text/event-stream`, `messages`, `message()`, and `summary()` for
+  goldens); `http.mcp(method, params=None, headers=None, protocol_version=None)` returns the
+  one JSON-RPC message the POST gets back; `http.sse_first_event('/sse')` opens the SSE
+  stream, reads its first event (10 s timeout) and disconnects. `ctx.request` is `None` over
+  stdio and in-memory, so anything header-based (header auth, `x-mcp-client-name`) is
+  reachable only through `http_app`.
+- `stdio_launcher(*args, env=None, cwd=None)`: `async with stdio_launcher('--mode', 'multi')
+  as server:` runs `stdio_launcher.py` with `sys.executable` (no shell): it installs the same
+  fake OpenSearch, pinned OpenAPI and network guard in the subprocess, then calls
+  `mcp_server_opensearch.main()` with `args`. The subprocess gets this test's (isolated)
+  environment plus `env`, UTF-8 stdio and a fresh directory under `tmp_path` as its cwd.
+  `fake_opensearch`'s routes (data bodies only, no callables) and version and the
+  `pinned_openapi` setting are copied in at launch, as a JSON reply table whose path is in
+  `CHAR_FAKE_OPENSEARCH_TABLE`. `server.initialize()`, `request(method, params)`, `notify`,
+  `send`/`receive` speak raw JSON-RPC (`\r\n` stripped); `list_tools()`, `call_tool()` and
+  `raw()` return what `mcp_session`'s do; `stderr`, `stdout_lines`, `returncode` and
+  `opensearch_requests()` show what the process did. On exit stdin is closed and the server
+  waited for; its fake's requests are added to `fake_opensearch.requests` (unmatched ones
+  fail the test) and its blocked network attempts fail the test.
+- `memory_enabled_session(mode='single', config_file='', env=None)`: `stdio_launcher` with
+  `MEMORY_TOOLS_ENABLED=true`, so the memory tools are registered; same helpers as
+  `mcp_session`. Memory tools are registered when `tools.memory_tools` is imported and
+  several modules hold `TOOL_REGISTRY` references, so reloading in-process is unsafe.
+- `harness`: the conftest module itself, for tests of its helpers (`harness.parse_sse`,
+  `harness.fake_table`): `import conftest` is not reliable, since every package-less
+  `conftest.py` under `tests/` imports under that name.
 
 Goldens assume the test process starts without `MEMORY_TOOLS_ENABLED=true`: the memory
-tool registry is decided when `tools.memory_tools` is imported.
+tool registry is decided when `tools.memory_tools` is imported. Use
+`memory_enabled_session` for a server with memory tools.
 
 ## Timestamps and canned data
 
