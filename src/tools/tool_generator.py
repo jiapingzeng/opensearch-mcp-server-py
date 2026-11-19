@@ -267,6 +267,9 @@ def generate_tool_from_group(base_name: str, endpoints: List[Dict]) -> Dict[str,
                 method = selected_endpoint['method'].upper()  # HTTP method (GET, POST, etc.)
                 api_path = f'/{formatted_path.lstrip("/")}'  # Ensure path starts with /
 
+                # Drop the query parameters the caller left out (None), so they are not sent
+                params_dict = {k: v for k, v in params_dict.items() if v is not None}
+
                 # Execute the OpenSearch API request
                 response = await request_client.transport.perform_request(
                     method=method, url=api_path, params=params_dict, body=body

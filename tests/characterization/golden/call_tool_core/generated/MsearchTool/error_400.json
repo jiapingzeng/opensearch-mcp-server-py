@@ -38,15 +38,7 @@
       "body_format": "json",
       "host": "http://fake-opensearch.invalid:9200",
       "method": "GET",
-      "params": {
-        "ccs_minimize_roundtrips": "None",
-        "max_concurrent_searches": "None",
-        "max_concurrent_shard_requests": "None",
-        "pre_filter_shard_size": "None",
-        "rest_total_hits_as_int": "None",
-        "search_type": "None",
-        "typed_keys": "None"
-      },
+      "params": {},
       "path": "/_msearch"
     }
   ],

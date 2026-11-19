@@ -5,6 +5,7 @@ import pytest
 import yaml
 from mcp.types import TextContent
 from pydantic import BaseModel
+from typing import Any, Optional
 from unittest.mock import AsyncMock, Mock, patch
 
 
@@ -334,3 +335,117 @@ class TestToolGenerator:
         assert result is mock_registry
         assert result == before
         assert result['ExistingTool'] is existing_tool
+
+
+class TestGeneratedToolQueryParams:
+    """Query parameters a generated tool sends to OpenSearch."""
+
+    # One endpoint with a required path parameter and typed optional query parameters.
+    ENDPOINTS = [
+        {
+            'path': '/{index}/_count',
+            'method': 'get',
+            'details': {
+                'description': 'Returns count of documents',
+                'x-operation-group': 'count',
+                'parameters': [
+                    {'name': 'allow_no_indices', 'in': 'query', 'schema': {'type': 'boolean'}},
+                    {'name': 'min_score', 'in': 'query', 'schema': {'type': 'number'}},
+                    {'name': 'terminate_after', 'in': 'query', 'schema': {'type': 'integer'}},
+                    {'name': 'q', 'in': 'query', 'schema': {'type': 'string'}},
+                    {'name': 'routing', 'in': 'query', 'schema': {'type': 'string'}},
+                ],
+                'requestBody': {'content': {'application/json': {'schema': {}}}},
+            },
+        }
+    ]
+
+    def setup_method(self):
+        from tools.tool_generator import generate_tool_from_group
+
+        self.tool = generate_tool_from_group('Count', self.ENDPOINTS)
+        self.mock_client = Mock()
+        self.mock_client.transport.perform_request = AsyncMock(return_value={'count': 0})
+
+    async def call(self, params: BaseModel) -> dict:
+        """Run the generated tool function; return the kwargs of its one perform_request."""
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def fake_get_opensearch_client(args):
+            yield self.mock_client
+
+        with (
+            patch('opensearch.client.get_opensearch_client', fake_get_opensearch_client),
+            patch('tools.tool_generator.check_tool_compatibility', AsyncMock()),
+        ):
+            result = await self.tool['function'](params)
+
+        assert result == [TextContent(type='text', text='{"count": 0}')]
+        self.mock_client.transport.perform_request.assert_awaited_once()
+        return self.mock_client.transport.perform_request.await_args.kwargs
+
+    @pytest.mark.asyncio
+    async def test_required_arguments_only_sends_no_none_query_param(self):
+        """Step 1 reproduction: with only the required arguments, no query parameter is None."""
+        params = self.tool['args_model'](opensearch_cluster_name='', index='logs')
+
+        sent = await self.call(params)
+
+        assert None not in sent['params'].values()
+        assert sent == {'method': 'GET', 'url': '/logs/_count', 'params': {}, 'body': None}
+
+    @pytest.mark.asyncio
+    async def test_false_zero_and_empty_values_are_still_sent(self):
+        """A parameter set to False or 0 (or '', [], {}) is still sent as it is today."""
+
+        # The generated model types every query parameter as str; a subclass lets the
+        # caller pass the falsy non-None values that must not be dropped with None.
+        class TypedCountArgs(self.tool['args_model']):
+            allow_no_indices: Optional[bool] = None
+            min_score: Optional[float] = None
+            terminate_after: Optional[int] = None
+            routing: Any = None
+
+        params = TypedCountArgs(
+            opensearch_cluster_name='',
+            index='logs',
+            allow_no_indices=False,
+            min_score=0.0,
+            terminate_after=0,
+            q='',
+            routing=[],
+        )
+
+        sent = await self.call(params)
+
+        assert sent['params'] == {
+            'allow_no_indices': False,
+            'min_score': 0.0,
+            'terminate_after': 0,
+            'q': '',
+            'routing': [],
+        }
+
+        # An empty dict is kept too.
+        self.mock_client.transport.perform_request.reset_mock()
+        sent = await self.call(
+            TypedCountArgs(opensearch_cluster_name='', index='logs', routing={})
+        )
+        assert sent['params'] == {'routing': {}}
+
+    @pytest.mark.asyncio
+    async def test_parameter_set_by_caller_is_sent_with_its_value(self):
+        """A parameter the caller set is still sent with its value; the omitted ones are not."""
+        params = self.tool['args_model'](
+            opensearch_cluster_name='', index='logs', q='level:error', routing='shard-1'
+        )
+
+        sent = await self.call(params)
+
+        assert sent == {
+            'method': 'GET',
+            'url': '/logs/_count',
+            'params': {'q': 'level:error', 'routing': 'shard-1'},
+            'body': None,
+        }
