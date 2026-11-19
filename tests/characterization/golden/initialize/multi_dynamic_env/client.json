@@ -1,0 +1,29 @@
+{
+  "auto": {
+    "instructions": null,
+    "protocol_version": "2026-07-28",
+    "server_capabilities": {
+      "tools": {
+        "listChanged": false
+      }
+    },
+    "server_info": {
+      "name": "opensearch-mcp-server",
+      "version": ""
+    }
+  },
+  "legacy": {
+    "instructions": null,
+    "protocol_version": "2025-11-25",
+    "server_capabilities": {
+      "experimental": {},
+      "tools": {
+        "listChanged": false
+      }
+    },
+    "server_info": {
+      "name": "opensearch-mcp-server",
+      "version": ""
+    }
+  }
+}
