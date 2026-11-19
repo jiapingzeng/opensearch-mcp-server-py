@@ -1,0 +1,55 @@
+{
+  "call": {
+    "arguments": {
+      "index": "logs"
+    },
+    "name": "GetShardsTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/shards/logs"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error getting shards: {'root_cause': [{'type': 'fake_error', 'reason': 'fake: error reported with HTTP 200'}], 'type': 'fake_error', 'reason': 'fake: error reported with HTTP 200'}",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}
