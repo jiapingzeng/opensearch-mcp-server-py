@@ -38,16 +38,7 @@
       "body_format": "none",
       "host": "http://fake-opensearch.invalid:9200",
       "method": "GET",
-      "params": {
-        "analyze_wildcard": "None",
-        "analyzer": "None",
-        "default_operator": "None",
-        "lenient": "None",
-        "preference": "None",
-        "q": "None",
-        "routing": "None",
-        "stored_fields": "None"
-      },
+      "params": {},
       "path": "/logs/_explain/1"
     }
   ],

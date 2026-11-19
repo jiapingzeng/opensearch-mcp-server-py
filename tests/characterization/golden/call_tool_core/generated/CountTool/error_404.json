@@ -36,19 +36,7 @@
       "body_format": "none",
       "host": "http://fake-opensearch.invalid:9200",
       "method": "GET",
-      "params": {
-        "allow_no_indices": "None",
-        "analyze_wildcard": "None",
-        "analyzer": "None",
-        "default_operator": "None",
-        "expand_wildcards": "None",
-        "ignore_unavailable": "None",
-        "min_score": "None",
-        "preference": "None",
-        "q": "None",
-        "routing": "None",
-        "terminate_after": "None"
-      },
+      "params": {},
       "path": "/missing/_count"
     }
   ],

@@ -39,14 +39,7 @@
       "host": "http://fake-opensearch.invalid:9200",
       "method": "GET",
       "params": {
-        "cluster_manager_timeout": "None",
-        "expand_wildcards": "None",
         "level": "indices",
-        "local": "None",
-        "master_timeout": "None",
-        "wait_for_active_shards": "None",
-        "wait_for_no_relocating_shards": "None",
-        "wait_for_nodes": "None",
         "wait_for_status": "yellow"
       },
       "path": "/_cluster/health/logs"
