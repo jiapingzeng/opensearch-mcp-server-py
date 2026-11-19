@@ -1,0 +1,53 @@
+{
+  "call": {
+    "arguments": {
+      "index": "missing"
+    },
+    "name": "GetIndexInfoTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/missing"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error getting index information: NotFoundError(404, '{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [missing]\",\"index\":\"missing\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"missing\",\"index_uuid\":\"_na_\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [missing]\",\"index\":\"missing\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"missing\",\"index_uuid\":\"_na_\"},\"status\":404}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

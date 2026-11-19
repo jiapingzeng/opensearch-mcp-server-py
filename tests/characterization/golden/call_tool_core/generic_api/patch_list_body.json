@@ -1,0 +1,60 @@
+{
+  "call": {
+    "arguments": {
+      "body": [
+        {
+          "op": "replace",
+          "path": "/backend_roles",
+          "value": [
+            "readers"
+          ]
+        }
+      ],
+      "method": "PATCH",
+      "path": "/_plugins/_security/api/internalusers/reader"
+    },
+    "name": "GenericOpenSearchApiTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": [
+        {
+          "op": "replace",
+          "path": "/backend_roles",
+          "value": [
+            "readers"
+          ]
+        }
+      ],
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "PATCH",
+      "params": {},
+      "path": "/_plugins/_security/api/internalusers/reader"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "OpenSearch API Response (PATCH /_plugins/_security/api/internalusers/reader):\n{\"status\":\"OK\",\"message\":\"'reader' updated.\"}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

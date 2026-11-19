@@ -1,0 +1,17 @@
+{
+  "call": {
+    "arguments": {},
+    "name": "ListClustersTool"
+  },
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Available clusters:\n[\"local\",\"backup\"]",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

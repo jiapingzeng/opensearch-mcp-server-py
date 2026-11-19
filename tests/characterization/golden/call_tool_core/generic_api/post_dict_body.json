@@ -1,0 +1,50 @@
+{
+  "call": {
+    "arguments": {
+      "body": {
+        "level": "info",
+        "message": "hello"
+      },
+      "method": "POST",
+      "path": "/logs/_doc"
+    },
+    "name": "GenericOpenSearchApiTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "level": "info",
+        "message": "hello"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/logs/_doc"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "OpenSearch API Response (POST /logs/_doc):\n{\"_index\":\"logs\",\"_id\":\"fake-doc-id-1\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":2,\"successful\":1,\"failed\":0},\"_seq_no\":0,\"_primary_term\":1}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

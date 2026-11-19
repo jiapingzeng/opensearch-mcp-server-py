@@ -1,0 +1,15 @@
+{
+  "records": [
+    {
+      "client_name": "unknown",
+      "duration_ms": "<DURATION>",
+      "event_type": "tool_execution",
+      "level": "ERROR",
+      "logger": "mcp_server_opensearch.tool_executor",
+      "message": "Tool execution failed: IndexMappingTool (<DURATION>ms)",
+      "status": "error",
+      "tool_key": "IndexMappingTool",
+      "tool_name": "IndexMappingTool"
+    }
+  ]
+}

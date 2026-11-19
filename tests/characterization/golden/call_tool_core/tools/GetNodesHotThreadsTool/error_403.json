@@ -1,0 +1,51 @@
+{
+  "call": {
+    "arguments": {},
+    "name": "GetNodesHotThreadsTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_nodes/hot_threads"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error getting hot threads information: AuthorizationException(403, '{\"error\":{\"root_cause\":[{\"type\":\"security_exception\",\"reason\":\"no permissions for [cluster:monitor/nodes/hot_threads] and User [name=reader, backend_roles=[], requestedTenant=null]\"}],\"type\":\"security_exception\",\"reason\":\"no permissions for [cluster:monitor/nodes/hot_threads] and User [name=reader, backend_roles=[], requestedTenant=null]\"},\"status\":403}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

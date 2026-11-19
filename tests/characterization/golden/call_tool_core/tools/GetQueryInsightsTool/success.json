@@ -1,0 +1,51 @@
+{
+  "call": {
+    "arguments": {},
+    "name": "GetQueryInsightsTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_insights/top_queries"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Query insights from /_insights/top_queries endpoint:\n{\"top_queries\":[{\"timestamp\":1577836800000,\"id\":\"fake-query-record-1\",\"search_type\":\"query_then_fetch\",\"indices\":[\"logs\"],\"source\":{\"query\":{\"match\":{\"level\":{\"query\":\"error\"}}}},\"total_shards\":1,\"node_id\":\"fake-node-id-1\",\"measurements\":{\"latency\":{\"number\":12,\"count\":1,\"aggregationType\":\"NONE\"},\"cpu\":{\"number\":1450000,\"count\":1,\"aggregationType\":\"NONE\"},\"memory\":{\"number\":20480,\"count\":1,\"aggregationType\":\"NONE\"}}}]}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "call": {
+    "arguments": {
+      "index": "logs"
+    },
+    "name": "ListIndexTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/logs"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Index information for logs:\n{\"logs\":{\"aliases\":{\"logs-read\":{}},\"mappings\":{\"properties\":{\"@timestamp\":{\"type\":\"date\"},\"level\":{\"type\":\"keyword\"},\"message\":{\"type\":\"text\",\"fields\":{\"keyword\":{\"type\":\"keyword\"}}}}},\"settings\":{\"index\":{\"creation_date\":\"1577836800000\",\"number_of_shards\":\"1\",\"number_of_replicas\":\"1\",\"uuid\":\"fake-uuid-logs-0000001\",\"version\":{\"created\":\"136407927\"},\"provided_name\":\"logs\"}}}}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

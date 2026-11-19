@@ -1,0 +1,53 @@
+{
+  "call": {
+    "arguments": {},
+    "name": "GetAllocationTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/allocation"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Allocation information from /_cat/allocation endpoint:\nshards | disk.indices | disk.used | disk.avail | disk.total | disk.percent | host | ip | node\n5 | 1.2mb | 20.1gb | 79.9gb | 100gb | 20 | 10.0.0.1 | 10.0.0.1 | node-1\n1 | None | None | None | None | None | None | None | UNASSIGNED\n",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

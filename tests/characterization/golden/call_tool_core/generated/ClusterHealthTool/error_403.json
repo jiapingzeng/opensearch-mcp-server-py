@@ -1,0 +1,61 @@
+{
+  "call": {
+    "arguments": {},
+    "name": "ClusterHealthTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "cluster_manager_timeout": "None",
+        "expand_wildcards": "None",
+        "level": "None",
+        "local": "None",
+        "master_timeout": "None",
+        "wait_for_active_shards": "None",
+        "wait_for_no_relocating_shards": "None",
+        "wait_for_nodes": "None",
+        "wait_for_status": "None"
+      },
+      "path": "/_cluster/health"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error executing ClusterHealthTool: AuthorizationException(403, '{\"error\":{\"root_cause\":[{\"type\":\"security_exception\",\"reason\":\"no permissions for [cluster:monitor/health] and User [name=reader, backend_roles=[], requestedTenant=null]\"}],\"type\":\"security_exception\",\"reason\":\"no permissions for [cluster:monitor/health] and User [name=reader, backend_roles=[], requestedTenant=null]\"},\"status\":403}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "call": {
+    "arguments": {
+      "index": "logs",
+      "metric": "docs,store"
+    },
+    "name": "GetIndexStatsTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/logs/_stats/docs,store"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Statistics for index: logs (metrics: docs,store):\n{\"_shards\":{\"total\":2,\"successful\":1,\"failed\":0},\"_all\":{\"primaries\":{\"docs\":{\"count\":1200,\"deleted\":0},\"store\":{\"size_in_bytes\":635289}},\"total\":{\"docs\":{\"count\":1200,\"deleted\":0},\"store\":{\"size_in_bytes\":635289}}},\"indices\":{\"logs\":{\"uuid\":\"fake-uuid-logs-0000001\",\"primaries\":{\"docs\":{\"count\":1200,\"deleted\":0},\"store\":{\"size_in_bytes\":635289}},\"total\":{\"docs\":{\"count\":1200,\"deleted\":0},\"store\":{\"size_in_bytes\":635289}}}}}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

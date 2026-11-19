@@ -1,0 +1,54 @@
+{
+  "call": {
+    "arguments": {
+      "metric": "jvm",
+      "node_id": "_local"
+    },
+    "name": "GetNodesTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_nodes/_local/jvm"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Detailed node information for nodes: _local (metrics: jvm):\n{\"_nodes\":{\"total\":1,\"successful\":1,\"failed\":0},\"cluster_name\":\"fake-cluster\",\"nodes\":{\"fake-node-id-1\":{\"name\":\"node-1\",\"transport_address\":\"10.0.0.1:9300\",\"host\":\"10.0.0.1\",\"ip\":\"10.0.0.1\",\"version\":\"3.1.0\",\"roles\":[\"cluster_manager\",\"data\",\"ingest\"],\"jvm\":{\"pid\":1234,\"version\":\"21.0.7\",\"vm_name\":\"OpenJDK 64-Bit Server VM\",\"start_time_in_millis\":1577836800000,\"mem\":{\"heap_init_in_bytes\":1073741824,\"heap_max_in_bytes\":1073741824}}}}}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

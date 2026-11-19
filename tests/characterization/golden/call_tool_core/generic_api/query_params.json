@@ -1,0 +1,51 @@
+{
+  "call": {
+    "arguments": {
+      "path": "/_cat/indices",
+      "query_params": {
+        "format": "json",
+        "h": "index,health",
+        "v": true
+      }
+    },
+    "name": "GenericOpenSearchApiTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json",
+        "h": "index,health",
+        "v": "True"
+      },
+      "path": "/_cat/indices"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "OpenSearch API Response (GET /_cat/indices) with query params: {'format': 'json', 'v': True, 'h': 'index,health'}:\n[{\"index\":\"logs\",\"health\":\"green\"}]",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

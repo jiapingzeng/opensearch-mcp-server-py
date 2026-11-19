@@ -1,0 +1,51 @@
+{
+  "call": {
+    "arguments": {},
+    "name": "GetNodesHotThreadsTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_nodes/hot_threads"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Hot threads information from /_nodes/hot_threads endpoint:\n::: {node-1}{fake-node-id-1}{fake-ephemeral-id}{10.0.0.1}{10.0.0.1:9300}{dimr}\n   Hot threads at 2020-01-01T00:00:00.000Z, interval=500ms, busiestThreads=3, ignoreIdleThreads=true:\n\n    1.2% (6ms out of 500ms) cpu usage by thread 'opensearch[node-1][search][T#1]'\n",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

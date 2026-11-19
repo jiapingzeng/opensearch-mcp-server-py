@@ -1,0 +1,52 @@
+{
+  "call": {
+    "arguments": {
+      "body": {
+        "query": {
+          "match_all": {}
+        }
+      },
+      "method": "POST",
+      "path": "/missing/_search"
+    },
+    "name": "GenericOpenSearchApiTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "match_all": {}
+        }
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/missing/_search"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error calling OpenSearch API (POST /missing/_search): NotFoundError(404, '{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [missing]\",\"index\":\"missing\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"missing\",\"index_uuid\":\"_na_\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [missing]\",\"index\":\"missing\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"missing\",\"index_uuid\":\"_na_\"},\"status\":404}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

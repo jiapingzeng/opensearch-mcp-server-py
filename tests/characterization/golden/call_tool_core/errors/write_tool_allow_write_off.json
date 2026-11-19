@@ -1,0 +1,33 @@
+{
+  "call": {
+    "arguments": {
+      "description": "queries",
+      "name": "set-1",
+      "queries": "[\"error\"]"
+    },
+    "name": "CreateQuerySetTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Unknown or disabled tool: CreateQuerySetTool",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

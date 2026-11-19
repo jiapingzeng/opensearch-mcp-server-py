@@ -1,0 +1,35 @@
+{
+  "call": {
+    "arguments": {
+      "body": {
+        "level": "info"
+      },
+      "method": "POST",
+      "path": "/logs/_doc"
+    },
+    "name": "GenericOpenSearchApiTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error validating request: Write operations are disabled. Method \"POST\" is not allowed.",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

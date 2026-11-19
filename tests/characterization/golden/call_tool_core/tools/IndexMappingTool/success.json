@@ -1,0 +1,53 @@
+{
+  "call": {
+    "arguments": {
+      "index": "logs"
+    },
+    "name": "IndexMappingTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/logs/_mapping"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Mapping for logs:\n{\"logs\":{\"mappings\":{\"properties\":{\"@timestamp\":{\"type\":\"date\"},\"level\":{\"type\":\"keyword\"},\"message\":{\"type\":\"text\",\"fields\":{\"keyword\":{\"type\":\"keyword\"}}}}}}}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}
