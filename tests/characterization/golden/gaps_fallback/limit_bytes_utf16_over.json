@@ -1,0 +1,113 @@
+{
+  "body_type": "bytes",
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "connection_log": [
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET / -> 200 (<DURATION>ms)",
+      "response_size": 438,
+      "status": "success",
+      "status_code": 200
+    },
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET / -> 200 (<DURATION>ms)",
+      "response_size": 438,
+      "status": "success",
+      "status_code": 200
+    },
+    {
+      "level": "WARNING",
+      "logger": "opensearch.connection",
+      "message": "Streaming request failed (ClientConnectionError: fake: connection reset during streaming), falling back to parent implementation"
+    },
+    {
+      "level": "ERROR",
+      "logger": "opensearch.connection",
+      "message": "Response size exceeded limit: 1300 > 697 bytes"
+    }
+  ],
+  "max_response_size": 697,
+  "request_count": 4,
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "attempt": "streaming",
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    },
+    {
+      "attempt": "fallback",
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: Response size exceeded limit of 697 bytes. Received 1300 bytes. Consider increasing max_response_size or refining your query to return less data.",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "warnings": [
+    "Streaming request failed (ClientConnectionError: fake: connection reset during streaming), falling back to parent implementation",
+    "Response size exceeded limit: 1300 > 697 bytes"
+  ]
+}
