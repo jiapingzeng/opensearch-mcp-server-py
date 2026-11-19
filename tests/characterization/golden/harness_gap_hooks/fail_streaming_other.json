@@ -33,7 +33,7 @@
     {
       "level": "WARNING",
       "logger": "opensearch.connection",
-      "message": "Streaming request failed (ClientConnectionError: fake: connection reset during streaming), falling back to parent implementation"
+      "message": "Streaming request failed (RuntimeError: fake: unexpected failure during streaming), falling back to parent implementation"
     },
     {
       "duration_ms": "<DURATION>",
