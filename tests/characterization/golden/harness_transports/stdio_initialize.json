@@ -1,0 +1,17 @@
+{
+  "id": 0,
+  "jsonrpc": "2.0",
+  "result": {
+    "capabilities": {
+      "experimental": {},
+      "tools": {
+        "listChanged": false
+      }
+    },
+    "protocolVersion": "2025-11-25",
+    "serverInfo": {
+      "name": "opensearch-mcp-server",
+      "version": ""
+    }
+  }
+}

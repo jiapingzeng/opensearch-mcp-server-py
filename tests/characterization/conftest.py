@@ -15,6 +15,11 @@ public entry points and the MCP protocol. This module provides:
   the server mutates, and the environment it reads.
 - ``no_network`` (autouse): any DNS lookup or connection off this machine fails the test.
 - ``mcp_session``: build the server with ``create_mcp_server`` and talk to it in-process.
+- ``http_app``: the streamable-HTTP/SSE Starlette app ``streaming_server.serve`` builds,
+  lifespan running, driven in-process by httpx (the only way to reach header-based code).
+- ``stdio_launcher``: the real entry point (``main()``) in a subprocess through
+  ``stdio_launcher.py``, with the same fakes installed there, spoken to over stdio.
+- ``memory_enabled_session``: ``stdio_launcher`` with ``MEMORY_TOOLS_ENABLED=true``.
 """
 
 import aiohttp
@@ -25,7 +30,9 @@ import contextlib
 import difflib
 import errno
 import gzip
+import httpx
 import ipaddress
+import itertools
 import json
 import logging
 import os
@@ -41,7 +48,16 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from mcp.client import Client
 from mcp.client._memory import InMemoryTransport
+from mcp.shared.exceptions import MCPError
+from mcp.shared.inbound import (
+    MCP_METHOD_HEADER,
+    MCP_NAME_HEADER,
+    MCP_PROTOCOL_VERSION_HEADER,
+    NAME_BEARING_METHODS,
+    encode_header_value,
+)
 from mcp.shared.message import SessionMessage
+from mcp.types import CallToolResult, ListToolsResult
 from mcp_server_opensearch import (
     clusters_information,
     global_state,
@@ -1122,13 +1138,7 @@ async def raw_jsonrpc(
                         return _wire(message)
 
             if version in MODERN_PROTOCOL_VERSIONS:
-                params = dict(params or {})
-                params['_meta'] = {
-                    PROTOCOL_VERSION_META_KEY: version,
-                    CLIENT_INFO_META_KEY: HARNESS_CLIENT_INFO,
-                    CLIENT_CAPABILITIES_META_KEY: {},
-                    **(params.get('_meta') or {}),
-                }
+                params = _with_request_envelope(params, version)
             elif method == 'initialize':
                 if params is None:
                     params = _initialize_params(version)
@@ -1147,6 +1157,18 @@ async def raw_jsonrpc(
 
 def _initialize_params(version: str) -> dict:
     return {'protocolVersion': version, 'capabilities': {}, 'clientInfo': HARNESS_CLIENT_INFO}
+
+
+def _with_request_envelope(params: dict | None, version: str) -> dict:
+    """``params`` with the per-request ``_meta`` envelope modern protocol versions carry."""
+    params = dict(params or {})
+    params['_meta'] = {
+        PROTOCOL_VERSION_META_KEY: version,
+        CLIENT_INFO_META_KEY: HARNESS_CLIENT_INFO,
+        CLIENT_CAPABILITIES_META_KEY: {},
+        **(params.get('_meta') or {}),
+    }
+    return params
 
 
 class McpSession:
@@ -1205,5 +1227,841 @@ def mcp_session(monkeypatch, fake_opensearch, pinned_openapi) -> Callable:
         )
         async with Client(server, mode=client_mode, cache=None) as client:
             yield McpSession(server, client)
+
+    return open_session
+
+
+# This module as it was imported. A test module cannot rely on `import conftest`: the
+# package-less conftest.py files of tests/ all import under that one name.
+_HARNESS = sys.modules[__name__]
+
+
+@pytest.fixture
+def harness():
+    """This module, for tests of its helpers (``harness.parse_sse``, ``harness.fake_table``)."""
+    return _HARNESS
+
+
+def _set_env(monkeypatch: pytest.MonkeyPatch, env: dict | None) -> None:
+    """Set ``env`` in this process for the test; ``None`` as a value unsets a variable."""
+    for name, value in (env or {}).items():
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+
+
+async def _finish(task: asyncio.Task, timeout: float) -> bool:
+    """Wait up to ``timeout`` for ``task``; cancel it if still running. True if it finished."""
+    done, _ = await asyncio.wait({task}, timeout=timeout)
+    if done:
+        return True
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError, Exception):
+        await task
+    return False
+
+
+# ---------------------------------------------------------------------------
+# http_app
+# ---------------------------------------------------------------------------
+
+# Where `streaming_server.serve` listens by default: requests carry it as their Host, as a
+# real client's would. Nothing listens there; httpx hands each request to the app in-process.
+HTTP_BASE_URL = 'http://127.0.0.1:9900'
+# What a streamable-HTTP client sends with every POST to /mcp.
+MCP_POST_HEADERS = {
+    'accept': 'application/json, text/event-stream',
+    'content-type': 'application/json',
+}
+SSE_TIMEOUT_SECONDS = 10
+
+
+def parse_sse(text: str) -> list[dict]:
+    """The events of a ``text/event-stream`` body, read as the SSE specification reads them.
+
+    Lines end with CRLF, LF or CR; a blank line ends an event; comment lines (``:``) are
+    skipped; one space after the colon is dropped. Each event is a dict of the fields it
+    carries (``event``, ``data``, ``id``, ``retry``, ...), several ``data`` lines joined with
+    a newline. A last event not yet ended by a blank line is left out.
+    """
+    events: list[dict] = []
+    fields: dict[str, str] = {}
+    # The last item is the unterminated rest of the text ('' when it ends with a newline).
+    for line in re.split(r'\r\n|\r|\n', text)[:-1]:
+        if not line:
+            if fields:
+                events.append(fields)
+            fields = {}
+            continue
+        if line.startswith(':'):
+            continue
+        name, _, value = line.partition(':')
+        if value.startswith(' '):
+            value = value[1:]
+        if name == 'data' and 'data' in fields:
+            fields['data'] += '\n' + value
+        else:
+            fields[name] = value
+    return events
+
+
+def _json_or_text(text: str) -> Any:
+    try:
+        return json.loads(text)
+    except ValueError:
+        return text
+
+
+@dataclass
+class HttpReply:
+    """An HTTP response from ``http_app``: status, headers (names lower-cased) and body text."""
+
+    status: int
+    headers: dict[str, str]
+    text: str
+
+    @property
+    def content_type(self) -> str:
+        """The media type of the body, without parameters (``text/event-stream``)."""
+        return self.headers.get('content-type', '').partition(';')[0].strip().lower()
+
+    @property
+    def events(self) -> list[dict]:
+        """The SSE events of a ``text/event-stream`` body (see ``parse_sse``); else ``[]``."""
+        return parse_sse(self.text) if self.content_type == 'text/event-stream' else []
+
+    @property
+    def messages(self) -> list[Any]:
+        """The JSON-RPC messages in the body: each SSE event's data, or the JSON body."""
+        if self.content_type == 'text/event-stream':
+            return [json.loads(event['data']) for event in self.events if event.get('data')]
+        if self.content_type == 'application/json' and self.text:
+            body = json.loads(self.text)
+            return body if isinstance(body, list) else [body]
+        return []
+
+    def message(self) -> Any:
+        """The one JSON-RPC message in the body; fails the test if there is not exactly one."""
+        messages = self.messages
+        if len(messages) != 1:
+            pytest.fail(
+                f'expected one JSON-RPC message, got {len(messages)}: HTTP {self.status} '
+                f'{self.headers.get("content-type")!r}\n{self.text}',
+                pytrace=False,
+            )
+        return messages[0]
+
+    def summary(self) -> dict:
+        """Status, headers and body as a golden records an HTTP exchange.
+
+        The body is ``events`` for an event stream (each event's ``data`` parsed as JSON when
+        it is JSON), ``json`` for a JSON body, ``text`` otherwise.
+        """
+        summary: dict[str, Any] = {'status': self.status, 'headers': self.headers}
+        if self.content_type == 'text/event-stream':
+            summary['events'] = [
+                {**event, **({'data': _json_or_text(event['data'])} if 'data' in event else {})}
+                for event in self.events
+            ]
+        elif self.content_type == 'application/json' and self.text:
+            summary['json'] = _json_or_text(self.text)
+        else:
+            summary['text'] = self.text
+        return summary
+
+
+def _merge_headers(defaults: dict, overrides: dict | None) -> dict:
+    """``defaults`` updated with ``overrides``, names lower-cased.
+
+    A ``None`` value is kept: it tells ``HttpApp`` to send no such header at all.
+    """
+    headers = {name.lower(): value for name, value in defaults.items()}
+    headers.update((name.lower(), value) for name, value in (overrides or {}).items())
+    return headers
+
+
+def _reply_headers(raw_headers: list[tuple[bytes, bytes]]) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    for name, value in raw_headers:
+        name, value = name.decode('latin-1').lower(), value.decode('latin-1')
+        headers[name] = f'{headers[name]}, {value}' if name in headers else value
+    return headers
+
+
+def _asgi_scope(request: httpx.Request) -> dict:
+    """The ASGI ``http`` scope ``httpx.ASGITransport`` builds for ``request``."""
+    return {
+        'type': 'http',
+        'asgi': {'version': '3.0'},
+        'http_version': '1.1',
+        'method': request.method,
+        'headers': [(name.lower(), value) for name, value in request.headers.raw],
+        'scheme': request.url.scheme,
+        'path': request.url.path,
+        'raw_path': request.url.raw_path.split(b'?')[0],
+        'query_string': request.url.query,
+        'server': (request.url.host, request.url.port),
+        'client': ('127.0.0.1', 123),
+        'root_path': '',
+    }
+
+
+@contextlib.asynccontextmanager
+async def asgi_lifespan(app: Any, timeout: float = RAW_TIMEOUT_SECONDS):
+    """Run ``app``'s ASGI lifespan as uvicorn does: startup on entry, shutdown on exit.
+
+    The app runs in its own asyncio task (as under uvicorn), not in a task group, so an
+    exception raised in the body reaches the test as itself, not inside an ExceptionGroup.
+    """
+    to_app: asyncio.Queue = asyncio.Queue()
+    from_app: asyncio.Queue = asyncio.Queue()
+    scope = {'type': 'lifespan', 'asgi': {'version': '3.0', 'spec_version': '2.0'}, 'state': {}}
+    task = asyncio.create_task(app(scope, to_app.get, from_app.put))
+
+    async def step(kind: str) -> None:
+        await to_app.put({'type': f'lifespan.{kind}'})
+        reply = asyncio.ensure_future(from_app.get())
+        await asyncio.wait({reply, task}, timeout=timeout, return_when=asyncio.FIRST_COMPLETED)
+        message = reply.result() if reply.done() else None
+        if message is not None and message['type'] == f'lifespan.{kind}.complete':
+            return
+        reply.cancel()
+        # Starlette reports a failed step, then raises the error: chain it. No reply at all
+        # means the app hangs (or already ended): stop it at once.
+        cause = None
+        if await _finish(task, timeout if message else 0) and not task.cancelled():
+            cause = task.exception()
+        failure = message or f'no reply in {timeout}s'
+        raise AssertionError(f'ASGI lifespan {kind} failed: {failure}') from cause
+
+    try:
+        await step('startup')
+    except BaseException:
+        await _finish(task, 0)
+        raise
+    try:
+        yield
+    finally:
+        await step('shutdown')
+        if not await _finish(task, timeout):
+            raise AssertionError(f'ASGI lifespan: the app did not return in {timeout}s')
+        task.result()
+
+
+class HttpApp:
+    """The Starlette app ``streaming_server.serve`` runs, driven in-process with httpx.
+
+    ``server`` is what ``create_mcp_server`` returned, ``app`` the Starlette app, ``client``
+    an ``httpx.AsyncClient`` over ``httpx.ASGITransport(app=app)``: no socket is opened.
+    Unlike stdio and the in-memory transport, a request here has a Starlette ``Request``
+    (``ctx.request``), so header-based behaviour (header auth, ``x-mcp-client-name``) is
+    reachable only through this fixture.
+    """
+
+    def __init__(self, server: Any, app: Any, client: httpx.AsyncClient):
+        self.server = server
+        self.app = app
+        self.client = client
+
+    def build_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers: dict | None = None,
+        content: str | bytes | None = None,
+    ) -> httpx.Request:
+        """The request ``request()`` sends: httpx's defaults, then ``headers`` on top.
+
+        A header given as ``None`` is not sent at all, even one httpx adds by default
+        (``accept``, ``accept-encoding``, ``connection``, ``user-agent``, ``host``).
+        """
+        headers = {name.lower(): value for name, value in (headers or {}).items()}
+        sent = {name: value for name, value in headers.items() if value is not None}
+        request = self.client.build_request(method, path, headers=sent, content=content)
+        for name, value in headers.items():
+            if value is None:
+                request.headers.pop(name, None)
+        return request
+
+    async def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers: dict | None = None,
+        content: str | bytes | None = None,
+    ) -> HttpReply:
+        """Send one HTTP request to the app; return its (complete) response.
+
+        ``headers`` are added to httpx's defaults; ``None`` as a value sends no such header.
+        """
+        request = self.build_request(method, path, headers=headers, content=content)
+        with anyio.fail_after(RAW_TIMEOUT_SECONDS):
+            response = await self.client.send(request)
+        return HttpReply(response.status_code, _reply_headers(response.headers.raw), response.text)
+
+    async def get(self, path: str, headers: dict | None = None) -> HttpReply:
+        return await self.request('GET', path, headers=headers)
+
+    async def post_mcp(
+        self, message: Any, headers: dict | None = None, *, path: str = '/mcp'
+    ) -> HttpReply:
+        """POST ``message`` to ``/mcp`` with a streamable-HTTP client's headers.
+
+        ``message`` is a JSON-RPC message (or a list of them), sent as JSON; a str or bytes is
+        sent as it is. ``headers`` are added to ``MCP_POST_HEADERS`` (and httpx's defaults);
+        ``None`` as a value sends no such header (``{'accept': None}``: no Accept at all).
+        """
+        content = message if isinstance(message, (str, bytes)) else json.dumps(message)
+        return await self.request(
+            'POST', path, headers=_merge_headers(MCP_POST_HEADERS, headers), content=content
+        )
+
+    async def mcp(
+        self,
+        method: str,
+        params: dict | None = None,
+        *,
+        headers: dict | None = None,
+        protocol_version: str | None = None,
+        request_id: int = 1,
+    ) -> Any:
+        """Send one JSON-RPC request to ``/mcp``; return the one JSON-RPC message it gets back.
+
+        The app is stateless (as ``serve`` builds it), so no ``initialize`` is needed first.
+        ``protocol_version`` is sent as the ``mcp-protocol-version`` header (none by default).
+        A modern version (2026-07-28) is sent as the SDK client sends it: the per-request
+        ``_meta`` envelope merged into ``params`` (as ``mcp_session``'s ``raw`` does), plus the
+        ``mcp-method`` header and, for ``tools/call``, ``prompts/get`` and ``resources/read``,
+        ``mcp-name``. ``Mcp-Param-*`` headers are not derived: pass them in ``headers``, which
+        override these (``None`` sends no such header).
+        """
+        if protocol_version is not None:
+            routing = {MCP_PROTOCOL_VERSION_HEADER: protocol_version}
+            if protocol_version in MODERN_PROTOCOL_VERSIONS:
+                params = _with_request_envelope(params, protocol_version)
+                routing[MCP_METHOD_HEADER] = method
+                name_key = NAME_BEARING_METHODS.get(method)
+                if name_key is not None and isinstance(name := params.get(name_key), str):
+                    routing[MCP_NAME_HEADER] = encode_header_value(name)
+            headers = {**routing, **(headers or {})}
+        message = {'jsonrpc': '2.0', 'id': request_id, 'method': method}
+        if params is not None:
+            message['params'] = params
+        return (await self.post_mcp(message, headers)).message()
+
+    async def sse_first_event(
+        self, path: str = '/sse', headers: dict | None = None, timeout: float = SSE_TIMEOUT_SECONDS
+    ) -> dict:
+        """Open ``GET path``, read until its first SSE event, then disconnect.
+
+        Returns ``{'status', 'headers', 'event'}``; if the response ends before any event,
+        ``event`` is ``None`` and ``text`` holds the body. Fails after ``timeout`` seconds
+        without an event. ``httpx.ASGITransport`` returns a response only once the app has
+        sent all of it, which an open event stream never does, so this calls the app's ASGI
+        interface itself, with the scope httpx would build for the request.
+        """
+        request = self.build_request('GET', path, headers=headers)
+        scope = _asgi_scope(request)
+        start: dict = {}
+        chunks: asyncio.Queue = asyncio.Queue()
+        disconnected = asyncio.Event()
+        request_sent = False
+        ended = False
+
+        async def receive() -> dict:
+            nonlocal request_sent
+            if not request_sent:
+                request_sent = True
+                return {'type': 'http.request', 'body': b'', 'more_body': False}
+            await disconnected.wait()
+            return {'type': 'http.disconnect'}
+
+        async def send(message: dict) -> None:
+            nonlocal ended
+            # Whatever the app sends once its response has started and ended reaches no client.
+            if message['type'] == 'http.response.start' and not start:
+                start.update(status=message['status'], headers=message.get('headers', []))
+            elif message['type'] == 'http.response.body' and start and not ended:
+                chunks.put_nowait(message.get('body', b''))
+                if not message.get('more_body', False):
+                    ended = True
+                    chunks.put_nowait(None)
+
+        task = asyncio.create_task(self.app(scope, receive, send))
+        task.add_done_callback(lambda _: chunks.put_nowait(None))
+        body = b''
+        event = None
+        try:
+            with anyio.fail_after(timeout):
+                while event is None:
+                    chunk = await chunks.get()
+                    if chunk is None:
+                        break
+                    body += chunk
+                    # A CR at the very end may be the first half of a CRLF still in transit.
+                    events = parse_sse(body.decode('utf-8', 'replace').removesuffix('\r'))
+                    event = events[0] if events else None
+        finally:
+            disconnected.set()
+            if not await _finish(task, timeout):
+                raise AssertionError(f'GET {path}: the app did not return after the disconnect')
+            task.result()
+        result = {
+            'status': start.get('status'),
+            'headers': _reply_headers(start.get('headers', [])),
+            'event': event,
+        }
+        if event is None:
+            result['text'] = body.decode('utf-8', 'replace')
+        return result
+
+
+@pytest.fixture
+def http_app(monkeypatch, fake_opensearch, pinned_openapi) -> Callable:
+    """Factory for the streamable-HTTP/SSE app exactly as ``streaming_server.serve`` builds it.
+
+    Use as ``async with http_app(mode='single', config_file='', env=None) as http:``.
+    The server is built with ``create_mcp_server`` (``cli_overrides`` and ``profile`` too, as
+    keywords), wrapped in ``MCPStarletteApp(server, stateless=True).create_app()``, and its
+    lifespan runs for the duration of the block. ``env`` is set as for ``mcp_session``.
+    See ``HttpApp`` for the helpers.
+    """
+
+    @contextlib.asynccontextmanager
+    async def open_app(
+        mode: str = 'single',
+        config_file: str | os.PathLike = '',
+        env: dict | None = None,
+        *,
+        cli_overrides: dict | None = None,
+        profile: str = '',
+    ):
+        _set_env(monkeypatch, env)
+        server = await streaming_server.create_mcp_server(
+            mode=mode,
+            profile=profile,
+            config_file_path=str(config_file) if config_file else '',
+            cli_tool_overrides=cli_overrides,
+        )
+        app = streaming_server.MCPStarletteApp(server, stateless=True).create_app()
+        async with asgi_lifespan(app):
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url=HTTP_BASE_URL) as client:
+                yield HttpApp(server, app, client)
+
+    return open_app
+
+
+# ---------------------------------------------------------------------------
+# stdio_launcher / memory_enabled_session
+# ---------------------------------------------------------------------------
+
+LAUNCHER = HERE / 'stdio_launcher.py'
+# What the launched server's argparse prints as its name: the console script's.
+SERVER_PROG = 'opensearch-mcp-server-py'
+# Files the test process and stdio_launcher.py share (paths in these variables).
+FAKE_TABLE_ENV = 'CHAR_FAKE_OPENSEARCH_TABLE'
+FAKE_LOG_ENV = 'CHAR_FAKE_OPENSEARCH_LOG'
+STDIO_TIMEOUT_SECONDS = 60
+# Variables that make a launched process's output depend on the terminal it was started from.
+_LAUNCHER_DROPPED_ENV = ('COLUMNS', 'LINES', 'FORCE_COLOR', 'PYTHON_COLORS')
+# Where the server's packages were imported from in this process; the launched one uses them.
+_SERVER_SOURCE_ROOT = str(Path(streaming_server.__file__).resolve().parents[1])
+_STDOUT_LIMIT = 64 * 1024 * 1024
+_STDOUT_END = object()
+
+
+def fake_table(fake: FakeOpenSearch, pinned: PinnedOpenApi) -> dict:
+    """The fake OpenSearch's routes and version and the OpenAPI setting, as JSON data.
+
+    This is the reply table ``stdio_launcher.py`` reads (``fake_from_table``). Route bodies
+    must be data: a callable body cannot cross into another process. An OpenAPI error
+    crosses as its message (the launched fetch raises ``aiohttp.ClientConnectionError``).
+    """
+    routes = []
+    for route in fake._routes:
+        if callable(route.body):
+            raise TypeError(
+                f'fake OpenSearch route {route.method} {route.path}: a callable body cannot be '
+                'passed to a launched server; give the reply as data'
+            )
+        entry: dict[str, Any] = {
+            'method': route.method,
+            'status': route.status,
+            'headers': route.headers,
+            'connection_error': route.connection_error,
+        }
+        if isinstance(route.path, re.Pattern):
+            entry['path_regex'] = route.path.pattern
+            entry['path_flags'] = route.path.flags
+        else:
+            entry['path'] = route.path
+        if isinstance(route.body, (bytes, bytearray)):
+            entry['body_base64'] = base64.b64encode(route.body).decode('ascii')
+        else:
+            entry['body'] = route.body
+        routes.append(entry)
+    return {
+        'url': fake.url,
+        'version': fake.version,
+        'routes': routes,
+        'openapi_error': None if pinned.error is None else str(pinned.error),
+    }
+
+
+def fake_from_table(table: dict) -> tuple[FakeOpenSearch, PinnedOpenApi]:
+    """The fake OpenSearch and pinned OpenAPI a ``fake_table`` describes."""
+    fake = FakeOpenSearch(table['url'])
+    fake.version = table['version']
+    for entry in table['routes']:
+        if 'path_regex' in entry:
+            path = re.compile(entry['path_regex'], entry['path_flags'])
+        else:
+            path = entry['path']
+        if 'body_base64' in entry:
+            body = base64.b64decode(entry['body_base64'])
+        else:
+            body = entry['body']
+        fake._routes.append(
+            _Route(
+                entry['method'],
+                path,
+                entry['status'],
+                body,
+                entry['headers'],
+                entry['connection_error'],
+            )
+        )
+    pinned = PinnedOpenApi()
+    if table['openapi_error'] is not None:
+        pinned.error = aiohttp.ClientConnectionError(table['openapi_error'])
+    return fake, pinned
+
+
+def read_launcher_log(path: os.PathLike | str) -> list[dict]:
+    """The entries ``stdio_launcher.py`` appended to its log, one JSON object per line."""
+    with open(path, encoding='utf-8', newline='\n') as f:
+        return [json.loads(line) for line in f if line.strip()]
+
+
+class StdioServerProcess:
+    """``mcp_server_opensearch.main()`` in a subprocess, spoken to over its stdin and stdout.
+
+    Messages are newline-delimited JSON, as the stdio transport writes them; the CR of a
+    Windows CRLF is stripped from every line. ``list_tools``, ``call_tool`` and ``raw`` return
+    what ``mcp_session``'s helpers return; ``request``/``notify``/``send``/``receive`` work
+    on raw JSON-RPC, and ``sent`` lists every message written to stdin.
+
+    One process is one connection, so the handshake runs once: at the version the test
+    first initializes with (``initialize(version)`` or ``raw('initialize', ...)``), or at
+    ``DEFAULT_PROTOCOL_VERSION`` when a helper needs it first. ``list_tools``, ``call_tool``
+    and ``raw`` without a version then use that version, as ``mcp_session``'s helpers use
+    the one negotiated; asking ``raw`` for another handshake version fails the test.
+    """
+
+    def __init__(self, process: asyncio.subprocess.Process, log_path: Path):
+        self.process = process
+        self.log_path = log_path
+        # Every line the server wrote to stdout, and every message no request awaited.
+        self.stdout_lines: list[str] = []
+        self.notifications: list[Any] = []
+        self.returncode: int | None = None
+        self.killed = False
+        self._stderr = bytearray()
+        self._messages: asyncio.Queue = asyncio.Queue()
+        # Every JSON-RPC message written to stdin with send(), in order.
+        self.sent: list[Any] = []
+        self._next_id = 0
+        # The version the handshake ran at, and whether notifications/initialized is still due
+        # (raw('initialize') sends the request alone, as mcp_session's raw does).
+        self._handshake_version: str | None = None
+        self._initialized_due = False
+        self._readers = [
+            asyncio.create_task(self._read_stdout()),
+            asyncio.create_task(self._read_stderr()),
+        ]
+
+    @property
+    def stderr(self) -> str:
+        """What the server wrote to stderr so far (UTF-8, CRLF read as LF)."""
+        return self._stderr.decode('utf-8', 'replace').replace('\r\n', '\n')
+
+    async def _read_stdout(self) -> None:
+        while line := await self.process.stdout.readline():
+            text = line.decode('utf-8', 'replace').rstrip('\r\n')
+            self.stdout_lines.append(text)
+            if text.strip():
+                try:
+                    self._messages.put_nowait(json.loads(text))
+                except ValueError:
+                    pass
+        self._messages.put_nowait(_STDOUT_END)
+
+    async def _read_stderr(self) -> None:
+        while chunk := await self.process.stderr.read(65536):
+            self._stderr.extend(chunk)
+
+    def _failure(self, what: str) -> AssertionError:
+        tail = '\n'.join(self.stderr.splitlines()[-30:])
+        return AssertionError(
+            f'stdio server: {what} (exit code {self.process.returncode})\n{tail}'
+        )
+
+    async def send_line(self, line: str | bytes) -> None:
+        """Write one line (a newline is added) to the server's stdin."""
+        data = line if isinstance(line, bytes) else line.encode('utf-8')
+        self.process.stdin.write(data + b'\n')
+        await self.process.stdin.drain()
+
+    async def send(self, message: Any) -> None:
+        """Write one JSON-RPC message to the server's stdin."""
+        self.sent.append(message)
+        await self.send_line(json.dumps(message, ensure_ascii=False))
+
+    async def receive(self, timeout: float = STDIO_TIMEOUT_SECONDS) -> Any:
+        """The next JSON message the server writes to stdout (non-JSON lines are skipped)."""
+        try:
+            message = await asyncio.wait_for(self._messages.get(), timeout)
+        except asyncio.TimeoutError:
+            raise self._failure(f'no message on stdout in {timeout}s') from None
+        if message is _STDOUT_END:
+            self._messages.put_nowait(_STDOUT_END)
+            raise self._failure('stdout closed')
+        return message
+
+    async def notify(self, method: str, params: dict | None = None) -> None:
+        message = {'jsonrpc': '2.0', 'method': method}
+        if params is not None:
+            message['params'] = params
+        await self.send(message)
+
+    async def request(self, method: str, params: dict | None = None) -> dict:
+        """Send one JSON-RPC request (ids count up from 0); return the raw response to it.
+
+        Other messages that arrive first are kept in ``notifications``.
+        """
+        request_id = self._next_id
+        self._next_id += 1
+        message = {'jsonrpc': '2.0', 'id': request_id, 'method': method}
+        if params is not None:
+            message['params'] = params
+        await self.send(message)
+        while True:
+            reply = await self.receive()
+            if (
+                isinstance(reply, dict)
+                and reply.get('id') == request_id
+                and ('result' in reply or 'error' in reply)
+            ):
+                return reply
+            self.notifications.append(reply)
+
+    async def initialize(
+        self, protocol_version: str = DEFAULT_PROTOCOL_VERSION, params: dict | None = None
+    ) -> dict:
+        """Run the handshake: ``initialize``, then ``notifications/initialized`` if it succeeded.
+
+        Returns the raw ``initialize`` response. ``params`` replaces the default params
+        (offering ``protocol_version``); the session's version is the one they offer.
+        """
+        response = await self._initialize(protocol_version, params)
+        if self._initialized_due:
+            await self.notify('notifications/initialized')
+            self._initialized_due = False
+        return response
+
+    async def _initialize(self, protocol_version: str, params: dict | None) -> dict:
+        """Send ``initialize`` alone; on success, record the session's version."""
+        params = params or _initialize_params(protocol_version)
+        response = await self.request('initialize', params)
+        if 'result' in response:
+            self._handshake_version = params.get('protocolVersion', protocol_version)
+            self._initialized_due = True
+        return response
+
+    async def _handshake(self, protocol_version: str | None = None) -> dict | None:
+        """Make sure the handshake ran (at ``protocol_version``, if given).
+
+        Runs it at ``protocol_version`` (or ``DEFAULT_PROTOCOL_VERSION``) if it has not run;
+        completes it if ``raw('initialize')`` left ``notifications/initialized`` due. Returns
+        the error response if ``initialize`` failed.
+        """
+        if self._handshake_version is None:
+            response = await self.initialize(protocol_version or DEFAULT_PROTOCOL_VERSION)
+            return response if 'error' in response else None
+        if protocol_version is not None and protocol_version != self._handshake_version:
+            raise AssertionError(
+                f'this stdio session was initialized at {self._handshake_version}; '
+                f'launch another one for {protocol_version}'
+            )
+        if self._initialized_due:
+            await self.notify('notifications/initialized')
+            self._initialized_due = False
+        return None
+
+    async def raw(
+        self, method: str, params: dict | None = None, protocol_version: str | None = None
+    ) -> dict:
+        """Raw JSON-RPC response (``result`` or ``error``), as ``mcp_session``'s ``raw``.
+
+        ``initialize`` is sent alone (``notifications/initialized`` follows only before the next
+        request that needs the handshake), offering ``protocol_version`` or the default.
+        A modern version sends the request alone with the per-request ``_meta`` envelope.
+        Otherwise the request goes on the session's handshake (see the class docstring):
+        without ``protocol_version``, at the version the session was initialized at.
+        """
+        if method == 'initialize':
+            return await self._initialize(protocol_version or DEFAULT_PROTOCOL_VERSION, params)
+        if protocol_version in MODERN_PROTOCOL_VERSIONS:
+            return await self.request(method, _with_request_envelope(params, protocol_version))
+        failed = await self._handshake(protocol_version)
+        if failed is not None:
+            return failed
+        return await self.request(method, params)
+
+    async def _result(self, method: str, params: dict | None = None) -> dict:
+        failed = await self._handshake()
+        response = failed or await self.request(method, params)
+        if 'error' in response:
+            error = response['error']
+            raise MCPError(error.get('code'), error.get('message'), error.get('data'))
+        return response['result']
+
+    async def list_tools(self) -> dict:
+        return dump(ListToolsResult.model_validate(await self._result('tools/list')))
+
+    async def call_tool(self, name: str, arguments: dict | None = None) -> dict:
+        params = {'name': name, 'arguments': arguments or {}}
+        return dump(CallToolResult.model_validate(await self._result('tools/call', params)))
+
+    async def wait(self, timeout: float = STDIO_TIMEOUT_SECONDS) -> int:
+        """Wait for the server to exit (killing it after ``timeout``); return its exit code."""
+        try:
+            await asyncio.wait_for(self.process.wait(), timeout)
+        except asyncio.TimeoutError:
+            self.killed = True
+            self.process.kill()
+            await self.process.wait()
+        for reader in self._readers:
+            await _finish(reader, timeout)
+        self.returncode = self.process.returncode
+        return self.returncode
+
+    async def close(self, timeout: float = STDIO_TIMEOUT_SECONDS) -> int:
+        """Close the server's stdin (end of input: the stdio server exits) and wait for it."""
+        if not self.process.stdin.is_closing():
+            self.process.stdin.close()
+            with contextlib.suppress(OSError):
+                await self.process.stdin.wait_closed()
+        return await self.wait(timeout)
+
+    def opensearch_requests(self) -> list[dict]:
+        """Requests the launched server's fake OpenSearch received so far (as ``requests``)."""
+        return [e['record'] for e in read_launcher_log(self.log_path) if e['kind'] == 'request']
+
+
+def _launcher_env(env: dict | None, table_path: Path, log_path: Path) -> dict:
+    # This process's environment, already cleaned by isolated_state (OPENSEARCH_URL points at
+    # the fake, boto3 kept off local AWS config), with the test's variables on top.
+    process_env = dict(os.environ)
+    for name in _LAUNCHER_DROPPED_ENV:
+        process_env.pop(name, None)
+    for name, value in (env or {}).items():
+        if value is None:
+            process_env.pop(name, None)
+        else:
+            process_env[name] = str(value)
+    process_env[FAKE_TABLE_ENV] = str(table_path)
+    process_env[FAKE_LOG_ENV] = str(log_path)
+    # stderr in UTF-8 on every OS (Windows would use the ANSI code page for a pipe).
+    process_env['PYTHONIOENCODING'] = 'utf-8'
+    python_path = [_SERVER_SOURCE_ROOT, *filter(None, [process_env.get('PYTHONPATH')])]
+    process_env['PYTHONPATH'] = os.pathsep.join(python_path)
+    return process_env
+
+
+@pytest.fixture
+def stdio_launcher(fake_opensearch, pinned_openapi, no_network, tmp_path) -> Callable:
+    """Factory running the real entry point in a subprocess through ``stdio_launcher.py``.
+
+    Use as ``async with stdio_launcher(*args, env=None, cwd=None) as server:``; ``args`` are
+    the server's command-line arguments (``--transport stdio`` is the default). The process
+    is ``sys.executable`` (no shell), runs in a fresh directory under ``tmp_path`` unless
+    ``cwd`` is given, and gets this process's environment (as ``isolated_state`` left it)
+    with ``env`` on top (``None`` unsets a variable). ``fake_opensearch``'s routes and version
+    and the ``pinned_openapi`` setting are copied into it at launch (``fake_table``); later
+    changes do not reach it. On exit stdin is closed and the server waited for (killed after
+    ``STDIO_TIMEOUT_SECONDS``); the requests its fake received are added to
+    ``fake_opensearch.requests`` (and unmatched ones to ``unmatched``, which fails the test),
+    and any network access it attempted fails the test as ``no_network`` does.
+    See ``StdioServerProcess`` for the helpers.
+    """
+    launches = itertools.count(1)
+
+    @contextlib.asynccontextmanager
+    async def launch(*args: str, env: dict | None = None, cwd: str | os.PathLike | None = None):
+        workdir = tmp_path / f'stdio-{next(launches)}'
+        workdir.mkdir()
+        table_path = workdir / 'fake_opensearch_table.json'
+        log_path = workdir / 'fake_opensearch_log.jsonl'
+        with open(table_path, 'w', encoding='utf-8', newline='\n') as f:
+            json.dump(fake_table(fake_opensearch, pinned_openapi), f)
+        log_path.touch()
+        process = await asyncio.create_subprocess_exec(
+            sys.executable,
+            str(LAUNCHER),
+            *(str(arg) for arg in args),
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=_launcher_env(env, table_path, log_path),
+            cwd=str(cwd if cwd is not None else workdir),
+            limit=_STDOUT_LIMIT,
+        )
+        server = StdioServerProcess(process, log_path)
+        try:
+            yield server
+        finally:
+            await server.close()
+            for entry in read_launcher_log(log_path):
+                if entry['kind'] == 'request':
+                    fake_opensearch.requests.append(entry['record'])
+                    if not entry['matched']:
+                        fake_opensearch.unmatched.append(entry['record'])
+                elif entry['kind'] == 'network':
+                    no_network.append(f'launched server: {entry["attempt"]}')
+
+    return launch
+
+
+@pytest.fixture
+def memory_enabled_session(stdio_launcher) -> Callable:
+    """Factory for a server with ``MEMORY_TOOLS_ENABLED=true``, launched over stdio.
+
+    Use as ``async with memory_enabled_session(mode='single', config_file='', env=None) as
+    session:``. The memory tool registry is decided when ``tools.memory_tools`` is imported,
+    and several modules hold references to ``TOOL_REGISTRY``, so reloading modules in this
+    process is unsafe: the server runs in a subprocess (see ``stdio_launcher``) instead.
+    ``session.list_tools()``, ``call_tool(name, args)`` and ``raw(...)`` return what
+    ``mcp_session``'s do. ``profile`` and extra command-line ``args`` are keywords.
+    """
+
+    def open_session(
+        mode: str = 'single',
+        config_file: str | os.PathLike = '',
+        env: dict | None = None,
+        *,
+        profile: str = '',
+        args: tuple | list = (),
+    ):
+        argv = ['--mode', mode]
+        if config_file:
+            argv += ['--config', str(config_file)]
+        if profile:
+            argv += ['--profile', profile]
+        return stdio_launcher(*argv, *args, env={'MEMORY_TOOLS_ENABLED': 'true', **(env or {})})
 
     return open_session
