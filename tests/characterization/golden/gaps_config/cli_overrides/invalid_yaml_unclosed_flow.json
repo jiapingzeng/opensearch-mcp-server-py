@@ -1,0 +1,81 @@
+{
+  "applied": {
+    "args_model_description_changes": {},
+    "global_registry_changes": {
+      "ListIndexTool.description": "[unclosed"
+    },
+    "logs": [],
+    "resolved_changes": {
+      "ListIndexTool.description": "[unclosed"
+    }
+  },
+  "argv": [
+    "--tool.ListIndexTool.description=[unclosed"
+  ],
+  "mode": "single",
+  "nested_config": {
+    "ListIndexTool": {
+      "description": "[unclosed"
+    }
+  },
+  "overrides": {
+    "tool.ListIndexTool.description": "[unclosed"
+  },
+  "server": {
+    "error": null,
+    "logs": [
+      {
+        "level": "INFO",
+        "logger": "root",
+        "message": "Connected OpenSearch version: 3.1.0"
+      },
+      {
+        "level": "INFO",
+        "logger": "root",
+        "message": "Applied tool filter from environment variables"
+      },
+      {
+        "level": "INFO",
+        "logger": "root",
+        "message": "Enabled tools: ['ListIndexTool', 'IndexMappingTool', 'SearchIndexTool', 'GetShardsTool', 'GenericOpenSearchApiTool', 'ClusterHealthTool', 'CountTool', 'ExplainTool', 'MsearchTool']"
+      }
+    ],
+    "tool_names": [
+      "ListIndexTool",
+      "IndexMappingTool",
+      "SearchIndexTool",
+      "GetShardsTool",
+      "GenericOpenSearchApiTool",
+      "ClusterHealthTool",
+      "CountTool",
+      "ExplainTool",
+      "MsearchTool"
+    ],
+    "tools": [
+      {
+        "description": "[unclosed",
+        "inputSchema": {
+          "description": "Arguments for the ListIndicesTool.",
+          "properties": {
+            "include_detail": {
+              "default": true,
+              "description": "Whether to include detailed information. If False, returns only index name(s). If True, returns full metadata.",
+              "title": "Include Detail",
+              "type": "boolean"
+            },
+            "index": {
+              "default": "",
+              "description": "The name of the index or index pattern to get information for.",
+              "title": "Index",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "ListIndicesArgs",
+          "type": "object"
+        },
+        "name": "ListIndexTool"
+      }
+    ]
+  }
+}

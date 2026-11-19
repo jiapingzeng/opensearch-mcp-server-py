@@ -1,0 +1,34 @@
+{
+  "applied": {
+    "error": {
+      "message": "Argument 'foo' does not exist on tool 'ListClustersTool'.",
+      "type": "ValueError"
+    },
+    "logs": []
+  },
+  "argv": [
+    "--tool.ListClustersTool.args.foo.description=x"
+  ],
+  "mode": "multi",
+  "nested_config": {
+    "ListClustersTool": {
+      "args": {
+        "foo": {
+          "description": "x"
+        }
+      }
+    }
+  },
+  "overrides": {
+    "tool.ListClustersTool.args.foo.description": "x"
+  },
+  "server": {
+    "error": {
+      "message": "Argument 'foo' does not exist on tool 'ListClustersTool'.",
+      "type": "ValueError"
+    },
+    "logs": [],
+    "tool_names": null,
+    "tools": null
+  }
+}

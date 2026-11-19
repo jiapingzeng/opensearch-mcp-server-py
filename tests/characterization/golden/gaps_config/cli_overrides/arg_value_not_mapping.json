@@ -1,0 +1,32 @@
+{
+  "applied": {
+    "error": {
+      "message": "'str' object has no attribute 'get'",
+      "type": "AttributeError"
+    },
+    "logs": []
+  },
+  "argv": [
+    "--tool.ListIndexTool.args.index=plain"
+  ],
+  "mode": "single",
+  "nested_config": {
+    "ListIndexTool": {
+      "args": {
+        "index": "plain"
+      }
+    }
+  },
+  "overrides": {
+    "tool.ListIndexTool.args.index": "plain"
+  },
+  "server": {
+    "error": {
+      "message": "'str' object has no attribute 'get'",
+      "type": "AttributeError"
+    },
+    "logs": [],
+    "tool_names": null,
+    "tools": null
+  }
+}

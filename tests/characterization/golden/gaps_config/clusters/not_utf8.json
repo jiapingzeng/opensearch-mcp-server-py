@@ -1,0 +1,24 @@
+{
+  "config": "clusters:\n  local:\n    opensearch_url: http://localhost:9200\n    opensearch_username: café\n",
+  "load_clusters_error": {
+    "encoding": "utf-8",
+    "end": 90,
+    "message": "'utf-8' codec can't decode byte 0xe9 in position 89: Encoding error reading YAML file <TMP>/clusters.yml: 'utf-8' codec can't decode byte 0xe9 in position 89: invalid continuation byte",
+    "object": "clusters:\n  local:\n    opensearch_url: http://localhost:9200\n    opensearch_username: café\n",
+    "reason": "Encoding error reading YAML file <TMP>/clusters.yml: 'utf-8' codec can't decode byte 0xe9 in position 89: invalid continuation byte",
+    "start": 89,
+    "type": "UnicodeDecodeError"
+  },
+  "load_clusters_logs": [],
+  "load_clusters_registry": [],
+  "server": {
+    "clusters": [],
+    "error": {
+      "message": "'utf-8' codec can't decode byte 0xe9 in position 89: Encoding error reading YAML file <TMP>/clusters.yml: 'utf-8' codec can't decode byte 0xe9 in position 89: invalid continuation byte",
+      "type": "UnicodeDecodeError"
+    },
+    "logs": [],
+    "tool_names": null,
+    "tools": null
+  }
+}
