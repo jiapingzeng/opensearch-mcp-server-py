@@ -3,11 +3,10 @@
 """Tests for scripts/check_behaviour_ledger.py: no real git; main() runs with git stubbed."""
 
 import importlib.util
+import pytest
 import subprocess
 import sys
 from pathlib import Path
-
-import pytest
 
 
 SCRIPT = Path(__file__).resolve().parents[2] / 'scripts' / 'check_behaviour_ledger.py'
