@@ -1,0 +1,62 @@
+{
+  "call": [
+    "opensearch",
+    "CreateIndex",
+    {
+      "DomainName": "agent-domain",
+      "IndexName": "agent-memory",
+      "IndexSchema": {
+        "mappings": {
+          "properties": {
+            "memory_text": {
+              "type": "text"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "calls": [
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "es"
+      },
+      "host": "es.eu-west-1.amazonaws.com",
+      "operation": "CreateIndex",
+      "params": {
+        "DomainName": "agent-domain",
+        "IndexName": "agent-memory",
+        "IndexSchema": {
+          "mappings": {
+            "properties": {
+              "memory_text": {
+                "type": "text"
+              }
+            }
+          }
+        }
+      },
+      "service": "opensearch"
+    }
+  ],
+  "exception": "ResourceAlreadyExistsException",
+  "message": "An error occurred (ResourceAlreadyExistsException) when calling the CreateIndex operation: fake ResourceAlreadyExistsException for opensearch CreateIndex",
+  "response": {
+    "Error": {
+      "Code": "ResourceAlreadyExistsException",
+      "Message": "fake ResourceAlreadyExistsException for opensearch CreateIndex"
+    },
+    "ResponseMetadata": {
+      "HTTPHeaders": {
+        "content-type": "application/json",
+        "x-amzn-errortype": "ResourceAlreadyExistsException",
+        "x-amzn-requestid": "characterization-harness-request"
+      },
+      "HTTPStatusCode": 409,
+      "RequestId": "characterization-harness-request",
+      "RetryAttempts": 0
+    }
+  }
+}

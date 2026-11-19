@@ -1,0 +1,57 @@
+{
+  "boto3_calls": [
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "us-east-1",
+        "service": "sts"
+      },
+      "host": "sts.amazonaws.com",
+      "operation": "GetCallerIdentity",
+      "params": {},
+      "service": "sts"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "aoss"
+      },
+      "host": "aoss.eu-west-1.amazonaws.com",
+      "operation": "BatchGetCollection",
+      "params": {
+        "ids": [
+          "k2x9memcoll"
+        ]
+      },
+      "service": "opensearchserverless"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error saving memory: boto3 stub: no canned reply for opensearchserverless BatchGetCollection {\"ids\": [\"k2x9memcoll\"]}; give one with boto3_stub.reply(...) or boto3_stub.error(...)",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "unmatched": [
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "aoss"
+      },
+      "host": "aoss.eu-west-1.amazonaws.com",
+      "operation": "BatchGetCollection",
+      "params": {
+        "ids": [
+          "k2x9memcoll"
+        ]
+      },
+      "service": "opensearchserverless"
+    }
+  ]
+}

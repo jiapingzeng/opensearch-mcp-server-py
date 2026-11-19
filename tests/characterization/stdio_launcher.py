@@ -26,12 +26,15 @@ Patches:
   raises when the table carries an ``openapi_error``;
 - network guard: DNS lookups and connections off this machine fail, as under ``no_network``;
 - planted tools: the launch spec's ``planted_tools`` are put in ``TOOL_REGISTRY``, as
-  ``plant_tool`` does in the test process (``conftest.planted_tool_from_spec``).
+  ``plant_tool`` does in the test process (``conftest.planted_tool_from_spec``);
+- boto3 stub: when the launch spec has a ``boto3_stub`` (the test uses the ``boto3_stub``
+  fixture), every botocore client answers from its replies at ``before-send``, as in the
+  test process (``conftest.Boto3Stub``); without it boto3 is left alone.
 
-Every request the fake receives, every network attempt the guard blocks and the entry the
-server started through (as ``main()`` starts) is appended as one JSON line to the file named
-by ``CHAR_FAKE_OPENSEARCH_LOG`` as it happens, so the test process can read them even if this
-process is killed.
+Every request the fake receives, every network attempt the guard blocks, every boto3 call
+the stub receives (answered or not) and the entry the server started through (as ``main()``
+starts) is appended as one JSON line to the file named by ``CHAR_FAKE_OPENSEARCH_LOG`` as it
+happens, so the test process can read them even if this process is killed.
 """
 
 import asyncio
@@ -123,6 +126,17 @@ def _install_planted_tools(harness, specs: list) -> None:
         harness.TOOL_REGISTRY[spec['name']] = harness.planted_tool_from_spec(spec)
 
 
+def _install_boto3_stub(harness, spec: dict | None, log: _Log) -> None:
+    """As the ``boto3_stub`` fixture does; each call is logged as it reaches the stub."""
+    if spec is None:
+        return
+
+    def logged(record: dict, matched: bool) -> None:
+        log.write({'kind': 'boto3', 'record': record, 'matched': matched})
+
+    harness.Boto3Stub.from_spec(spec, log=logged).install(setattr)
+
+
 def _run_server(harness, entry: str, log: _Log) -> None:
     """Start the server through ``entry``; log the entry as ``main()`` starts."""
     import mcp_server_opensearch as package
@@ -166,6 +180,7 @@ def main() -> None:
     _install_fakes(harness, table, log)
     _install_network_guard(harness, log)
     _install_planted_tools(harness, spec['planted_tools'])
+    _install_boto3_stub(harness, spec.get('boto3_stub'), log)
     _run_server(harness, spec['entry'], log)
 
 

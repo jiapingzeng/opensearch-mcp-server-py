@@ -1,0 +1,289 @@
+{
+  "calls": [
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "sts"
+      },
+      "host": "sts.eu-west-1.amazonaws.com",
+      "operation": "GetCallerIdentity",
+      "params": {},
+      "service": "sts"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "aoss"
+      },
+      "host": "aoss.eu-west-1.amazonaws.com",
+      "operation": "BatchGetCollection",
+      "params": {
+        "ids": [
+          "k2x9memcoll"
+        ]
+      },
+      "service": "opensearchserverless"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "aoss"
+      },
+      "host": "aoss.eu-west-1.amazonaws.com",
+      "operation": "GetAccessPolicy",
+      "params": {
+        "name": "mcp-memory-access",
+        "type": "data"
+      },
+      "service": "opensearchserverless"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "aoss"
+      },
+      "host": "aoss.eu-west-1.amazonaws.com",
+      "operation": "CreateAccessPolicy",
+      "params": {
+        "name": "mcp-memory-access",
+        "policy": "[{\"Rules\": [], \"Principal\": [\"arn:aws:iam::123456789012:role/MemoryWriter\"]}]",
+        "type": "data"
+      },
+      "service": "opensearchserverless"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "aoss"
+      },
+      "host": "aoss.eu-west-1.amazonaws.com",
+      "operation": "CreateIndex",
+      "params": {
+        "id": "k2x9memcoll",
+        "indexName": "agent-memory",
+        "indexSchema": {
+          "mappings": {
+            "properties": {
+              "memory_text": {
+                "type": "text"
+              }
+            }
+          }
+        }
+      },
+      "service": "opensearchserverless"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "es"
+      },
+      "host": "es.eu-west-1.amazonaws.com",
+      "operation": "CreateIndex",
+      "params": {
+        "DomainName": "agent-domain",
+        "IndexName": "agent-memory",
+        "IndexSchema": {
+          "mappings": {
+            "properties": {
+              "memory_text": {
+                "type": "text"
+              }
+            }
+          }
+        }
+      },
+      "service": "opensearch"
+    }
+  ],
+  "exchanges": [
+    {
+      "call": [
+        "sts",
+        "GetCallerIdentity",
+        {}
+      ],
+      "response": {
+        "Account": "123456789012",
+        "Arn": "arn:aws:sts::123456789012:assumed-role/MemoryWriter/char-session",
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "content-type": "text/xml",
+            "x-amzn-requestid": "characterization-harness-request"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "characterization-harness-request",
+          "RetryAttempts": 0
+        },
+        "UserId": "AROAFAKEROLEID:char-session"
+      }
+    },
+    {
+      "call": [
+        "opensearchserverless",
+        "BatchGetCollection",
+        {
+          "ids": [
+            "k2x9memcoll"
+          ]
+        }
+      ],
+      "response": {
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "content-type": "application/x-amz-json-1.0",
+            "x-amzn-requestid": "characterization-harness-request"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "characterization-harness-request",
+          "RetryAttempts": 0
+        },
+        "collectionDetails": [
+          {
+            "createdDate": 1577836800000,
+            "id": "k2x9memcoll",
+            "name": "agent-memories",
+            "status": "ACTIVE"
+          }
+        ],
+        "collectionErrorDetails": []
+      }
+    },
+    {
+      "call": [
+        "opensearchserverless",
+        "GetAccessPolicy",
+        {
+          "name": "mcp-memory-access",
+          "type": "data"
+        }
+      ],
+      "response": {
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "content-type": "application/x-amz-json-1.0",
+            "x-amzn-requestid": "characterization-harness-request"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "characterization-harness-request",
+          "RetryAttempts": 0
+        },
+        "accessPolicyDetail": {
+          "name": "mcp-memory-access",
+          "policy": [
+            {
+              "Principal": [
+                "arn:aws:iam::123456789012:role/MemoryWriter"
+              ],
+              "Rules": []
+            }
+          ],
+          "policyVersion": "MTU3NzgzNjgwMDAwMF8x",
+          "type": "data"
+        }
+      }
+    },
+    {
+      "call": [
+        "opensearchserverless",
+        "CreateAccessPolicy",
+        {
+          "name": "mcp-memory-access",
+          "policy": "[{\"Rules\": [], \"Principal\": [\"arn:aws:iam::123456789012:role/MemoryWriter\"]}]",
+          "type": "data"
+        }
+      ],
+      "response": {
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "content-type": "application/x-amz-json-1.0",
+            "x-amzn-requestid": "characterization-harness-request"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "characterization-harness-request",
+          "RetryAttempts": 0
+        },
+        "accessPolicyDetail": {
+          "name": "mcp-memory-access",
+          "policy": [
+            {
+              "Principal": [
+                "arn:aws:iam::123456789012:role/MemoryWriter"
+              ],
+              "Rules": []
+            }
+          ],
+          "policyVersion": "MTU3NzgzNjgwMDAwMF8x",
+          "type": "data"
+        }
+      }
+    },
+    {
+      "call": [
+        "opensearchserverless",
+        "CreateIndex",
+        {
+          "id": "k2x9memcoll",
+          "indexName": "agent-memory",
+          "indexSchema": {
+            "mappings": {
+              "properties": {
+                "memory_text": {
+                  "type": "text"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "response": {
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "content-type": "application/x-amz-json-1.0",
+            "x-amzn-requestid": "characterization-harness-request"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "characterization-harness-request",
+          "RetryAttempts": 0
+        }
+      }
+    },
+    {
+      "call": [
+        "opensearch",
+        "CreateIndex",
+        {
+          "DomainName": "agent-domain",
+          "IndexName": "agent-memory",
+          "IndexSchema": {
+            "mappings": {
+              "properties": {
+                "memory_text": {
+                  "type": "text"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "response": {
+        "ResponseMetadata": {
+          "HTTPHeaders": {
+            "content-type": "application/json",
+            "x-amzn-requestid": "characterization-harness-request"
+          },
+          "HTTPStatusCode": 200,
+          "RequestId": "characterization-harness-request",
+          "RetryAttempts": 0
+        },
+        "Status": "CREATED"
+      }
+    }
+  ]
+}

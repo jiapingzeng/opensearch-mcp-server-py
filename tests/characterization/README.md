@@ -19,8 +19,9 @@ uv run --offline python -m pytest tests/characterization -q
 ```
 
 Nothing in this directory touches the network: OpenSearch is faked, the OpenAPI spec comes
-from `fixtures/openapi/`, and any DNS lookup or connection off this machine fails the test,
-in a server launched as a subprocess too. `http_app` opens no socket.
+from `fixtures/openapi/`, boto3 calls are answered by `boto3_stub` in a test that uses it,
+and any DNS lookup or connection off this machine fails the test, in a server launched as
+a subprocess too. `http_app` opens no socket.
 The tests run the same on Linux, macOS and Windows (the project CI runs all three).
 
 ## The rule
@@ -184,12 +185,54 @@ On a mismatch the failure shows a unified diff (golden vs actual).
   `main()` named as the console script. `server.entry()` shows which ran, recorded as
   `main()` starts: `{'entry', 'main_module', 'prog', 'args'}` (`main_module` is
   `mcp_server_opensearch.__main__` under `python -m`, `None` otherwise; `prog` the name of
-  `sys.argv[0]`). How to start and what to plant reach the launcher in a JSON file whose path
-  is in `CHAR_LAUNCH_SPEC`, set for every launch.
+  `sys.argv[0]`). How to start, what to plant and the `boto3_stub` replies (when the test
+  uses it) reach the launcher in a JSON file whose path is in `CHAR_LAUNCH_SPEC`, set for
+  every launch. `server.boto3_calls()` lists the calls the launched server's stub received
+  so far.
 - `memory_enabled_session(mode='single', config_file='', env=None)`: `stdio_launcher` with
   `MEMORY_TOOLS_ENABLED=true`, so the memory tools are registered; same helpers as
   `mcp_session`. Memory tools are registered when `tools.memory_tools` is imported and
   several modules hold `TOOL_REGISTRY` references, so reloading in-process is unsafe.
+- `boto3_stub`: canned replies for boto3 calls, in this process and in every server
+  `stdio_launcher` (so `memory_enabled_session`) starts during the test; without the fixture
+  nothing is stubbed (a boto3 request then meets the network guard). Every botocore client
+  created during the test (`boto3.client`, `boto3.Session().client`, a botocore session's
+  `create_client`: the stub wraps `botocore.session.Session.create_client`) gets handlers
+  that answer at botocore's `before-send` event, so the call still goes through botocore as a
+  real one: parameter validation and serialization, endpoint resolution, credentials and
+  SigV4 signing before, response parsing, the error mapping and retries after. A call
+  botocore rejects (`ParamValidationError`, `NoCredentialsError`) is rejected as without the
+  stub and never reaches it. Only the HTTP exchange is canned: no socket is opened and
+  nothing reaches AWS.
+  - `boto3_stub.reply(service, operation, data=None, *, status=200)`: answer every call of
+    `operation` (the API name, `GetCallerIdentity`) on `service` (the botocore name given to
+    `client()`: `sts`, `opensearchserverless`, `opensearch`) with output `data`, JSON data
+    named as the client returns it, without `ResponseMetadata` (botocore adds it, with the
+    fixed request id `harness.BOTO3_STUB_REQUEST_ID`). Body members only; a name the output
+    does not have is refused.
+  - `boto3_stub.error(service, operation, code, message=None, *, status=None)`: answer with
+    the AWS error `code`; the client raises it as from the service, as its modeled
+    exception (`client.exceptions.ResourceNotFoundException`) when the operation models the
+    code, else as `ClientError`. `status` defaults to the error's modeled HTTP status, else
+    400. botocore retries 5xx and throttling errors, with its backoff, so each attempt is
+    one call.
+  - The newest reply for a `(service, operation)` wins. The stub writes it in the service's
+    wire protocol (`query` for STS, `json` for `opensearchserverless`, `rest-json` for
+    `opensearch`; others fail the call) and botocore parses it.
+  - `boto3_stub.calls` records each request in order: `{'service', 'operation', 'params',
+    'host', 'auth'}` (the caller's parameters as JSON data, before botocore fills
+    idempotency tokens; the endpoint host; the signature as `{'kind': 'sigv4', 'region',
+    'service'}`, no secret). A call with no reply is recorded in `boto3_stub.unmatched`
+    too, raises `harness.UnmatchedBoto3CallError` in the caller (an `AssertionError`, never
+    a success; the server may catch it and report it) and fails the test at teardown; a
+    test that shows such a call clears `unmatched` after checking it.
+  - Credentials are not given by the stub: pass the fake static keys of `boto3_stub.env`
+    (`harness.FAKE_AWS_CREDENTIALS`) in through a session's `env`
+    (`memory_enabled_session(env={**boto3_stub.env, ...})`) or `monkeypatch.setenv`.
+  - In a launched server (`stdio_launcher.py`) the same stub is installed from the replies
+    given before the launch (later ones do not reach it); each call it receives is logged to
+    the launcher log as it happens, and joins `boto3_stub.calls` (and `unmatched`) when the
+    server exits.
 - `harness`: the conftest module itself, for tests of its helpers (`harness.parse_sse`,
   `harness.fake_table`, `harness.SDK_MCP_ERROR`, `harness.exception_spec`): `import conftest`
   is not reliable, since every package-less `conftest.py` under `tests/` imports under that
