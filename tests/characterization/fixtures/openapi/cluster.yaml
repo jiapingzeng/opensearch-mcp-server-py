@@ -1,0 +1,142 @@
+# Hand-written stand-in for opensearch-api-specification spec/namespaces/cluster.yaml,
+# served by the `pinned_openapi` fixture instead of the GitHub copy. It follows the real
+# layout (paths -> method -> x-operation-group, x-version-added, parameters, requestBody)
+# but keeps only what tools/tool_generator.py reads, plus a few things it must skip:
+# an operation group outside SUPPORTED_OPERATIONS and a `$ref` parameter (no `name`).
+# Editing this file changes the generated tools and therefore the goldens.
+openapi: 3.1.0
+info:
+  title: OpenSearch Cluster API (characterization fixture)
+  version: 1.0.0
+paths:
+  /_cluster/health:
+    get:
+      operationId: cluster.health.0
+      x-operation-group: cluster.health
+      x-version-added: '1.0'
+      description: Returns basic information about the health of the cluster.
+      externalDocs:
+        url: https://opensearch.org/docs/latest/api-reference/cluster-api/cluster-health/
+      parameters:
+        - $ref: '#/components/parameters/cluster.health___query.awareness_attribute'
+        - name: expand_wildcards
+          in: query
+          description: Specifies the type of index that wildcard expressions can match. Supports comma-separated values.
+          schema:
+            type: string
+        - name: level
+          in: query
+          description: Controls the amount of detail included in the cluster health response.
+          schema:
+            type: string
+            enum:
+              - awareness_attributes
+              - cluster
+              - indices
+              - shards
+        - name: local
+          in: query
+          description: Whether to return information from the local node only instead of from the cluster manager node.
+          schema:
+            type: boolean
+            default: false
+        - name: cluster_manager_timeout
+          in: query
+          description: The amount of time to wait for a response from the cluster manager node.
+          schema:
+            type: string
+        - name: master_timeout
+          in: query
+          description: The amount of time to wait for a response from the cluster manager node.
+          deprecated: true
+          x-version-deprecated: '2.0'
+          schema:
+            type: string
+        - name: timeout
+          in: query
+          description: The amount of time to wait for a response.
+          schema:
+            type: string
+        - name: wait_for_active_shards
+          in: query
+          description: Waits until the specified number of shards is active before returning a response.
+          schema:
+            type: string
+        - name: wait_for_nodes
+          in: query
+          description: Waits until the specified number of nodes (`N`) is available. Accepts `>=N`, `<=N`, `>N`, and `<N`.
+          schema:
+            type: string
+        - name: wait_for_no_relocating_shards
+          in: query
+          description: Whether to wait until there are no relocating shards in the cluster.
+          schema:
+            type: boolean
+        - name: wait_for_status
+          in: query
+          description: Waits until the cluster health reaches the specified status or better.
+          schema:
+            type: string
+            enum:
+              - green
+              - yellow
+              - red
+      responses:
+        '200':
+          $ref: '#/components/responses/cluster.health___200'
+  /_cluster/health/{index}:
+    get:
+      operationId: cluster.health.1
+      x-operation-group: cluster.health
+      x-version-added: '1.0'
+      description: Returns basic information about the health of the cluster.
+      externalDocs:
+        url: https://opensearch.org/docs/latest/api-reference/cluster-api/cluster-health/
+      parameters:
+        - name: index
+          in: path
+          required: true
+          description: A comma-separated list of data streams, indexes, and index aliases used to limit the request. Wildcard expressions (`*`) are supported.
+          schema:
+            type: string
+        - name: level
+          in: query
+          description: Controls the amount of detail included in the cluster health response.
+          schema:
+            type: string
+        - name: timeout
+          in: query
+          description: The amount of time to wait for a response.
+          schema:
+            type: string
+        - name: wait_for_status
+          in: query
+          description: Waits until the cluster health reaches the specified status or better.
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/cluster.health___200'
+  /_cluster/stats:
+    get:
+      operationId: cluster.stats.0
+      x-operation-group: cluster.stats
+      x-version-added: '1.0'
+      description: Returns a high-level overview of cluster statistics.
+      parameters:
+        - name: timeout
+          in: query
+          description: The amount of time to wait for each node to respond.
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/cluster.stats___200'
+components:
+  parameters:
+    cluster.health___query.awareness_attribute:
+      in: query
+      name: awareness_attribute
+      description: The name of the awareness attribute for which to return the cluster health status.
+      schema:
+        type: string

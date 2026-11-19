@@ -1,0 +1,4 @@
+# Goldens are compared byte for byte, so every OS must check them out exactly as committed:
+# LF line endings, whatever core.autocrlf says (Git for Windows defaults it to true).
+golden/** text eol=lf
+fixtures/** text eol=lf
