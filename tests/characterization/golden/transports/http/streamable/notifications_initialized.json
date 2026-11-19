@@ -1,0 +1,10 @@
+{
+  "content_type": "application/json",
+  "has_mcp_session_id": false,
+  "headers": {
+    "content-length": "0",
+    "content-type": "application/json"
+  },
+  "status": 202,
+  "text": ""
+}

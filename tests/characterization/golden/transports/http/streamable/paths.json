@@ -1,0 +1,20 @@
+{
+  "/mcp": {
+    "content_type": "text/event-stream",
+    "location": null,
+    "status": 200,
+    "tool_count": 9
+  },
+  "/mcp/": {
+    "content_type": "text/event-stream",
+    "location": null,
+    "status": 200,
+    "tool_count": 9
+  },
+  "/mcp/sub/path": {
+    "content_type": "text/event-stream",
+    "location": null,
+    "status": 200,
+    "tool_count": 9
+  }
+}

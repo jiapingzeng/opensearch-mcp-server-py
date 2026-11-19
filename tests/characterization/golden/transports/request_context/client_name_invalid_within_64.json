@@ -1,0 +1,18 @@
+{
+  "header_sent": {
+    "x-mcp-client-name": "ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc !"
+  },
+  "tool_log": [
+    {
+      "client_name": "unknown",
+      "duration_ms": "<DURATION>",
+      "event_type": "tool_execution",
+      "level": "INFO",
+      "logger": "mcp_server_opensearch.tool_executor",
+      "message": "Tool executed: ListIndexTool (<DURATION>ms)",
+      "status": "success",
+      "tool_key": "ListIndexTool",
+      "tool_name": "ListIndexTool"
+    }
+  ]
+}

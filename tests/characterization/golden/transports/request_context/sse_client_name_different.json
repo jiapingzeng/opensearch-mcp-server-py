@@ -1,0 +1,21 @@
+{
+  "GET /sse headers": {
+    "x-mcp-client-name": "get-client"
+  },
+  "POST headers": {
+    "x-mcp-client-name": "post-client"
+  },
+  "tool_log": [
+    {
+      "client_name": "post-client",
+      "duration_ms": "<DURATION>",
+      "event_type": "tool_execution",
+      "level": "INFO",
+      "logger": "mcp_server_opensearch.tool_executor",
+      "message": "Tool executed: ListIndexTool (<DURATION>ms)",
+      "status": "success",
+      "tool_key": "ListIndexTool",
+      "tool_name": "ListIndexTool"
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "GET /sse": {
+    "event": {
+      "data": "/messages/?session_id=<SESSION_ID>",
+      "event": "endpoint"
+    },
+    "headers": {
+      "cache-control": "no-store",
+      "connection": "keep-alive",
+      "content-type": "text/event-stream; charset=utf-8",
+      "x-accel-buffering": "no"
+    },
+    "status": 200
+  },
+  "POST /mcp initialize": {
+    "content_type": "text/event-stream",
+    "events": [
+      {
+        "data": {
+          "id": 1,
+          "jsonrpc": "2.0",
+          "result": {
+            "capabilities": {
+              "experimental": {},
+              "tools": {
+                "listChanged": false
+              }
+            },
+            "protocolVersion": "2025-11-25",
+            "serverInfo": {
+              "name": "opensearch-mcp-server",
+              "version": ""
+            }
+          }
+        },
+        "event": "message"
+      }
+    ],
+    "has_mcp_session_id": false,
+    "headers": {
+      "cache-control": "no-cache, no-transform",
+      "connection": "keep-alive",
+      "content-type": "text/event-stream",
+      "x-accel-buffering": "no"
+    },
+    "status": 200
+  },
+  "headers_sent": {
+    "origin": "http://evil.example"
+  }
+}

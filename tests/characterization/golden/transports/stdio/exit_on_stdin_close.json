@@ -1,0 +1,14 @@
+{
+  "after_handshake": {
+    "killed": false,
+    "returncode": 0,
+    "stdout_after_close": [],
+    "traceback_on_stderr": false
+  },
+  "without_input": {
+    "killed": false,
+    "returncode": 0,
+    "stdout_after_close": [],
+    "traceback_on_stderr": false
+  }
+}

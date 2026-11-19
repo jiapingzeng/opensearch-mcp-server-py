@@ -1,0 +1,79 @@
+{
+  "GET /sse": {
+    "endpoint_event": {
+      "data": "/messages/?session_id=<SESSION_ID>",
+      "event": "endpoint"
+    },
+    "headers": {
+      "cache-control": "no-store",
+      "connection": "keep-alive",
+      "content-type": "text/event-stream; charset=utf-8",
+      "x-accel-buffering": "no"
+    },
+    "status": 200
+  },
+  "POST after the stream closed": {
+    "headers": {
+      "content-length": "22"
+    },
+    "status": 404,
+    "text": "Could not find session"
+  },
+  "initialize": {
+    "events": [
+      {
+        "data": {
+          "id": 0,
+          "jsonrpc": "2.0",
+          "result": {
+            "capabilities": {
+              "experimental": {},
+              "tools": {
+                "listChanged": false
+              }
+            },
+            "protocolVersion": "2025-11-25",
+            "serverInfo": {
+              "name": "opensearch-mcp-server",
+              "version": ""
+            }
+          }
+        },
+        "event": "message"
+      }
+    ],
+    "post": {
+      "headers": {
+        "content-length": "8"
+      },
+      "status": 202,
+      "text": "Accepted"
+    }
+  },
+  "notifications/initialized": {
+    "headers": {
+      "content-length": "8"
+    },
+    "status": 202,
+    "text": "Accepted"
+  },
+  "tools/list": {
+    "events": [
+      {
+        "data": {
+          "id": 1,
+          "jsonrpc": "2.0",
+          "result": "<tools/list result>"
+        },
+        "event": "message"
+      }
+    ],
+    "post": {
+      "headers": {
+        "content-length": "8"
+      },
+      "status": 202,
+      "text": "Accepted"
+    }
+  }
+}

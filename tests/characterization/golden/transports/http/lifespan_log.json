@@ -1,0 +1,26 @@
+{
+  "shutdown": [
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Application shutting down..."
+    },
+    {
+      "level": "INFO",
+      "logger": "mcp.server.streamable_http_manager",
+      "message": "StreamableHTTP session manager shutting down"
+    }
+  ],
+  "startup": [
+    {
+      "level": "INFO",
+      "logger": "mcp.server.streamable_http_manager",
+      "message": "StreamableHTTP session manager started"
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Application started with StreamableHTTP session manager!"
+    }
+  ]
+}

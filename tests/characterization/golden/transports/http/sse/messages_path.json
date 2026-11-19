@@ -1,0 +1,45 @@
+{
+  "GET /messages/": {
+    "headers": {
+      "content-length": "27"
+    },
+    "status": 400,
+    "text": "Invalid Content-Type header"
+  },
+  "GET /messages/ with content-type json": {
+    "headers": {
+      "content-length": "22"
+    },
+    "status": 400,
+    "text": "session_id is required"
+  },
+  "GET /messages/?session_id=<unknown>": {
+    "headers": {
+      "content-length": "22"
+    },
+    "status": 404,
+    "text": "Could not find session"
+  },
+  "POST /messages": {
+    "headers": {
+      "content-length": "0",
+      "location": "http://127.0.0.1:9900/messages/"
+    },
+    "status": 307,
+    "text": ""
+  },
+  "POST /messages/ without session_id": {
+    "headers": {
+      "content-length": "22"
+    },
+    "status": 400,
+    "text": "session_id is required"
+  },
+  "POST /messages/?session_id=not-hex": {
+    "headers": {
+      "content-length": "18"
+    },
+    "status": 400,
+    "text": "Invalid session ID"
+  }
+}

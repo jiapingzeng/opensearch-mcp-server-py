@@ -1,0 +1,50 @@
+{
+  "GET /sse auth user": "get-user",
+  "POST auth user": "post-user",
+  "opensearch_requests_for_the_call": [
+    {
+      "auth": {
+        "kind": "basic",
+        "username": "post-user"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "basic",
+        "username": "post-user"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    }
+  ],
+  "tools/call events": [
+    {
+      "data": {
+        "id": 1,
+        "jsonrpc": "2.0",
+        "result": {
+          "content": [
+            {
+              "text": "Indices:\n[\"logs-2020.01.01\"]",
+              "type": "text"
+            }
+          ],
+          "isError": false
+        }
+      },
+      "event": "message"
+    }
+  ]
+}
