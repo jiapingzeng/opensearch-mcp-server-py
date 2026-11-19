@@ -1,0 +1,38 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false,
+      "opensearch_url": "http://dynamic-cluster.invalid:9200"
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [],
+  "events": [],
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: No caller-supplied credentials for the requested URL. Provide auth in the same call (basic, AWS keys/region, IAM role, or profile) or set opensearch_no_auth. To let the server sign caller-supplied URLs with its own AWS credentials, the operator can set OPENSEARCH_ALLOW_AMBIENT_AWS_FALLBACK=true.",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "AWS_ACCESS_KEY_ID": "AKIACHARENV000000001",
+      "AWS_REGION": "us-west-2",
+      "AWS_SECRET_ACCESS_KEY": "char-env-secret",
+      "OPENSEARCH_PASSWORD": "env-password",
+      "OPENSEARCH_URL": null,
+      "OPENSEARCH_USERNAME": "env-user"
+    },
+    "headers": null,
+    "mode": "single",
+    "profile": null,
+    "transport": "in-memory"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [],
+  "dns_lookups": [],
+  "events": [
+    {
+      "auth_method": "aws_creds",
+      "datasource_type": "aos",
+      "error": "AWS region is required for AWS credentials authentication",
+      "event_type": "datasource_connection",
+      "level": "ERROR",
+      "logger": "opensearch.client",
+      "message": "Datasource connection failed: aws_creds (aos)",
+      "opensearch_url": "http://fake-opensearch.invalid:9200",
+      "status": "error"
+    }
+  ],
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: Caller-supplied URL must use https when OPENSEARCH_SSRF_GUARD is enabled: http://public-cluster.invalid:9200",
+        "type": "text"
+      }
+    ],
+    "isError": true
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "OPENSEARCH_HEADER_AUTH": "true",
+      "OPENSEARCH_SSRF_GUARD": "true"
+    },
+    "headers": {
+      "authorization": "Basic aGVhZGVyLXVzZXI6aGVhZGVyLXBhc3N3b3Jk",
+      "opensearch-url": "http://public-cluster.invalid:9200"
+    },
+    "mode": "single",
+    "profile": null,
+    "transport": "http"
+  }
+}
