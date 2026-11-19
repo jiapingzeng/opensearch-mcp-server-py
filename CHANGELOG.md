@@ -13,6 +13,10 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Fixed
 - Bind per-call connection credentials to the caller that supplied the URL ([#287](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/287))
 - Fix CVEs by requiring `aiohttp>=3.14.3` and sync the `uv.lock` ([#294](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/294))
+- Fix the missing-required-field validation error echoing the caller's raw arguments, passwords, tokens and auth headers included; the value of every secret-looking key, hyphenated header names such as `X-Api-Key` and nested dicts and lists included, now shows as `'***'`
+- Fix the OpenAPI tool generator printing its start-up error to stdout, which corrupted the stdio JSON-RPC stream; the error is now logged at ERROR level and start-up continues as before
+- Fix tools generated from the OpenAPI spec sending every omitted optional query parameter as the literal string `None` (e.g. `/_count?allow_no_indices=None`); omitted parameters are no longer sent, while `False`, `0` and empty values still are
+- Fix the generic API tool dropping the request body on GET, so a `GET /_search` with a query ran match-all; GET now sends the body as documented, and DELETE and HEAD still send none
 
 ### Removed
 
