@@ -1,0 +1,119 @@
+{
+  "body_type": "tuple",
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "connection_log": [
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET / -> 200 (<DURATION>ms)",
+      "response_size": 438,
+      "status": "success",
+      "status_code": 200
+    },
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET / -> 200 (<DURATION>ms)",
+      "response_size": 438,
+      "status": "success",
+      "status_code": 200
+    },
+    {
+      "level": "WARNING",
+      "logger": "opensearch.connection",
+      "message": "Streaming request failed (ClientConnectionError: fake: connection reset during streaming), falling back to parent implementation"
+    },
+    {
+      "duration_ms": "<DURATION>",
+      "endpoint": "/_cat/indices",
+      "event_type": "opensearch_request",
+      "http_method": "GET",
+      "level": "INFO",
+      "logger": "opensearch.connection",
+      "message": "OpenSearch request: GET /_cat/indices -> 200 (<DURATION>ms)",
+      "response_size": 744,
+      "status": "success",
+      "status_code": 200
+    }
+  ],
+  "max_response_size": null,
+  "request_count": 4,
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "attempt": "streaming",
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    },
+    {
+      "attempt": "fallback",
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: (({'index': 'journal-été-00'}, {'index': 'journal-été-01'}, {'index': 'journal-été-02'}, {'index': 'journal-été-03'}, {'index': 'journal-été-04'}, {'index': 'journal-été-05'}, {'index': 'journal-été-06'}, {'index': 'journal-été-07'}, {'index': 'journal-été-08'}, {'index': 'journal-été-09'}, {'index': 'journal-été-10'}, {'index': 'journal-été-11'}, {'index': 'journal-été-12'}, {'index': 'journal-été-13'}, {'index': 'journal-été-14'}, {'index': 'journal-été-15'}, {'index': 'journal-été-16'}, {'index': 'journal-été-17'}, {'index': 'journal-été-18'}, {'index': 'journal-été-19'}, {'index': 'journal-été-20'}, {'index': 'journal-été-21'}, {'index': 'journal-été-22'}, {'index': 'journal-été-23'}), TypeError('the JSON object must be str, bytes or bytearray, not tuple'))",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "warnings": [
+    "Streaming request failed (ClientConnectionError: fake: connection reset during streaming), falling back to parent implementation"
+  ]
+}
