@@ -1,0 +1,19 @@
+{
+  "executor_log": [
+    {
+      "duration_ms": "<DURATION>",
+      "event_type": "tool_execution",
+      "level": "INFO",
+      "logger": "mcp_server_opensearch.tool_executor",
+      "message": "Tool executed: CharPlantedReturns (<DURATION>ms)",
+      "status": "success",
+      "tool_key": "CharPlantedReturns",
+      "tool_name": "CharPlantedReturns"
+    }
+  ],
+  "result": {
+    "content": [],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

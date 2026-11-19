@@ -9,25 +9,36 @@ Usage::
 
 The ``stdio_launcher`` fixture (``conftest.py``) starts this script as a subprocess. It
 installs, in this process, the patches the characterization fixtures install in the test
-process, then calls ``mcp_server_opensearch.main()`` with the given arguments, named as the
-``opensearch-mcp-server-py`` console script:
+process, then starts the server with the given arguments, through the entry the launch spec
+(the JSON file named by ``CHAR_LAUNCH_SPEC``, optional) names:
+
+- ``main`` (the default): ``mcp_server_opensearch.main()``, named as the
+  ``opensearch-mcp-server-py`` console script;
+- ``module``: as ``python -m mcp_server_opensearch`` does, the package's ``__main__.py`` run
+  as ``__main__`` (``runpy.run_module``, which sets ``sys.argv[0]`` to its path).
+
+Patches:
 
 - fake OpenSearch: the aiohttp session of every OpenSearch connection is the harness's
   fake, answering from the reply table in the JSON file named by
   ``CHAR_FAKE_OPENSEARCH_TABLE`` (written with ``conftest.fake_table``);
 - pinned OpenAPI: ``tool_generator.fetch_github_spec`` serves ``fixtures/openapi/``, or
   raises when the table carries an ``openapi_error``;
-- network guard: DNS lookups and connections off this machine fail, as under ``no_network``.
+- network guard: DNS lookups and connections off this machine fail, as under ``no_network``;
+- planted tools: the launch spec's ``planted_tools`` are put in ``TOOL_REGISTRY``, as
+  ``plant_tool`` does in the test process (``conftest.planted_tool_from_spec``).
 
-Every request the fake receives and every network attempt the guard blocks is appended as
-one JSON line to the file named by ``CHAR_FAKE_OPENSEARCH_LOG`` as it happens, so the test
-process can read them even if this process is killed.
+Every request the fake receives, every network attempt the guard blocks and the entry the
+server started through (as ``main()`` starts) is appended as one JSON line to the file named
+by ``CHAR_FAKE_OPENSEARCH_LOG`` as it happens, so the test process can read them even if this
+process is killed.
 """
 
 import asyncio
 import errno
 import json
 import os
+import runpy
 import socket
 import sys
 from pathlib import Path
@@ -106,6 +117,40 @@ def _install_network_guard(harness, log: _Log) -> None:
     socket.socket.connect_ex = guarded_connect_ex
 
 
+def _install_planted_tools(harness, specs: list) -> None:
+    """As ``plant_tool`` does; ``OPENSEARCH_ENABLED_TOOLS`` came with the environment."""
+    for spec in specs:
+        harness.TOOL_REGISTRY[spec['name']] = harness.planted_tool_from_spec(spec)
+
+
+def _run_server(harness, entry: str, log: _Log) -> None:
+    """Start the server through ``entry``; log the entry as ``main()`` starts."""
+    import mcp_server_opensearch as package
+
+    server_main = package.main
+
+    def logged_main() -> None:
+        main_spec = getattr(sys.modules.get('__main__'), '__spec__', None)
+        log.write(
+            {
+                'kind': 'entry',
+                'entry': entry,
+                'main_module': getattr(main_spec, 'name', None),
+                'prog': os.path.basename(sys.argv[0]),
+                'args': sys.argv[1:],
+            }
+        )
+        server_main()
+
+    # __main__.py runs `from . import main`, so it finds this wrapper on the package.
+    package.main = logged_main
+    if entry == 'module':
+        runpy.run_module(package.__name__, run_name='__main__', alter_sys=True)
+    else:
+        sys.argv = [harness.SERVER_PROG, *sys.argv[1:]]
+        logged_main()
+
+
 def main() -> None:
     # The harness (conftest.py) sits next to this script; it imports the server's modules.
     sys.path.insert(0, str(HERE))
@@ -113,14 +158,15 @@ def main() -> None:
 
     with open(os.environ[harness.FAKE_TABLE_ENV], encoding='utf-8') as f:
         table = json.load(f)
+    spec = {'entry': 'main', 'planted_tools': []}
+    if os.environ.get(harness.LAUNCH_SPEC_ENV):
+        with open(os.environ[harness.LAUNCH_SPEC_ENV], encoding='utf-8') as f:
+            spec.update(json.load(f))
     log = _Log(os.environ[harness.FAKE_LOG_ENV])
     _install_fakes(harness, table, log)
     _install_network_guard(harness, log)
-
-    from mcp_server_opensearch import main as server_main
-
-    sys.argv = [harness.SERVER_PROG, *sys.argv[1:]]
-    server_main()
+    _install_planted_tools(harness, spec['planted_tools'])
+    _run_server(harness, spec['entry'], log)
 
 
 if __name__ == '__main__':

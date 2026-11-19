@@ -1,0 +1,41 @@
+{
+  "executor_log": [
+    {
+      "duration_ms": "<DURATION>",
+      "error_type": "MCPError",
+      "event_type": "tool_execution",
+      "level": "ERROR",
+      "logger": "mcp_server_opensearch.tool_executor",
+      "message": "Tool execution failed: CharPlantedRaises (<DURATION>ms)",
+      "status": "error",
+      "tool_key": "CharPlantedRaises",
+      "tool_name": "CharPlantedRaises"
+    }
+  ],
+  "request": {
+    "arguments": {},
+    "name": "CharPlantedRaises"
+  },
+  "response": {
+    "error": {
+      "code": -32602,
+      "data": {
+        "reason": "planted"
+      },
+      "message": "characterization: planted MCP error"
+    },
+    "id": 1,
+    "jsonrpc": "2.0"
+  },
+  "tool": {
+    "description": "Characterization harness: a tool planted for one test.",
+    "inputSchema": {
+      "description": "Base class for all tool arguments that contains common OpenSearch connection parameters.",
+      "properties": {},
+      "required": [],
+      "title": "baseToolArgs",
+      "type": "object"
+    },
+    "name": "CharPlantedRaises"
+  }
+}
