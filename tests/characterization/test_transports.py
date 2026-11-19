@@ -20,14 +20,12 @@ the same transports can be shown to look the same to every client:
   over streamable HTTP, SSE and stdio.
 """
 
-import anyio
-import asyncio
 import base64
 import contextlib
 import json
 import logging
 import pytest
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -40,17 +38,10 @@ HEADER_AUTH = {'OPENSEARCH_HEADER_AUTH': 'true'}
 
 EXECUTOR_LOGGER = 'mcp_server_opensearch.tool_executor'
 CLIENT_NAME_HEADER = 'x-mcp-client-name'
-# How long a test waits for the next event on an open stream.
-STREAM_TIMEOUT_SECONDS = 10
-# How long a stream must stay silent before `OpenStream.drain` takes it to have sent all it
-# sends at once (an event stream's keep-alive ping comes only after 15 s).
-STREAM_QUIET_SECONDS = 0.5
 
 # The handshake version and client the harness's own helpers offer (conftest.py).
 PROTOCOL_VERSION = '2025-11-25'
 CLIENT_INFO = {'name': 'characterization-harness', 'version': '0.0.0'}
-# Where `streaming_server.serve` listens by default; http_app's requests carry it as Host.
-HTTP_SERVER = ('127.0.0.1', 9900)
 
 CAT_INDICES = [
     {
@@ -163,153 +154,8 @@ def stdout_shape(lines: list[str]) -> list[Any]:
 
 
 # ---------------------------------------------------------------------------
-# an ASGI stream read as it arrives (for responses that stay open)
+# an SSE session over an open stream (`HttpApp.open_stream`, conftest.py)
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class OpenStream:
-    """A response the app is still sending: status, headers and the body so far.
-
-    ``httpx.ASGITransport`` hands back a response only once the app has sent all of it,
-    which an event stream never does; ``open_stream`` calls the app's ASGI interface itself
-    (as ``HttpApp.sse_first_event`` does) and keeps the stream open for the test.
-    """
-
-    harness: Any
-    status: int | None = None
-    headers: dict = field(default_factory=dict)
-    body: bytes = b''
-    ended: bool = False
-    _chunks: asyncio.Queue = field(default_factory=asyncio.Queue)
-    _started: asyncio.Event = field(default_factory=asyncio.Event)
-    _events_read: int = 0
-
-    def events(self) -> list[dict]:
-        # A CR at the very end may be the first half of a CRLF still in transit.
-        return self.harness.parse_sse(self.body.decode('utf-8', 'replace').removesuffix('\r'))
-
-    async def next_event(self, timeout: float = STREAM_TIMEOUT_SECONDS) -> dict | None:
-        """The next SSE event; ``None`` if the response ends first."""
-        with anyio.fail_after(timeout):
-            while len(events := self.events()) <= self._events_read:
-                if self.ended:
-                    return None
-                chunk = await self._chunks.get()
-                if chunk is None:
-                    self.ended = True
-                else:
-                    self.body += chunk
-        self._events_read += 1
-        return events[self._events_read - 1]
-
-    async def drain(self, quiet: float = STREAM_QUIET_SECONDS) -> bytes:
-        """Add every chunk the app sends to ``body`` until it is ``quiet`` seconds silent.
-
-        Stops at the end of the response, and fails after ``STREAM_TIMEOUT_SECONDS`` if the
-        app never goes quiet. Returns the whole body received so far.
-        """
-        with anyio.fail_after(STREAM_TIMEOUT_SECONDS):
-            while not self.ended:
-                try:
-                    chunk = await asyncio.wait_for(self._chunks.get(), quiet)
-                except asyncio.TimeoutError:
-                    break
-                if chunk is None:
-                    self.ended = True
-                else:
-                    self.body += chunk
-        return self.body
-
-    def summary(self) -> dict:
-        return {'status': self.status, 'headers': self.headers}
-
-
-def asgi_scope(request_) -> dict:
-    """The ASGI ``http`` scope ``httpx.ASGITransport`` builds for an httpx request."""
-    return {
-        'type': 'http',
-        'asgi': {'version': '3.0'},
-        'http_version': '1.1',
-        'method': request_.method,
-        'headers': [(name.lower(), value) for name, value in request_.headers.raw],
-        'scheme': request_.url.scheme,
-        'path': request_.url.path,
-        'raw_path': request_.url.raw_path.split(b'?')[0],
-        'query_string': request_.url.query,
-        'server': HTTP_SERVER,
-        'client': ('127.0.0.1', 123),
-        'root_path': '',
-    }
-
-
-def reply_headers(raw_headers: list) -> dict[str, str]:
-    """ASGI response headers as ``HttpReply.headers`` holds them: names lower-cased."""
-    headers: dict[str, str] = {}
-    for name, value in raw_headers:
-        name, value = name.decode('latin-1').lower(), value.decode('latin-1')
-        headers[name] = f'{headers[name]}, {value}' if name in headers else value
-    return headers
-
-
-async def finish(task: asyncio.Task, timeout: float) -> bool:
-    """Wait up to ``timeout`` for ``task``; cancel it if still running. True if it finished."""
-    done, _ = await asyncio.wait({task}, timeout=timeout)
-    if done:
-        return True
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError, Exception):
-        await task
-    return False
-
-
-@contextlib.asynccontextmanager
-async def open_stream(harness, http, method: str, path: str, headers: dict | None = None):
-    """Send ``method path`` to the app; yield once the response has started; then disconnect."""
-    request_ = http.build_request(method, path, headers=headers)
-    scope = asgi_scope(request_)
-    stream = OpenStream(harness)
-    disconnected = asyncio.Event()
-    request_sent = False
-    body_ended = False
-
-    async def receive() -> dict:
-        nonlocal request_sent
-        if not request_sent:
-            request_sent = True
-            return {'type': 'http.request', 'body': b'', 'more_body': False}
-        await disconnected.wait()
-        return {'type': 'http.disconnect'}
-
-    async def send(message: dict) -> None:
-        nonlocal body_ended
-        if message['type'] == 'http.response.start' and stream.status is None:
-            stream.status = message['status']
-            stream.headers = reply_headers(message.get('headers', []))
-            stream._started.set()
-        elif message['type'] == 'http.response.body' and stream.status is not None:
-            if body_ended:
-                return
-            stream._chunks.put_nowait(message.get('body', b''))
-            if not message.get('more_body', False):
-                body_ended = True
-                stream._chunks.put_nowait(None)
-
-    def finished(_task) -> None:
-        stream._started.set()
-        stream._chunks.put_nowait(None)
-
-    task = asyncio.create_task(http.app(scope, receive, send))
-    task.add_done_callback(finished)
-    try:
-        with anyio.fail_after(STREAM_TIMEOUT_SECONDS):
-            await stream._started.wait()
-        yield stream
-    finally:
-        disconnected.set()
-        if not await finish(task, STREAM_TIMEOUT_SECONDS):
-            raise AssertionError(f'{method} {path}: the app did not return after the disconnect')
-        task.result()
 
 
 @dataclass
@@ -317,7 +163,7 @@ class SseSession:
     """An open ``GET /sse`` and the messages path its endpoint event named."""
 
     http: Any
-    stream: OpenStream
+    stream: Any  # the `OpenStream` of the GET /sse (conftest.py)
     endpoint: dict
     post_headers: dict
 
@@ -355,8 +201,8 @@ class SseSession:
 
 
 @contextlib.asynccontextmanager
-async def sse_session(harness, http, get_headers=None, post_headers=None):
-    async with open_stream(harness, http, 'GET', '/sse', get_headers) as stream:
+async def sse_session(http, get_headers=None, post_headers=None):
+    async with http.open_stream('GET', '/sse', get_headers) as stream:
         endpoint = await stream.next_event()
         assert endpoint is not None and endpoint.get('event') == 'endpoint', stream.body
         yield SseSession(http, stream, endpoint, post_headers or {})
@@ -404,9 +250,7 @@ STDIO_ARGVS = [
 
 
 @pytest.mark.parametrize('argv', STDIO_ARGVS)
-async def test_stdio_raw_jsonrpc_session(
-    harness, stdio_launcher, fake_opensearch, golden, normalize, argv
-):
+async def test_stdio_raw_jsonrpc_session(stdio_launcher, fake_opensearch, golden, normalize, argv):
     fake_opensearch.reply('GET', '/_cat/indices', CAT_INDICES)
     async with stdio_launcher(*argv, env=NO_AUTH) as server:
         responses = await stdio_exchange(server, stdio_session_messages())
@@ -420,7 +264,7 @@ async def test_stdio_raw_jsonrpc_session(
 
 
 @pytest.mark.parametrize('argv', STDIO_ARGVS)
-async def test_stdio_exit_when_stdin_closes(harness, stdio_launcher, golden, normalize, argv):
+async def test_stdio_exit_when_stdin_closes(stdio_launcher, golden, normalize, argv):
     # After a handshake, and before any input at all: closing stdin ends the server.
     async with stdio_launcher(*argv) as after_handshake:
         await stdio_exchange(after_handshake, stdio_session_messages()[:2])
@@ -456,7 +300,7 @@ OPENAPI_FAILING_BUFFERING = [
 
 @pytest.mark.parametrize('unbuffered', OPENAPI_FAILING_BUFFERING)
 async def test_stdio_startup_with_openapi_fetch_failing(
-    harness, stdio_launcher, openapi_unavailable, golden, normalize, unbuffered
+    stdio_launcher, openapi_unavailable, golden, normalize, unbuffered
 ):
     async with stdio_launcher(env={'PYTHONUNBUFFERED': unbuffered}) as server:
         responses = await stdio_exchange(
@@ -577,7 +421,7 @@ def streamable_exchange(reply) -> dict:
     }
 
 
-async def test_http_streamable_session(harness, http_app, fake_opensearch, golden, normalize):
+async def test_http_streamable_session(http_app, fake_opensearch, golden, normalize):
     fake_opensearch.reply('GET', '/_cat/indices', CAT_INDICES)
     exchanges = {}
     async with http_app(env=NO_AUTH) as http:
@@ -600,7 +444,7 @@ async def test_http_streamable_session(harness, http_app, fake_opensearch, golde
     assert not any('mcp-session-id' in reply.headers for reply in exchanges.values())
 
 
-async def test_http_streamable_paths_without_redirect(harness, http_app, golden, normalize):
+async def test_http_streamable_paths_without_redirect(http_app, golden, normalize):
     # /mcp is a Route and /mcp/... a Mount: both answer directly, neither redirects.
     async with http_app() as http:
         replies = {
@@ -621,16 +465,16 @@ async def test_http_streamable_paths_without_redirect(harness, http_app, golden,
     assert replies['/mcp'].message() == replies['/mcp/'].message()
 
 
-async def test_http_streamable_get_delete_and_other_methods(harness, http_app, golden, normalize):
+async def test_http_streamable_get_delete_and_other_methods(http_app, golden, normalize):
     async with http_app() as http:
         # Stateless GET opens a server-to-client event stream that sends nothing and stays
         # open until the client goes: record how it starts and everything it sends until it
         # falls quiet (`drain`), then disconnect.
-        async with open_stream(harness, http, 'GET', '/mcp') as get_default_accept:
+        async with http.open_stream('GET', '/mcp') as get_default_accept:
             await get_default_accept.drain()
             assert not get_default_accept.ended
-        async with open_stream(
-            harness, http, 'GET', '/mcp', {'accept': 'text/event-stream'}
+        async with http.open_stream(
+            'GET', '/mcp', {'accept': 'text/event-stream'}
         ) as get_sse_accept:
             await get_sse_accept.drain()
             assert not get_sse_accept.ended
@@ -654,18 +498,20 @@ async def test_http_streamable_get_delete_and_other_methods(harness, http_app, g
     golden(f'{AREA}/http/streamable/get_delete_put', normalize(result))
 
 
-async def test_open_stream_drain_reads_what_a_stream_sends(harness, http_app):
+async def test_open_stream_drain_reads_what_a_stream_sends(http_app):
     # The empty GET /mcp bodies above mean nothing was sent: drain does collect what an open
     # stream sends at once, here GET /sse's endpoint event, without reading it event by event.
+    # The quiet window starts once the endpoint event is in (`min_events`, within drain's
+    # 10 s overall timeout): a slow runner may take longer than the window to send it.
     async with http_app() as http:
-        async with open_stream(harness, http, 'GET', '/sse') as stream:
-            body = await stream.drain()
+        async with http.open_stream('GET', '/sse') as stream:
+            body = await stream.drain(min_events=1)
             assert not stream.ended
 
     assert [event['event'] for event in stream.events()] == ['endpoint'], body
 
 
-async def test_http_streamable_without_accept(harness, http_app, golden, normalize):
+async def test_http_streamable_without_accept(http_app, golden, normalize):
     async with http_app() as http:
         initialize = await http.post_mcp(initialize_request(1), {'accept': None})
         tools_list = await http.post_mcp(rpc(2, 'tools/list'), {'accept': None})
@@ -676,9 +522,9 @@ async def test_http_streamable_without_accept(harness, http_app, golden, normali
     )
 
 
-async def test_http_sse_endpoint_and_messages(harness, http_app, golden, normalize):
+async def test_http_sse_endpoint_and_messages(http_app, golden, normalize):
     async with http_app() as http:
-        async with sse_session(harness, http) as session:
+        async with sse_session(http) as session:
             opened = {**session.stream.summary(), 'endpoint_event': session.endpoint}
             handshake = await session.handshake()
             tools_list = await session.exchange(rpc(1, 'tools/list'))
@@ -708,9 +554,9 @@ async def test_http_sse_endpoint_and_messages(harness, http_app, golden, normali
     )
 
 
-async def test_http_sse_tools_list_matches_streamable(harness, http_app):
+async def test_http_sse_tools_list_matches_streamable(http_app):
     async with http_app() as http:
-        async with sse_session(harness, http) as session:
+        async with sse_session(http) as session:
             await session.handshake()
             over_sse = await session.exchange(rpc(1, 'tools/list'))
         over_streamable = await http.mcp('tools/list')
@@ -786,7 +632,7 @@ REBINDING_HEADERS = [
 
 
 @pytest.mark.parametrize('headers', REBINDING_HEADERS)
-async def test_http_dns_rebinding_surface(harness, http_app, golden, normalize, headers):
+async def test_http_dns_rebinding_surface(http_app, golden, normalize, headers):
     async with http_app() as http:
         initialize = await http.post_mcp(initialize_request(1), headers)
         sse = await http.sse_first_event('/sse', headers)
@@ -935,13 +781,11 @@ SSE_CLIENT_NAME_CASES = [
 
 
 @pytest.mark.parametrize('case', SSE_CLIENT_NAME_CASES, ids=lambda case: case.name)
-async def test_sse_client_name(
-    harness, http_app, fake_opensearch, caplog, golden, normalize, case
-):
+async def test_sse_client_name(http_app, fake_opensearch, caplog, golden, normalize, case):
     caplog.set_level(logging.INFO, logger=EXECUTOR_LOGGER)
     fake_opensearch.reply('GET', '/_cat/indices', CAT_INDICES)
     async with http_app(env=NO_AUTH) as http:
-        async with sse_session(harness, http, case.get_headers, case.post_headers) as session:
+        async with sse_session(http, case.get_headers, case.post_headers) as session:
             await session.handshake()
             call = await session.exchange(rpc(1, 'tools/call', LIST_INDEX_CALL))
 
@@ -958,9 +802,7 @@ async def test_sse_client_name(
     )
 
 
-async def test_sse_tools_call_with_header_auth(
-    harness, http_app, fake_opensearch, golden, normalize
-):
+async def test_sse_tools_call_with_header_auth(http_app, fake_opensearch, golden, normalize):
     # Header auth over SSE: which request's headers (the GET that opened the stream or the
     # POST carrying the call) reach the OpenSearch client. The GET and the POST carry
     # different Basic users; the fake's request log shows the one it received.
@@ -969,7 +811,7 @@ async def test_sse_tools_call_with_header_auth(
     post_headers = {'authorization': basic('post-user', 'post-pass')}
     async with http_app(env=HEADER_AUTH) as http:
         at_startup = len(fake_opensearch.requests)
-        async with sse_session(harness, http, get_headers, post_headers) as session:
+        async with sse_session(http, get_headers, post_headers) as session:
             await session.handshake()
             call = await session.exchange(rpc(1, 'tools/call', LIST_INDEX_CALL))
 
