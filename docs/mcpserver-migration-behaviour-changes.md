@@ -1,0 +1,204 @@
+# Behaviour changes: the MCPServer migration and the fixes before it
+
+This file records every behaviour change made by the work on upstream issue #34, "Switch
+from low-level MCP SDK to FastMCP" (implemented in this repository on the SDK's
+`MCPServer`), and by the bug fixes made before it, so that each can become an upstream pull
+request or issue later.
+
+The characterization goldens under `tests/characterization/golden/` pin today's behaviour
+as a client sees it, so a golden diff is a behaviour change. The rule: a change that
+modifies or deletes an existing golden adds its entry here, naming every golden it changed,
+and a `CHANGELOG.md` entry in the same change. A change that only adds new goldens is new
+characterization, not a behaviour change. `uv run --offline python
+scripts/check_behaviour_ledger.py` checks it.
+
+## Fixed before the migration
+
+### Fix 22 and 22b: secrets in the missing-field validation error are masked
+
+**What changed**: Before, a call that left out a required field got the error
+`Missing required field(s): ...` followed by `Provided: {...}`, which echoed the caller's
+raw arguments, `opensearch_password`, tokens and auth headers included. Now the value of
+every secret-looking key (passwords, secrets, credentials, tokens, API, access and private
+keys, authorization and cookie headers) shows as `'***'`, recursively in nested dicts and lists;
+with 22b, hyphenated header names such as `X-Api-Key` are masked too. The rest of the
+message, the non-secret values included, is unchanged.
+
+**Why**: Bug fix: the error text leaked credentials to whatever reads tool results. Found
+by the call_tool characterization (06) and the MCPServer research (14).
+
+**Who is affected**: Any client whose tool errors reach logs or a model. No config or
+client action is needed.
+
+**Tests and goldens**: Unit tests in `tests/tools/test_tool_params_redaction.py`. Golden
+changed:
+- `call_tool_core/errors/missing_field_echoes_password.json`
+
+**Upstream**: Not opened yet: the user decides.
+
+### Fix 23: the OpenAPI start-up error goes to the log, not stdout
+
+**What changed**: Before, when the OpenAPI spec fetch failed at start-up, the server
+printed `Error generating tools: <error>` to stdout; on the stdio transport stdout is the
+JSON-RPC channel, so the client read a line that is not JSON-RPC (before the first response
+when stdout is unbuffered, after the last one when it is buffered). Now the same text is
+logged at ERROR level (stderr or the configured log), stdout carries only JSON-RPC, and
+start-up continues with the static tools as before.
+
+**Why**: Bug fix: a stray stdout write corrupts the stdio JSON-RPC stream. Found by the
+MCPServer research (14), pinned by the transport characterization (09). A follow-up
+(`46c5b94`) only updated the characterization test's comments to match.
+
+**Who is affected**: stdio clients when the OpenAPI spec fetch fails. No config or client
+action is needed.
+
+**Tests and goldens**: Unit test in `tests/tools/test_tool_generator.py`. Goldens changed:
+- `transports/stdio/openapi_fetch_failing_buffered.json`
+- `transports/stdio/openapi_fetch_failing_unbuffered.json`
+
+**Upstream**: Not opened yet: the user decides.
+
+### Fix 24: generated tools no longer send omitted query parameters as `None`
+
+**What changed**: Before, a tool generated from the OpenAPI spec (such as `CountTool`,
+`ClusterHealthTool`, `ExplainTool`, `MsearchTool`) sent every optional query parameter the
+caller left out as the literal string `None`, for example `/_count?allow_no_indices=None`.
+Now omitted parameters are not sent at all; a parameter the caller sets is sent with its
+value, and `False`, `0` and empty values are still sent.
+
+**Why**: Bug fix: a real cluster may reject `None` as a parameter value. Found by the
+call_tool characterization (06), finding (1).
+
+**Who is affected**: Anyone calling the generated tools; calls that failed on a `None`
+parameter now reach the cluster as intended. No config or client action is needed.
+
+**Tests and goldens**: Unit tests in `tests/tools/test_tool_generator.py`. Goldens changed:
+- `call_tool_core/generated/ClusterHealthTool/error_403.json`
+- `call_tool_core/generated/ClusterHealthTool/with_index.json`
+- `call_tool_core/generated/ClusterHealthTool/without_index.json`
+- `call_tool_core/generated/CountTool/error_404.json`
+- `call_tool_core/generated/CountTool/with_index_and_query_param.json`
+- `call_tool_core/generated/CountTool/without_index.json`
+- `call_tool_core/generated/ExplainTool/error_404.json`
+- `call_tool_core/generated/ExplainTool/success.json`
+- `call_tool_core/generated/MsearchTool/error_400.json`
+- `call_tool_core/generated/MsearchTool/json_array.json`
+- `call_tool_core/generated/MsearchTool/ndjson.json`
+- `call_tool_core/generated/MsearchTool/string_holding_array.json`
+- `call_tool_core/generated/MsearchTool/with_index.json`
+- `gaps_tool_results/generated/endpoint_fallback/ExplainTool_empty_id.json`
+- `gaps_tool_results/generated/endpoint_fallback/ExplainTool_empty_index.json`
+- `gaps_tool_results/generated/endpoint_fallback/ExplainTool_missing_id.json`
+- `gaps_tool_results/generated/whitespace_body/CountTool.json`
+- `gaps_tool_results/generated/whitespace_body/ExplainTool.json`
+
+**Upstream**: Not opened yet: the user decides.
+
+### Fix 25: the generic API tool sends the body on GET
+
+**What changed**: The generic API tool documents its `body` for GET, POST and PUT, but
+before it dropped the body on GET, so a `GET /_search` with a query ran as match-all. Now
+GET sends the body (a dict or list JSON-encoded, a string as it is); DELETE and HEAD still
+send none.
+
+**Why**: Bug fix: the tool did not do what its description says, and searches silently
+returned unfiltered hits. Found by the call_tool characterization (06), finding (2).
+
+**Who is affected**: Clients sending GET requests with a body through the generic API tool;
+they now get the filtered result they asked for. No config or client action is needed.
+
+**Tests and goldens**: Unit tests in `tests/tools/test_generic_tool.py`. Golden changed
+(its case id is historical: it now pins the body being sent):
+- `call_tool_core/generic_api/get_body_dropped.json`
+
+**Upstream**: Not opened yet: the user decides.
+
+## Migration steps (issue #34)
+
+Each migration step adds one line here.
+
+| Step | Spec | Visible change | Characterization |
+|------|------|----------------|------------------|
+
+## Known, unchanged
+
+These quirks are pinned by the characterization tests and kept as they are through the
+migration by the user's choice (2026-11-19). Each is a candidate for an upstream issue.
+
+### Security-relevant
+
+- **Fix right after the migration.** A missing AWS profile signs with other credentials:
+  in multi-cluster mode, a cluster whose `aws_profile` does not exist only warns and is
+  signed with other credentials (`[default]`, `AWS_PROFILE` or env keys) (13g); an unknown
+  `--profile` likewise only logs a warning and falls back to the default credential chain
+  (11, finding 6).
+- **Fix right after the migration.** With header auth, an `Authorization` header that
+  cannot be used (an empty Bearer token, an unknown scheme, Basic without `:`, or a failed
+  base64 decode) is dropped without a log record and the server falls back to its own
+  credentials; after a failed base64 decode, header values read before `Authorization` stay
+  in effect (13a).
+- **Fix right after the migration.** Serverless memory index policy race: if the
+  data-access policy is deleted between read and update, a new policy is created for the
+  caller alone and the principals read before are dropped, silently narrowing access (13l).
+- No DNS-rebinding protection on SSE and streamable HTTP: a request with
+  `Host: example.com` or `Origin: http://evil.example` is served on `POST /mcp` and
+  `GET /sse`. The migration keeps it off explicitly for parity; adding protection would be
+  an opt-in setting, a later feature (09, finding 11).
+- Serverless memory index: an existing data-access policy whose rule set lacks `Principal`
+  is caught as a generic error, only warned about and left unchanged, and the index is
+  created anyway (13l).
+- Per-call connection override arguments are accepted and silently ignored in
+  multi-cluster mode, where they are not in the tool schemas (11, finding 10).
+- An `ftp://` OpenSearch URL is accepted and connects over plain http to port 9200 (13f).
+
+### Other
+
+- A config file whose `tool_filters` has no `settings` (or only a `tools` section, or a
+  missing file) hides write tools as if `allow_write` were false, while the documented
+  default is true; this is the safe side, and fixing it would expose write tools on
+  existing deployments without an opt-in (05, finding 1).
+- `--config` pointing at a missing file silently ignores the env filters, and single mode
+  starts anyway (05, finding 2).
+- CLI values are parsed as YAML, so `--tool.X.description=123` becomes a number and
+  `tools/list` then fails with -32602 (05, finding 4).
+- `--tool.X.args.index=...` without `.description`, and `--tool.T.args.A=plain`, crash
+  startup with `AttributeError` (05, finding 5; 13j).
+- The region is never read from an `*.es.amazonaws.com` or `*.aoss.amazonaws.com` URL, so
+  AWS auth without a configured region fails (11, finding 7).
+- A bearer `Authorization` header replaces the client's headers, so the server's
+  `user-agent` is lost (11, finding 8).
+- A per-call `aws_profile` supplies the profile's credentials but not its region; a profile
+  without a region is signed with another profile's region (11, finding 9; 13g).
+- A missing `AWS_PROFILE` ends in an unhandled `ConfigurationError` even with `AWS_REGION`
+  set (13g).
+- An over-long `x-mcp-client-name` is cut to 64 characters before it is checked, so an
+  invalid character past position 64 is dropped and the name accepted (09, finding 12).
+- OpenSearch error texts show the raw JSON body (`NotFoundError(404, '<raw JSON>')`)
+  instead of the error type and reason (08, finding 15).
+- The `required` list of each tool generated from the OpenAPI spec is built from a set, so
+  its order in `tools/list` changes with `PYTHONHASHSEED`; JSON Schema gives the order no
+  meaning (05, finding 16).
+- A soft tool error (returned through `log_tool_error`) gets a `tool_execution` log record
+  with status `error` but no `error_type`; the `tool_error` record carries
+  `exception_type` (06 review, finding b; the user chose to keep it).
+- Connection URLs: a username without a password fails with a raw `TypeError` text wrapped
+  as `AuthenticationError`; userinfo with no host passes the URL check, then fails with a
+  raw `TypeError`; `host:port` without a scheme is rejected as having no host (13f).
+- Config: an empty `--tool.T.display_name=` lists the tool under `""`;
+  `--tool.T.args.A.description=null` sets a `null` description while the same null from
+  the config file is refused at startup; an empty `args:` is warned about as not a mapping;
+  the CLI-shaped `args: {A: {description: x}}` in the file is rejected as not a string; an
+  invalid regex abandons filtering after the write filter, so every tool that survived it
+  is listed (13j).
+- Tool results: a non-UTF-8 body becomes the Python repr of the bytes; a dict error value
+  shows as its Python repr; a whitespace-only `body` is dropped even where the schema
+  requires it (ExplainTool); ExplainTool's required `index` and `id` are not enforced, so a
+  left-out `id` goes into the path as `None` (`/logs/_explain/None`); a path parameter
+  named `body` becomes the request body; `select_endpoint`'s fallback can only return the
+  first endpoint (13h).
+- On the connection fallback path, a `bytearray` body is measured by the length of its
+  repr, so a body that would pass as `bytes` can be refused by the size limit (13i).
+- With `--profile`, the region log line says "Using region from AWS_PROFILE '<name>'"
+  naming the `--profile` profile, even when `AWS_PROFILE` names another (13d; cosmetic).
+- The legacy install-hook check only matches a single-quoted `b64decode('...')`, so a
+  double-quoted legacy hook gets the memory hooks added next to it (13k).

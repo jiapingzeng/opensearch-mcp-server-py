@@ -17,6 +17,7 @@ When adding or modifying tools, read the existing code first. The patterns are c
 - **Helpers don't catch exceptions**: Helpers in `helper.py` let exceptions propagate. The tool function in `tools.py` handles errors.
 - **Tool filter categories**: Tools not in any enabled category are invisible. Only `core_tools` is enabled by default. New tool groups need a category in `tool_filter.py`.
 - **No special registration**: All tools go in `TOOL_REGISTRY` statically. No tool needs custom startup logic.
+- **Behavior changes are recorded**: the characterization goldens (`tests/characterization/golden/**`) pin today's behavior, so a change that modifies or deletes one is a behavior change; in the same change add its entry to `docs/mcpserver-migration-behaviour-changes.md` (naming every golden it changed) and a `CHANGELOG.md` entry under `[Unreleased]`; `uv run --offline python scripts/check_behaviour_ledger.py` checks it.
 
 ## Adding tools
 
