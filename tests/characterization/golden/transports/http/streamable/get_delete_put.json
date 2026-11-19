@@ -1,0 +1,68 @@
+{
+  "DELETE": {
+    "headers": {
+      "content-length": "117",
+      "content-type": "application/json"
+    },
+    "json": {
+      "error": {
+        "code": -32600,
+        "message": "Method Not Allowed: Session termination not supported"
+      },
+      "id": null,
+      "jsonrpc": "2.0"
+    },
+    "status": 405
+  },
+  "GET accept */*": {
+    "body": "",
+    "headers": {
+      "cache-control": "no-cache, no-transform",
+      "connection": "keep-alive",
+      "content-type": "text/event-stream",
+      "x-accel-buffering": "no"
+    },
+    "status": 200
+  },
+  "GET accept application/json": {
+    "headers": {
+      "content-length": "116",
+      "content-type": "application/json"
+    },
+    "json": {
+      "error": {
+        "code": -32600,
+        "message": "Not Acceptable: Client must accept text/event-stream"
+      },
+      "id": null,
+      "jsonrpc": "2.0"
+    },
+    "status": 406
+  },
+  "GET accept text/event-stream": {
+    "body": "",
+    "headers": {
+      "cache-control": "no-cache, no-transform",
+      "connection": "keep-alive",
+      "content-type": "text/event-stream",
+      "x-accel-buffering": "no"
+    },
+    "status": 200
+  },
+  "PUT": {
+    "headers": {
+      "allow": "GET, POST, DELETE",
+      "content-length": "82",
+      "content-type": "application/json"
+    },
+    "json": {
+      "error": {
+        "code": -32600,
+        "message": "Method Not Allowed"
+      },
+      "id": null,
+      "jsonrpc": "2.0"
+    },
+    "status": 405
+  }
+}

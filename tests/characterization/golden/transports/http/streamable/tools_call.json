@@ -1,0 +1,29 @@
+{
+  "content_type": "text/event-stream",
+  "events": [
+    {
+      "data": {
+        "id": 3,
+        "jsonrpc": "2.0",
+        "result": {
+          "content": [
+            {
+              "text": "Indices:\n[\"logs-2020.01.01\"]",
+              "type": "text"
+            }
+          ],
+          "isError": false
+        }
+      },
+      "event": "message"
+    }
+  ],
+  "has_mcp_session_id": false,
+  "headers": {
+    "cache-control": "no-cache, no-transform",
+    "connection": "keep-alive",
+    "content-type": "text/event-stream",
+    "x-accel-buffering": "no"
+  },
+  "status": 200
+}

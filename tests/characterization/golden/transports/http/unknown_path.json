@@ -1,0 +1,35 @@
+{
+  "GET /": {
+    "headers": {
+      "content-length": "9",
+      "content-type": "text/plain; charset=utf-8"
+    },
+    "status": 404,
+    "text": "Not Found"
+  },
+  "GET /nope": {
+    "headers": {
+      "content-length": "9",
+      "content-type": "text/plain; charset=utf-8"
+    },
+    "status": 404,
+    "text": "Not Found"
+  },
+  "POST /nope": {
+    "headers": {
+      "content-length": "9",
+      "content-type": "text/plain; charset=utf-8"
+    },
+    "status": 404,
+    "text": "Not Found"
+  },
+  "POST /sse": {
+    "headers": {
+      "allow": "GET, HEAD",
+      "content-length": "18",
+      "content-type": "text/plain; charset=utf-8"
+    },
+    "status": 405,
+    "text": "Method Not Allowed"
+  }
+}

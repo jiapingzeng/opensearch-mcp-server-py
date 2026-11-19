@@ -1,0 +1,18 @@
+{
+  "GET": {
+    "headers": {
+      "content-length": "2"
+    },
+    "status": 200,
+    "text": "OK"
+  },
+  "POST": {
+    "headers": {
+      "allow": "GET, HEAD",
+      "content-length": "18",
+      "content-type": "text/plain; charset=utf-8"
+    },
+    "status": 405,
+    "text": "Method Not Allowed"
+  }
+}

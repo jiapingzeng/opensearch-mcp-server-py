@@ -1,0 +1,30 @@
+{
+  "routes": [
+    {
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/sse"
+    },
+    {
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/health"
+    },
+    {
+      "methods": null,
+      "path": "/messages"
+    },
+    {
+      "methods": null,
+      "path": "/mcp"
+    },
+    {
+      "methods": null,
+      "path": "/mcp"
+    }
+  ]
+}

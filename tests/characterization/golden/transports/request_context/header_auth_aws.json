@@ -1,0 +1,67 @@
+{
+  "headers_sent": {
+    "aws-access-key-id": "<redacted>",
+    "aws-region": "eu-west-1",
+    "aws-secret-access-key": "<redacted>",
+    "aws-service-name": "es",
+    "aws-session-token": "<redacted>",
+    "x-mcp-client-name": "char-client"
+  },
+  "opensearch_requests_at_startup": [],
+  "opensearch_requests_for_the_call": [
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "es"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "sigv4",
+        "region": "eu-west-1",
+        "service": "es"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    }
+  ],
+  "response": {
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+      "content": [
+        {
+          "text": "Indices:\n[\"logs-2020.01.01\"]",
+          "type": "text"
+        }
+      ],
+      "isError": false
+    }
+  },
+  "tool_log": [
+    {
+      "client_name": "char-client",
+      "duration_ms": "<DURATION>",
+      "event_type": "tool_execution",
+      "level": "INFO",
+      "logger": "mcp_server_opensearch.tool_executor",
+      "message": "Tool executed: ListIndexTool (<DURATION>ms)",
+      "status": "success",
+      "tool_key": "ListIndexTool",
+      "tool_name": "ListIndexTool"
+    }
+  ]
+}

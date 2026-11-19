@@ -1,0 +1,29 @@
+{
+  "content_type": "text/event-stream",
+  "events": [
+    {
+      "data": {
+        "id": 4,
+        "jsonrpc": "2.0",
+        "result": {
+          "content": [
+            {
+              "text": "Unknown or disabled tool: NoSuchTool",
+              "type": "text"
+            }
+          ],
+          "isError": true
+        }
+      },
+      "event": "message"
+    }
+  ],
+  "has_mcp_session_id": false,
+  "headers": {
+    "cache-control": "no-cache, no-transform",
+    "connection": "keep-alive",
+    "content-type": "text/event-stream",
+    "x-accel-buffering": "no"
+  },
+  "status": 200
+}

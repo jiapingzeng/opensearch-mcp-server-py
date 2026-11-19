@@ -1,0 +1,40 @@
+{
+  "initialize": {
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+      "capabilities": {
+        "experimental": {},
+        "tools": {
+          "listChanged": false
+        }
+      },
+      "protocolVersion": "2025-11-25",
+      "serverInfo": {
+        "name": "opensearch-mcp-server",
+        "version": ""
+      }
+    }
+  },
+  "returncode": 0,
+  "stdout": [
+    {
+      "id": 1,
+      "jsonrpc": "result"
+    },
+    {
+      "id": 2,
+      "jsonrpc": "result"
+    },
+    {
+      "text": "Error generating tools: fake: cannot connect to host raw.githubusercontent.com:443"
+    }
+  ],
+  "tool_names": [
+    "ListIndexTool",
+    "IndexMappingTool",
+    "SearchIndexTool",
+    "GetShardsTool",
+    "GenericOpenSearchApiTool"
+  ]
+}
