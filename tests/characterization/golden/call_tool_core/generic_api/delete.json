@@ -1,0 +1,43 @@
+{
+  "call": {
+    "arguments": {
+      "method": "DELETE",
+      "path": "/logs/_doc/1"
+    },
+    "name": "GenericOpenSearchApiTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "DELETE",
+      "params": {},
+      "path": "/logs/_doc/1"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "OpenSearch API Response (DELETE /logs/_doc/1):\n{\"_index\":\"logs\",\"_id\":\"1\",\"_version\":3,\"result\":\"deleted\",\"_shards\":{\"total\":2,\"successful\":1,\"failed\":0},\"_seq_no\":0,\"_primary_term\":1}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

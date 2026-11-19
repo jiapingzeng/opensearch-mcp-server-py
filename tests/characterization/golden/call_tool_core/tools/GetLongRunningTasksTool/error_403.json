@@ -1,0 +1,54 @@
+{
+  "call": {
+    "arguments": {},
+    "name": "GetLongRunningTasksTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json",
+        "s": "running_time:desc"
+      },
+      "path": "/_cat/tasks"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error getting long-running tasks information: AuthorizationException(403, '{\"error\":{\"root_cause\":[{\"type\":\"security_exception\",\"reason\":\"no permissions for [cluster:monitor/tasks/lists] and User [name=reader, backend_roles=[], requestedTenant=null]\"}],\"type\":\"security_exception\",\"reason\":\"no permissions for [cluster:monitor/tasks/lists] and User [name=reader, backend_roles=[], requestedTenant=null]\"},\"status\":403}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

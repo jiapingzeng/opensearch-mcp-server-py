@@ -1,0 +1,55 @@
+{
+  "call": {
+    "arguments": {
+      "query": "source=logs | mtch"
+    },
+    "name": "PPLQueryTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": "source=logs | mtch"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/_plugins/_ppl"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error executing PPL query: RequestError(400, '{\"error\":{\"reason\":\"Invalid Query\",\"details\":\"[mtch] is not a valid term at this part of the query: \\'source=logs | mtch\\' <-- HERE. extraneous input \\'mtch\\' expecting <EOF>\",\"type\":\"SyntaxCheckException\"},\"status\":400}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

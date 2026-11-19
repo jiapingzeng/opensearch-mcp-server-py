@@ -1,0 +1,62 @@
+{
+  "call": {
+    "arguments": {
+      "format": "csv",
+      "index": "logs",
+      "query_dsl": "{\"query\": {\"match\": {\"level\": \"error\"}}}"
+    },
+    "name": "SearchIndexTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "match": {
+            "level": "error"
+          }
+        },
+        "size": 10
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/logs/_search"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Search results from logs (CSV format):\n@timestamp,_id,_index,_score,host.name,level,message\r\n2020-01-01T00:00:00Z,1,logs,1.2,web-1,error,disk full\r\n2020-01-01T00:05:00Z,2,logs,0.9,web-2,error,\"timeout, retrying\"\r\n",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

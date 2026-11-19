@@ -1,0 +1,58 @@
+{
+  "call": {
+    "arguments": {
+      "format": "csv",
+      "query": "source=logs | fields level, message | head 2"
+    },
+    "name": "PPLQueryTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": "source=logs | fields level, message | head 2"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {
+        "format": "csv"
+      },
+      "path": "/_plugins/_ppl"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "PPL query results:\nlevel,message\nerror,disk full\nerror,\"timeout, retrying\"\n",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

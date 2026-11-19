@@ -1,0 +1,69 @@
+{
+  "call": {
+    "arguments": {
+      "body": "{}\n{\"query\":{\"match_all\":{}}}",
+      "index": "logs"
+    },
+    "name": "MsearchTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": [
+        {},
+        {
+          "query": {
+            "match_all": {}
+          }
+        }
+      ],
+      "body_format": "ndjson",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "ccs_minimize_roundtrips": "None",
+        "max_concurrent_searches": "None",
+        "max_concurrent_shard_requests": "None",
+        "pre_filter_shard_size": "None",
+        "rest_total_hits_as_int": "None",
+        "search_type": "None",
+        "typed_keys": "None"
+      },
+      "path": "/logs/_msearch"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "{\"took\": 4, \"responses\": [{\"took\": 3, \"timed_out\": false, \"_shards\": {\"total\": 1, \"successful\": 1, \"skipped\": 0, \"failed\": 0}, \"hits\": {\"total\": {\"value\": 1200, \"relation\": \"eq\"}, \"max_score\": null, \"hits\": []}, \"status\": 200}]}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

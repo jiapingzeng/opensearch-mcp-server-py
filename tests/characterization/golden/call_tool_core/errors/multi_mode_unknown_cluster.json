@@ -1,0 +1,20 @@
+{
+  "call": {
+    "arguments": {
+      "include_detail": false,
+      "opensearch_cluster_name": "no-such-cluster"
+    },
+    "name": "ListIndexTool"
+  },
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: Cluster \"no-such-cluster\" not found in configuration",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

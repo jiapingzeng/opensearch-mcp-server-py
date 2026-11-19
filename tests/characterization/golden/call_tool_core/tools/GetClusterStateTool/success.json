@@ -1,0 +1,54 @@
+{
+  "call": {
+    "arguments": {
+      "index": "logs",
+      "metric": "metadata"
+    },
+    "name": "GetClusterStateTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_cluster/state/metadata/logs"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Cluster state information for metric: metadata, filtered by index: logs:\n{\"cluster_name\":\"fake-cluster\",\"cluster_uuid\":\"fake-cluster-uuid\",\"metadata\":{\"cluster_uuid\":\"fake-cluster-uuid\",\"cluster_uuid_committed\":true,\"templates\":{},\"indices\":{\"logs\":{\"version\":4,\"state\":\"open\",\"settings\":{\"index\":{\"number_of_shards\":\"1\",\"number_of_replicas\":\"1\"}},\"aliases\":[\"logs-read\"]}}}}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "call": {
+    "arguments": {
+      "path": "_cat/indices"
+    },
+    "name": "GenericOpenSearchApiTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error validating request: API path must start with \"/\"",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

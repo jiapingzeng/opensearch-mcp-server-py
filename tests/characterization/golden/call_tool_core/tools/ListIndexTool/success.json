@@ -1,0 +1,53 @@
+{
+  "call": {
+    "arguments": {},
+    "name": "ListIndexTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "All indices information:\n[{\"health\":\"green\",\"status\":\"open\",\"index\":\"logs-2020.01.01\",\"uuid\":\"fake-uuid-logs-0000001\",\"pri\":\"1\",\"rep\":\"1\",\"docs.count\":\"1200\",\"docs.deleted\":\"0\",\"store.size\":\"1.2mb\",\"pri.store.size\":\"620.4kb\"},{\"health\":\"yellow\",\"status\":\"open\",\"index\":\"metrics\",\"uuid\":\"fake-uuid-metrics-00001\",\"pri\":\"1\",\"rep\":\"1\",\"docs.count\":\"42\",\"docs.deleted\":\"3\",\"store.size\":\"88.1kb\",\"pri.store.size\":\"88.1kb\"}]",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

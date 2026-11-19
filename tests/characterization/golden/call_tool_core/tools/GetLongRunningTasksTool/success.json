@@ -1,0 +1,56 @@
+{
+  "call": {
+    "arguments": {
+      "limit": 2
+    },
+    "name": "GetLongRunningTasksTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json",
+        "s": "running_time:desc"
+      },
+      "path": "/_cat/tasks"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Top 2 long-running tasks sorted by running time:\naction | task_id | parent_task_id | type | start_time | timestamp | running_time | running_time_ns | ip | node\nindices:data/read/search | fake-node-id-1:101 | - | transport | 1577836800000 | 00:00:00 | 5.2s | 5200000000 | 10.0.0.1 | node-1\nindices:data/write/bulk | fake-node-id-1:102 | - | transport | 1577836800000 | 00:00:00 | 1.1s | 1100000000 | 10.0.0.1 | node-1\n",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

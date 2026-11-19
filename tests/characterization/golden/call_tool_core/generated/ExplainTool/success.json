@@ -1,0 +1,76 @@
+{
+  "call": {
+    "arguments": {
+      "body": {
+        "query": {
+          "match": {
+            "level": "error"
+          }
+        }
+      },
+      "id": "1",
+      "index": "logs"
+    },
+    "name": "ExplainTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "match": {
+            "level": "error"
+          }
+        }
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "analyze_wildcard": "None",
+        "analyzer": "None",
+        "default_operator": "None",
+        "lenient": "None",
+        "preference": "None",
+        "q": "None",
+        "routing": "None",
+        "stored_fields": "None"
+      },
+      "path": "/logs/_explain/1"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "{\"_index\": \"logs\", \"_id\": \"1\", \"matched\": true, \"explanation\": {\"value\": 1.2, \"description\": \"weight(level:error in 0) [PerFieldSimilarity], result of:\", \"details\": []}}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

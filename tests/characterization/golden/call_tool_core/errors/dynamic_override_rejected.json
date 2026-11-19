@@ -1,0 +1,32 @@
+{
+  "call": {
+    "arguments": {
+      "include_detail": false,
+      "opensearch_url": "http://other-cluster.invalid:9200"
+    },
+    "name": "ListIndexTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: Per-call connection overrides are disabled but the request supplied: opensearch_url. Set OPENSEARCH_DYNAMIC_CONNECTION=true to allow them.",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

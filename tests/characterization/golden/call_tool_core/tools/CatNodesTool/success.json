@@ -1,0 +1,56 @@
+{
+  "call": {
+    "arguments": {
+      "metrics": "name,ip,heap.percent,cpu"
+    },
+    "name": "CatNodesTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json",
+        "h": "name,ip,heap.percent,cpu"
+      },
+      "path": "/_cat/nodes"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Node information for the cluster (metrics: name,ip,heap.percent,cpu):\nname | ip | heap.percent | cpu\nnode-1 | 10.0.0.1 | 35 | 4\nnode-2 | 10.0.0.2 | 61 | 12\n",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: Response size exceeded limit of 1024 bytes. Stopped reading at 0 bytes to prevent memory exhaustion. Consider increasing max_response_size or refining your query to return less data.",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "call": {
+    "arguments": {
+      "method": "FETCH",
+      "path": "/_search"
+    },
+    "name": "GenericOpenSearchApiTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error validating request: Invalid HTTP method \"FETCH\". Valid methods are: GET, POST, PUT, DELETE, HEAD, PATCH",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

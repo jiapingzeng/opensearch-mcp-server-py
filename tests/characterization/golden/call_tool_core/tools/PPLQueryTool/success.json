@@ -1,0 +1,55 @@
+{
+  "call": {
+    "arguments": {
+      "query": "source=logs | where level=\"error\" | fields level, message | head 2"
+    },
+    "name": "PPLQueryTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": "source=logs | where level=\"error\" | fields level, message | head 2"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/_plugins/_ppl"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "PPL query results:\n{\"schema\":[{\"name\":\"level\",\"type\":\"string\"},{\"name\":\"message\",\"type\":\"string\"}],\"datarows\":[[\"error\",\"disk full\"],[\"error\",\"timeout, retrying\"]],\"total\":2,\"size\":2}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

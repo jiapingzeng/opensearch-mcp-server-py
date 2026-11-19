@@ -1,0 +1,56 @@
+{
+  "call": {
+    "arguments": {
+      "include_detail": false,
+      "no_such_argument": "ignored"
+    },
+    "name": "ListIndexTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json"
+      },
+      "path": "/_cat/indices"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Indices:\n[\"logs-2020.01.01\",\"metrics\"]",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

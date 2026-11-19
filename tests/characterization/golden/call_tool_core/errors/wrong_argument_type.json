@@ -1,0 +1,31 @@
+{
+  "call": {
+    "arguments": {
+      "include_detail": "sometimes"
+    },
+    "name": "ListIndexTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "1 validation error for ListIndicesArgs\ninclude_detail\n  Input should be a valid boolean, unable to interpret input [type=bool_parsing, input_value='sometimes', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/bool_parsing",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

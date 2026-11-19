@@ -1,0 +1,65 @@
+{
+  "call": {
+    "arguments": {
+      "index": "logs",
+      "timeout": "5s",
+      "wait_for_status": "yellow"
+    },
+    "name": "ClusterHealthTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "cluster_manager_timeout": "None",
+        "expand_wildcards": "None",
+        "level": "None",
+        "local": "None",
+        "master_timeout": "None",
+        "wait_for_active_shards": "None",
+        "wait_for_no_relocating_shards": "None",
+        "wait_for_nodes": "None",
+        "wait_for_status": "yellow"
+      },
+      "path": "/_cluster/health/logs"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "{\"cluster_name\": \"fake-cluster\", \"status\": \"yellow\", \"timed_out\": false, \"number_of_nodes\": 1, \"number_of_data_nodes\": 1, \"discovered_master\": true, \"discovered_cluster_manager\": true, \"active_primary_shards\": 5, \"active_shards\": 5, \"relocating_shards\": 0, \"initializing_shards\": 0, \"unassigned_shards\": 1, \"delayed_unassigned_shards\": 0, \"number_of_pending_tasks\": 0, \"number_of_in_flight_fetch\": 0, \"task_max_waiting_in_queue_millis\": 0, \"active_shards_percent_as_number\": 83.33333333333334}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "call": {
+    "arguments": {
+      "index": "logs",
+      "query_dsl": {
+        "query": {
+          "match": {
+            "level": "error"
+          }
+        }
+      },
+      "size": 2
+    },
+    "name": "SearchIndexTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "match": {
+            "level": "error"
+          }
+        },
+        "size": 2
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/logs/_search"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Search results from logs (JSON format):\n{\"took\":3,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":2,\"relation\":\"eq\"},\"max_score\":1.2,\"hits\":[{\"_index\":\"logs\",\"_id\":\"1\",\"_score\":1.2,\"_source\":{\"@timestamp\":\"2020-01-01T00:00:00Z\",\"level\":\"error\",\"message\":\"disk full\",\"host\":{\"name\":\"web-1\"}}},{\"_index\":\"logs\",\"_id\":\"2\",\"_score\":0.9,\"_source\":{\"@timestamp\":\"2020-01-01T00:05:00Z\",\"level\":\"error\",\"message\":\"timeout, retrying\",\"host\":{\"name\":\"web-2\"}}}]}}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

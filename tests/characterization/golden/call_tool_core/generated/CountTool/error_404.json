@@ -1,0 +1,65 @@
+{
+  "call": {
+    "arguments": {
+      "index": "missing"
+    },
+    "name": "CountTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "allow_no_indices": "None",
+        "analyze_wildcard": "None",
+        "analyzer": "None",
+        "default_operator": "None",
+        "expand_wildcards": "None",
+        "ignore_unavailable": "None",
+        "min_score": "None",
+        "preference": "None",
+        "q": "None",
+        "routing": "None",
+        "terminate_after": "None"
+      },
+      "path": "/missing/_count"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error executing CountTool: NotFoundError(404, '{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [missing]\",\"index\":\"missing\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"missing\",\"index_uuid\":\"_na_\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [missing]\",\"index\":\"missing\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"missing\",\"index_uuid\":\"_na_\"},\"status\":404}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "call": {
+    "arguments": {},
+    "name": "GetQueryInsightsTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error getting query insights: Tool 'GetQueryInsightsTool' is not supported for this OpenSearch version (current version: 2.11.0). Supported version: 2.12.0 or later.",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

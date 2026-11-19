@@ -1,0 +1,67 @@
+{
+  "call": {
+    "arguments": {
+      "index": "logs",
+      "query_dsl": {
+        "query": {
+          "mtch": {
+            "level": "error"
+          }
+        }
+      }
+    },
+    "name": "SearchIndexTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "mtch": {
+            "level": "error"
+          }
+        },
+        "size": 10
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/logs/_search"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error searching index: RequestError(400, '{\"error\":{\"root_cause\":[{\"type\":\"parsing_exception\",\"reason\":\"unknown query [mtch]\",\"line\":1,\"col\":19}],\"type\":\"parsing_exception\",\"reason\":\"unknown query [mtch]\",\"line\":1,\"col\":19},\"status\":400}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}
