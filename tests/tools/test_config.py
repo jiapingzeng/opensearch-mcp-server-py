@@ -5,6 +5,7 @@ import copy
 import os
 import pytest
 import yaml
+from mcp_server_opensearch import global_state
 from tools import config as tool_config
 from tools.config import apply_custom_tool_config
 
@@ -674,7 +675,8 @@ def test_yaml_args_description_must_be_string():
 
 @pytest.fixture
 def no_recorded_container_id(monkeypatch):
-    """No container id recorded by an earlier apply_custom_tool_config, and no env variable."""
+    """Single mode, no container id recorded by an earlier apply_custom_tool_config, no env."""
+    monkeypatch.setattr(global_state, '_current_mode', 'single')
     monkeypatch.setattr(tool_config, '_resolved_memory_container_id', None)
     monkeypatch.delenv('OPENSEARCH_MEMORY_CONTAINER_ID', raising=False)
 
