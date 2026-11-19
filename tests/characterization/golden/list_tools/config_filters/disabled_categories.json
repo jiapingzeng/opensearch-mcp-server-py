@@ -106,8 +106,8 @@
           },
           "required": [
             "index",
-            "selectionTimeRangeEnd",
             "selectionTimeRangeStart",
+            "selectionTimeRangeEnd",
             "timeField"
           ],
           "title": "DataDistributionToolArgs",
@@ -173,8 +173,8 @@
           "required": [
             "index",
             "logFieldName",
-            "selectionTimeRangeEnd",
             "selectionTimeRangeStart",
+            "selectionTimeRangeEnd",
             "timeField"
           ],
           "title": "LogPatternAnalysisToolArgs",
@@ -257,12 +257,12 @@
             }
           },
           "required": [
-            "baselineTimeRangeEnd",
-            "baselineTimeRangeStart",
             "index",
-            "selectionTimeRangeEnd",
             "selectionTimeRangeStart",
-            "timeField"
+            "selectionTimeRangeEnd",
+            "timeField",
+            "baselineTimeRangeStart",
+            "baselineTimeRangeEnd"
           ],
           "title": "MetricChangeAnalysisToolArgs",
           "type": "object"

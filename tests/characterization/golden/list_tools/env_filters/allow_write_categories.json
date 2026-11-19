@@ -99,8 +99,8 @@
           },
           "required": [
             "index",
-            "selectionTimeRangeEnd",
             "selectionTimeRangeStart",
+            "selectionTimeRangeEnd",
             "timeField"
           ],
           "title": "DataDistributionToolArgs",
@@ -166,8 +166,8 @@
           "required": [
             "index",
             "logFieldName",
-            "selectionTimeRangeEnd",
             "selectionTimeRangeStart",
+            "selectionTimeRangeEnd",
             "timeField"
           ],
           "title": "LogPatternAnalysisToolArgs",
@@ -250,12 +250,12 @@
             }
           },
           "required": [
-            "baselineTimeRangeEnd",
-            "baselineTimeRangeStart",
             "index",
-            "selectionTimeRangeEnd",
             "selectionTimeRangeStart",
-            "timeField"
+            "selectionTimeRangeEnd",
+            "timeField",
+            "baselineTimeRangeStart",
+            "baselineTimeRangeEnd"
           ],
           "title": "MetricChangeAnalysisToolArgs",
           "type": "object"
@@ -318,9 +318,9 @@
             }
           },
           "required": [
-            "id",
             "memory_container_id",
-            "type"
+            "type",
+            "id"
           ],
           "title": "GetAgenticMemoryArgs",
           "type": "object"
@@ -477,8 +477,8 @@
           },
           "required": [
             "memory_container_id",
-            "query",
-            "type"
+            "type",
+            "query"
           ],
           "title": "SearchAgenticMemoryArgs",
           "type": "object"
@@ -815,9 +815,9 @@
             }
           },
           "required": [
-            "experiment_type",
             "query_set_id",
-            "search_configuration_ids"
+            "search_configuration_ids",
+            "experiment_type"
           ],
           "title": "CreateExperimentArgs",
           "type": "object"
@@ -1156,8 +1156,8 @@
             }
           },
           "required": [
-            "index",
             "name",
+            "index",
             "query"
           ],
           "title": "CreateSearchConfigurationArgs",
@@ -1271,8 +1271,8 @@
             }
           },
           "required": [
-            "judgment_ratings",
-            "name"
+            "name",
+            "judgment_ratings"
           ],
           "title": "CreateJudgmentListArgs",
           "type": "object"
@@ -1342,8 +1342,8 @@
             }
           },
           "required": [
-            "click_model",
-            "name"
+            "name",
+            "click_model"
           ],
           "title": "CreateUBIJudgmentListArgs",
           "type": "object"
@@ -1382,16 +1382,16 @@
             {
               "model_id": "N8AE1osB0jLkkocYjz7D",
               "name": "llm-judgments",
-              "query_set_id": "<UUID>",
-              "search_configuration_id": "<UUID>",
+              "query_set_id": "5f0115ad-94b9-403a-912f-3e762870ccf6",
+              "search_configuration_id": "2f90d4fd-bd5e-450f-95bb-eabe4a740bd1",
               "size": 5
             },
             {
               "context_fields": "[\"title\", \"description\"]",
               "model_id": "N8AE1osB0jLkkocYjz7D",
               "name": "llm-judgments-with-context",
-              "query_set_id": "<UUID>",
-              "search_configuration_id": "<UUID>",
+              "query_set_id": "5f0115ad-94b9-403a-912f-3e762870ccf6",
+              "search_configuration_id": "2f90d4fd-bd5e-450f-95bb-eabe4a740bd1",
               "size": 10
             }
           ],
@@ -1431,10 +1431,10 @@
             }
           },
           "required": [
-            "model_id",
             "name",
             "query_set_id",
-            "search_configuration_id"
+            "search_configuration_id",
+            "model_id"
           ],
           "title": "CreateLLMJudgmentListArgs",
           "type": "object"

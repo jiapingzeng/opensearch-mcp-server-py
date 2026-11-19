@@ -12,11 +12,17 @@ tools generated from ``pinned_openapi`` included. One golden per case,
 - ``inputs``: mode, environment on top of the harness's, config file contents (or that it
   is missing), CLI overrides, the version the fake OpenSearch reports, the OpenAPI fetch;
 - ``tool_names``: the listed names in order, for a readable diff;
-- ``result``: the full ``tools/list`` result (``None`` when the server fails to start);
+- ``result``: the full ``tools/list`` result exactly as the server sends it (``None`` when
+  the server fails to start), with one exception: the ``required`` lists of the tools
+  generated from the OpenAPI spec are sorted, because ``tool_generator`` builds them from a
+  set and their order changes with ``PYTHONHASHSEED``;
 - ``error``: the startup error, type and message (``None`` when it starts);
 - ``list_error``: the raw JSON-RPC answer when the server starts but ``tools/list`` fails;
 - ``opensearch_requests``: method, path and auth kind of what the server sent the fake
   OpenSearch (the version probe ``GET /`` in single mode).
+
+Only ``inputs``, ``error`` and ``list_error`` go through the harness's ``normalize`` (they
+could hold a temp path); the result does not, so the example ids in schemas stay as they are.
 
 Unless a case says otherwise, the server runs with ``OPENSEARCH_NO_AUTH=true`` so the version
 probe reaches the fake OpenSearch, which reports ``3.1.0``.
@@ -39,10 +45,12 @@ Where the code reads keys (``tool_filter.py``, ``config.py``, ``server_instructi
   ``OPENSEARCH_MEMORY_CONTAINER_ID``; mode ``multi``; the cluster version (``min_version``).
 """
 
+import contextlib
 import pytest
 import yaml
 from dataclasses import dataclass, field
 from mcp.shared.exceptions import MCPError
+from tools.tool_generator import SUPPORTED_OPERATIONS
 from typing import Any
 
 
@@ -53,6 +61,12 @@ LATEST_VERSION = '3.5.0'
 
 # Matches every tool name, to list everything a version or mode allows.
 ALL_TOOLS = {'OPENSEARCH_ENABLED_TOOLS_REGEX': '.*'}
+
+# Input schema titles of the tools generated from the OpenAPI spec (`<Base>Args`, named as
+# generate_tools_from_openapi names them). A title survives a custom display name.
+GENERATED_SCHEMA_TITLES = frozenset(
+    ''.join(part.title() for part in group.split('.')) + 'Args' for group in SUPPORTED_OPERATIONS
+)
 
 # Two clusters modelled on example_config.yml. Nothing connects to them while listing; the
 # hosts never resolve all the same.
@@ -224,7 +238,7 @@ CASES = {
         }
     ),
     # characterization: current behaviour: --config naming a missing file ignores the env
-    # filters (and still applies the write filter); single mode starts anyway.
+    # filters; single mode starts anyway.
     'quirks/config_file_missing': Case(
         missing_config=True,
         env=_env(
@@ -307,6 +321,27 @@ CASES = {
         ),
         version=LATEST_VERSION,
     ),
+    # OPENSEARCH_SETTINGS_ALLOW_WRITE is true only for "true" (any case): "0" and "False" turn
+    # the write filter on, as "false" does.
+    'env_filters/allow_write_0': Case(
+        env=_env(
+            OPENSEARCH_ENABLED_CATEGORIES='search_relevance',
+            OPENSEARCH_SETTINGS_ALLOW_WRITE='0',
+        )
+    ),
+    'env_filters/allow_write_False': Case(
+        env=_env(
+            OPENSEARCH_ENABLED_CATEGORIES='search_relevance',
+            OPENSEARCH_SETTINGS_ALLOW_WRITE='False',
+        )
+    ),
+    # characterization: current behaviour: "1" is not "true", so it turns the write filter on.
+    'env_filters/allow_write_1': Case(
+        env=_env(
+            OPENSEARCH_ENABLED_CATEGORIES='search_relevance',
+            OPENSEARCH_SETTINGS_ALLOW_WRITE='1',
+        )
+    ),
     # --- the same filters from a config file ----------------------------------------------
     # characterization: current behaviour: every config-file case without
     # tool_filters.settings applies the write filter (see quirks/).
@@ -353,6 +388,18 @@ CASES = {
             'tool_filters': {
                 'enabled_categories': ['search_relevance', 'agentic_memory', 'skills'],
                 'settings': {'allow_write': False, 'allow_write_categories': ['search_relevance']},
+            }
+        },
+        version=LATEST_VERSION,
+    ),
+    # characterization: current behaviour: settings with allow_write_categories but no
+    # allow_write read allow_write as true, so the write filter is off: agentic_memory, not
+    # named, keeps its write tools too (without settings the filter would be on).
+    'config_filters/allow_write_categories_without_allow_write': Case(
+        config={
+            'tool_filters': {
+                'enabled_categories': ['search_relevance', 'agentic_memory', 'skills'],
+                'settings': {'allow_write_categories': ['search_relevance']},
             }
         },
         version=LATEST_VERSION,
@@ -553,6 +600,21 @@ def _write_config(tmp_path, config: Any) -> str:
     return str(path)
 
 
+def _stable_required(result: dict) -> dict:
+    """``result`` with the generated tools' ``required`` lists sorted; nothing else changed.
+
+    tool_generator.extract_parameters collects required parameters in a set, so their order
+    differs between runs. Every other schema is kept exactly as the server sends it.
+    """
+    tools = []
+    for tool in result['tools']:
+        schema = tool.get('inputSchema') or {}
+        if schema.get('title') in GENERATED_SCHEMA_TITLES and 'required' in schema:
+            tool = {**tool, 'inputSchema': {**schema, 'required': sorted(schema['required'])}}
+        tools.append(tool)
+    return {**result, 'tools': tools}
+
+
 async def _list(session, twice: bool) -> tuple[dict, bool | None]:
     first = await session.list_tools()
     if not twice:
@@ -591,40 +653,49 @@ async def test_list_tools(
             result, same_as_first = await _list(session, case.twice)
             requests = session.opensearch_requests()
     else:
-        try:
-            async with mcp_session(
-                mode=case.mode,
-                config_file=config_file,
-                cli_overrides=case.cli_overrides,
-                env=case.env,
-            ) as session:
+        async with contextlib.AsyncExitStack() as stack:
+            # Only building the server and connecting (the session's __aenter__) may fail as
+            # a pinned startup error; listing and teardown failures fail the test.
+            try:
+                session = await stack.enter_async_context(
+                    mcp_session(
+                        mode=case.mode,
+                        config_file=config_file,
+                        cli_overrides=case.cli_overrides,
+                        env=case.env,
+                    )
+                )
+            except Exception as exc:
+                error = _error(exc)
+                session = None
+            if session is not None:
                 try:
                     result, same_as_first = await _list(session, case.twice)
                 except MCPError:
                     # The server started but tools/list answers a JSON-RPC error: pin the
                     # raw answer.
                     list_error = await session.raw('tools/list')
-        except Exception as exc:
-            error = _error(exc)
         requests = fake_opensearch.requests
 
     data = {
-        'inputs': {
-            'mode': case.mode,
-            'env': case.env,
-            'config': case.config,
-            'config_file_missing': case.missing_config,
-            'cli_overrides': case.cli_overrides,
-            'opensearch_version': case.version,
-            'openapi_unavailable': case.openapi_unavailable,
-            'memory_tools_enabled': case.memory,
-        },
+        'inputs': normalize(
+            {
+                'mode': case.mode,
+                'env': case.env,
+                'config': case.config,
+                'config_file_missing': case.missing_config,
+                'cli_overrides': case.cli_overrides,
+                'opensearch_version': case.version,
+                'openapi_unavailable': case.openapi_unavailable,
+                'memory_tools_enabled': case.memory,
+            }
+        ),
         'tool_names': None if result is None else [tool['name'] for tool in result['tools']],
-        'result': result,
-        'error': error,
-        'list_error': list_error,
+        'result': None if result is None else _stable_required(result),
+        'error': normalize(error),
+        'list_error': normalize(list_error),
         'opensearch_requests': _requests(requests),
     }
     if case.twice:
         data['second_list_same_as_first'] = same_as_first
-    golden(f'list_tools/{name}', normalize(data))
+    golden(f'list_tools/{name}', data)

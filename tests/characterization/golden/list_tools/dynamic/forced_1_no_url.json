@@ -485,8 +485,8 @@
           },
           "required": [
             "index",
-            "opensearch_url",
-            "query_dsl"
+            "query_dsl",
+            "opensearch_url"
           ],
           "title": "SearchIndexArgs",
           "type": "object"
@@ -873,8 +873,8 @@
             }
           },
           "required": [
-            "opensearch_url",
-            "path"
+            "path",
+            "opensearch_url"
           ],
           "title": "GenericOpenSearchApiArgs",
           "type": "object"

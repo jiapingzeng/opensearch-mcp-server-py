@@ -437,9 +437,9 @@
             }
           },
           "required": [
-            "id",
             "memory_container_id",
-            "type"
+            "type",
+            "id"
           ],
           "title": "GetAgenticMemoryArgs",
           "type": "object"
@@ -701,9 +701,9 @@
             }
           },
           "required": [
-            "id",
             "memory_container_id",
-            "type"
+            "type",
+            "id"
           ],
           "title": "UpdateAgenticMemoryArgs",
           "type": "object"
@@ -766,9 +766,9 @@
             }
           },
           "required": [
-            "id",
             "memory_container_id",
-            "type"
+            "type",
+            "id"
           ],
           "title": "DeleteAgenticMemoryByIDArgs",
           "type": "object"
@@ -842,8 +842,8 @@
           },
           "required": [
             "memory_container_id",
-            "query",
-            "type"
+            "type",
+            "query"
           ],
           "title": "DeleteAgenticMemoryByQueryArgs",
           "type": "object"
@@ -1000,8 +1000,8 @@
           },
           "required": [
             "memory_container_id",
-            "query",
-            "type"
+            "type",
+            "query"
           ],
           "title": "SearchAgenticMemoryArgs",
           "type": "object"

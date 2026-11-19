@@ -125,10 +125,10 @@
             }
           },
           "required": [
-            "index",
             "opensearch_cluster_name",
-            "selectionTimeRangeEnd",
+            "index",
             "selectionTimeRangeStart",
+            "selectionTimeRangeEnd",
             "timeField"
           ],
           "title": "DataDistributionToolArgs",
@@ -197,11 +197,11 @@
             }
           },
           "required": [
+            "opensearch_cluster_name",
             "index",
             "logFieldName",
-            "opensearch_cluster_name",
-            "selectionTimeRangeEnd",
             "selectionTimeRangeStart",
+            "selectionTimeRangeEnd",
             "timeField"
           ],
           "title": "LogPatternAnalysisToolArgs",
@@ -289,13 +289,13 @@
             }
           },
           "required": [
-            "baselineTimeRangeEnd",
-            "baselineTimeRangeStart",
-            "index",
             "opensearch_cluster_name",
-            "selectionTimeRangeEnd",
+            "index",
             "selectionTimeRangeStart",
-            "timeField"
+            "selectionTimeRangeEnd",
+            "timeField",
+            "baselineTimeRangeStart",
+            "baselineTimeRangeEnd"
           ],
           "title": "MetricChangeAnalysisToolArgs",
           "type": "object"
@@ -406,8 +406,8 @@
             }
           },
           "required": [
-            "memory_container_id",
-            "opensearch_cluster_name"
+            "opensearch_cluster_name",
+            "memory_container_id"
           ],
           "title": "CreateAgenticMemorySessionArgs",
           "type": "object"
@@ -659,8 +659,8 @@
             }
           },
           "required": [
-            "memory_container_id",
             "opensearch_cluster_name",
+            "memory_container_id",
             "payload_type"
           ],
           "title": "AddAgenticMemoriesArgs",
@@ -729,10 +729,10 @@
             }
           },
           "required": [
-            "id",
-            "memory_container_id",
             "opensearch_cluster_name",
-            "type"
+            "memory_container_id",
+            "type",
+            "id"
           ],
           "title": "GetAgenticMemoryArgs",
           "type": "object"
@@ -999,10 +999,10 @@
             }
           },
           "required": [
-            "id",
-            "memory_container_id",
             "opensearch_cluster_name",
-            "type"
+            "memory_container_id",
+            "type",
+            "id"
           ],
           "title": "UpdateAgenticMemoryArgs",
           "type": "object"
@@ -1070,10 +1070,10 @@
             }
           },
           "required": [
-            "id",
-            "memory_container_id",
             "opensearch_cluster_name",
-            "type"
+            "memory_container_id",
+            "type",
+            "id"
           ],
           "title": "DeleteAgenticMemoryByIDArgs",
           "type": "object"
@@ -1151,10 +1151,10 @@
             }
           },
           "required": [
-            "memory_container_id",
             "opensearch_cluster_name",
-            "query",
-            "type"
+            "memory_container_id",
+            "type",
+            "query"
           ],
           "title": "DeleteAgenticMemoryByQueryArgs",
           "type": "object"
@@ -1315,10 +1315,10 @@
             }
           },
           "required": [
-            "memory_container_id",
             "opensearch_cluster_name",
-            "query",
-            "type"
+            "memory_container_id",
+            "type",
+            "query"
           ],
           "title": "SearchAgenticMemoryArgs",
           "type": "object"
@@ -1373,8 +1373,8 @@
             }
           },
           "required": [
-            "index",
-            "opensearch_cluster_name"
+            "opensearch_cluster_name",
+            "index"
           ],
           "title": "GetIndexMappingArgs",
           "type": "object"
@@ -1414,8 +1414,8 @@
             }
           },
           "required": [
-            "index",
             "opensearch_cluster_name",
+            "index",
             "query_dsl"
           ],
           "title": "SearchIndexArgs",
@@ -1440,8 +1440,8 @@
             }
           },
           "required": [
-            "index",
-            "opensearch_cluster_name"
+            "opensearch_cluster_name",
+            "index"
           ],
           "title": "GetShardsArgs",
           "type": "object"
@@ -1603,8 +1603,8 @@
             }
           },
           "required": [
-            "index",
-            "opensearch_cluster_name"
+            "opensearch_cluster_name",
+            "index"
           ],
           "title": "GetIndexInfoArgs",
           "type": "object"
@@ -1650,8 +1650,8 @@
             }
           },
           "required": [
-            "index",
-            "opensearch_cluster_name"
+            "opensearch_cluster_name",
+            "index"
           ],
           "title": "GetIndexStatsArgs",
           "type": "object"
@@ -1883,8 +1883,8 @@
             }
           },
           "required": [
-            "name",
             "opensearch_cluster_name",
+            "name",
             "queries"
           ],
           "title": "CreateQuerySetArgs",
@@ -1951,8 +1951,8 @@
             }
           },
           "required": [
-            "name",
-            "opensearch_cluster_name"
+            "opensearch_cluster_name",
+            "name"
           ],
           "title": "SampleQuerySetArgs",
           "type": "object"
@@ -2011,8 +2011,8 @@
             }
           },
           "required": [
-            "experiment_id",
-            "opensearch_cluster_name"
+            "opensearch_cluster_name",
+            "experiment_id"
           ],
           "title": "GetExperimentArgs",
           "type": "object"
@@ -2085,10 +2085,10 @@
             }
           },
           "required": [
-            "experiment_type",
             "opensearch_cluster_name",
             "query_set_id",
-            "search_configuration_ids"
+            "search_configuration_ids",
+            "experiment_type"
           ],
           "title": "CreateExperimentArgs",
           "type": "object"
@@ -2117,8 +2117,8 @@
             }
           },
           "required": [
-            "experiment_id",
-            "opensearch_cluster_name"
+            "opensearch_cluster_name",
+            "experiment_id"
           ],
           "title": "DeleteExperimentArgs",
           "type": "object"
@@ -2472,9 +2472,9 @@
             }
           },
           "required": [
-            "index",
-            "name",
             "opensearch_cluster_name",
+            "name",
+            "index",
             "query"
           ],
           "title": "CreateSearchConfigurationArgs",
@@ -2564,8 +2564,8 @@
             }
           },
           "required": [
-            "judgment_id",
-            "opensearch_cluster_name"
+            "opensearch_cluster_name",
+            "judgment_id"
           ],
           "title": "GetJudgmentListArgs",
           "type": "object"
@@ -2611,9 +2611,9 @@
             }
           },
           "required": [
-            "judgment_ratings",
+            "opensearch_cluster_name",
             "name",
-            "opensearch_cluster_name"
+            "judgment_ratings"
           ],
           "title": "CreateJudgmentListArgs",
           "type": "object"
@@ -2688,9 +2688,9 @@
             }
           },
           "required": [
-            "click_model",
+            "opensearch_cluster_name",
             "name",
-            "opensearch_cluster_name"
+            "click_model"
           ],
           "title": "CreateUBIJudgmentListArgs",
           "type": "object"
@@ -2719,8 +2719,8 @@
             }
           },
           "required": [
-            "judgment_id",
-            "opensearch_cluster_name"
+            "opensearch_cluster_name",
+            "judgment_id"
           ],
           "title": "DeleteJudgmentListArgs",
           "type": "object"
@@ -2735,16 +2735,16 @@
             {
               "model_id": "N8AE1osB0jLkkocYjz7D",
               "name": "llm-judgments",
-              "query_set_id": "<UUID>",
-              "search_configuration_id": "<UUID>",
+              "query_set_id": "5f0115ad-94b9-403a-912f-3e762870ccf6",
+              "search_configuration_id": "2f90d4fd-bd5e-450f-95bb-eabe4a740bd1",
               "size": 5
             },
             {
               "context_fields": "[\"title\", \"description\"]",
               "model_id": "N8AE1osB0jLkkocYjz7D",
               "name": "llm-judgments-with-context",
-              "query_set_id": "<UUID>",
-              "search_configuration_id": "<UUID>",
+              "query_set_id": "5f0115ad-94b9-403a-912f-3e762870ccf6",
+              "search_configuration_id": "2f90d4fd-bd5e-450f-95bb-eabe4a740bd1",
               "size": 10
             }
           ],
@@ -2789,11 +2789,11 @@
             }
           },
           "required": [
-            "model_id",
-            "name",
             "opensearch_cluster_name",
+            "name",
             "query_set_id",
-            "search_configuration_id"
+            "search_configuration_id",
+            "model_id"
           ],
           "title": "CreateLLMJudgmentListArgs",
           "type": "object"

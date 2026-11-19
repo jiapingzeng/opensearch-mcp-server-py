@@ -448,8 +448,8 @@
             }
           },
           "required": [
-            "id",
-            "type"
+            "type",
+            "id"
           ],
           "title": "GetAgenticMemoryArgs",
           "type": "object"
@@ -712,8 +712,8 @@
             }
           },
           "required": [
-            "id",
-            "type"
+            "type",
+            "id"
           ],
           "title": "UpdateAgenticMemoryArgs",
           "type": "object"
@@ -777,8 +777,8 @@
             }
           },
           "required": [
-            "id",
-            "type"
+            "type",
+            "id"
           ],
           "title": "DeleteAgenticMemoryByIDArgs",
           "type": "object"
@@ -852,8 +852,8 @@
             }
           },
           "required": [
-            "query",
-            "type"
+            "type",
+            "query"
           ],
           "title": "DeleteAgenticMemoryByQueryArgs",
           "type": "object"
@@ -1010,8 +1010,8 @@
             }
           },
           "required": [
-            "query",
-            "type"
+            "type",
+            "query"
           ],
           "title": "SearchAgenticMemoryArgs",
           "type": "object"
