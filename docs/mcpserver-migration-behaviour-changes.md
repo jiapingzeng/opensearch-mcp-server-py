@@ -7,10 +7,13 @@ request or issue later.
 
 The characterization goldens under `tests/characterization/golden/` pin today's behaviour
 as a client sees it, so a golden diff is a behaviour change. The rule: a change that
-modifies or deletes an existing golden adds its entry here, naming each of those goldens,
-and a `CHANGELOG.md` entry in the same change. A change that only adds new goldens is new
-characterization, not a behaviour change. This command checks it:
-`uv run --offline python scripts/check_behaviour_ledger.py`.
+modifies or deletes any golden changes both this file and `CHANGELOG.md`, and this file
+names every golden the change touches, whether added, modified or deleted. A renamed golden
+is its old path deleted and its new path added, so both paths are named. A golden is named
+by its path relative to `tests/characterization/golden/` or by its full repo path, written
+as a whole path, not inside a longer one. A change that only adds new goldens is new
+characterization, not a behaviour change, and passes with no entry here. This command
+checks it: `uv run --offline python scripts/check_behaviour_ledger.py`.
 
 ## Fixed before the migration
 

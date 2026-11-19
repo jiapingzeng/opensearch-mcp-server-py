@@ -1,9 +1,13 @@
 # Copyright OpenSearch Contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for scripts/check_behaviour_ledger.py: no real git; main() runs with git stubbed."""
+"""Tests for scripts/check_behaviour_ledger.py.
+
+main() runs with git stubbed; collect_changes() runs real git on a repository in tmp_path.
+"""
 
 import importlib.util
 import pytest
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -292,13 +296,20 @@ def test_os_error_outside_git_is_not_reported_as_git(monkeypatch, capsys):
 
 
 def test_os_error_reading_the_ledger_is_not_reported_as_git(monkeypatch, capsys, tmp_path):
-    # The ledger path is a directory, so reading it raises an OSError after git has run.
-    (tmp_path / LEDGER).mkdir(parents=True)
+    # Reading the ledger raises an OSError after git has run.
+    ledger = tmp_path / LEDGER
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text(LEDGER_TEXT, encoding='utf-8')
     monkeypatch.setattr(ledger_check, '_git', lambda root, *args: f'{tmp_path}\n')
     monkeypatch.setattr(ledger_check, 'collect_changes', lambda root, base: [])
-    ledger = tmp_path / LEDGER
-    is_file = Path.is_file
-    monkeypatch.setattr(Path, 'is_file', lambda self: self == ledger or is_file(self))
+    read_text = Path.read_text
+
+    def unreadable_ledger(self, *args, **kwargs):
+        if self == ledger:
+            raise OSError(5, 'Input/output error', str(self))
+        return read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'read_text', unreadable_ledger)
     monkeypatch.setattr(sys, 'argv', ['check_behaviour_ledger.py'])
     with pytest.raises(OSError):
         ledger_check.main()
@@ -378,3 +389,46 @@ def test_main_with_no_golden_changed_says_so(monkeypatch, capsys, tmp_path):
     monkeypatch.setattr(sys, 'argv', ['check_behaviour_ledger.py', '--base', 'b'])
     assert ledger_check.main() == 0
     assert capsys.readouterr().out == 'no characterization goldens changed since b\n'
+
+
+# collect_changes() on a real repository: a git rename is its old path deleted and its new
+# path added.
+
+
+def _run_git(root: Path, *args: str) -> str:
+    """Run git with args in root, with no global config needed, and return its stdout."""
+    identity = [
+        '-c',
+        'user.name=t',
+        '-c',
+        'user.email=t@example.com',
+        '-c',
+        'commit.gpgsign=false',
+    ]
+    result = subprocess.run(
+        ['git', *identity, *args], cwd=root, capture_output=True, text=True, check=True
+    )
+    return result.stdout
+
+
+def test_collect_changes_turns_a_rename_into_old_deleted_and_new_added(tmp_path):
+    if shutil.which('git') is None:
+        pytest.skip('git is not installed')
+    old = GOLDEN + 'area/old_name.json'
+    new = GOLDEN + 'area/new_name.json'
+    old_file = tmp_path.joinpath(*old.split('/'))
+    old_file.parent.mkdir(parents=True)
+    old_file.write_text('{"case": "renamed golden"}\n', encoding='utf-8')
+    _run_git(tmp_path, 'init', '-q')
+    _run_git(tmp_path, 'add', old)
+    _run_git(tmp_path, 'commit', '-q', '-m', 'golden')
+    first = _run_git(tmp_path, 'rev-parse', 'HEAD').strip()
+    _run_git(tmp_path, 'mv', old, new)
+    _run_git(tmp_path, 'commit', '-q', '-m', 'rename golden')
+
+    changes = ledger_check.collect_changes(tmp_path, first)
+
+    assert ('D', old) in changes
+    assert ('A', new) in changes
+    assert ('M', old) not in changes
+    assert ('M', new) not in changes
