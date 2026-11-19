@@ -19,9 +19,6 @@
   "returncode": 0,
   "stdout": [
     {
-      "text": "Error generating tools: fake: cannot connect to host raw.githubusercontent.com:443"
-    },
-    {
       "id": 1,
       "jsonrpc": "result"
     },

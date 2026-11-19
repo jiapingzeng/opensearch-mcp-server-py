@@ -300,3 +300,37 @@ class TestToolGenerator:
         assert 'input_schema' in result['ClusterHealthTool']
         assert 'function' in result['ClusterHealthTool']
         assert 'args_model' in result['ClusterHealthTool']
+
+    @pytest.mark.asyncio
+    async def test_generate_tools_from_openapi_fetch_failure_logs_not_stdout(self, capsys, caplog):
+        """A failed spec fetch is logged at ERROR, nothing reaches stdout, registry unchanged.
+
+        On stdio, stdout is the JSON-RPC stream, so the failure must go to the log.
+        """
+        existing_tool = {'description': 'Existing tool'}
+        mock_registry = {'ExistingTool': existing_tool}
+        before = dict(mock_registry)
+
+        with (
+            patch(
+                'tools.tool_generator.fetch_github_spec',
+                AsyncMock(side_effect=RuntimeError('cannot connect to host')),
+            ),
+            patch('tools.tool_generator.TOOL_REGISTRY', mock_registry),
+            caplog.at_level('ERROR', logger='tools.tool_generator'),
+        ):
+            result = await self.generate_tools_from_openapi()
+
+        # Nothing is written to stdout
+        assert capsys.readouterr().out == ''
+
+        # The error is logged at ERROR with the same text the print used
+        records = [r for r in caplog.records if r.name == 'tools.tool_generator']
+        assert [(r.levelname, r.getMessage()) for r in records] == [
+            ('ERROR', 'Error generating tools: cannot connect to host')
+        ]
+
+        # The registry is returned unchanged
+        assert result is mock_registry
+        assert result == before
+        assert result['ExistingTool'] is existing_tool
