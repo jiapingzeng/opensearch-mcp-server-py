@@ -1,0 +1,53 @@
+{
+  "answers": [
+    "https://abc123example.us-west-2.aoss.amazonaws.com",
+    "",
+    "",
+    "y"
+  ],
+  "argv": [
+    "memory",
+    "install"
+  ],
+  "error": {
+    "message": "Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+    "type": "JSONDecodeError"
+  },
+  "exit_code": null,
+  "files": {
+    "cwd": {},
+    "home": {
+      ".cursor/mcp.json": {
+        "text": "{not json"
+      }
+    }
+  },
+  "given_home": {
+    ".cursor/mcp.json": "{not json"
+  },
+  "logs": [],
+  "stderr": [
+    ""
+  ],
+  "stdin_left_unread": "",
+  "transcript": [
+    "",
+    "OpenSearch MCP Server — Memory Setup",
+    "========================================",
+    "",
+    "Step 1: OpenSearch Connection",
+    "------------------------------",
+    "OpenSearch Serverless endpoint URL: https://abc123example.us-west-2.aoss.amazonaws.com",
+    "AWS region [us-west-2]: ",
+    "AWS profile (leave empty for default credentials): ",
+    "",
+    "Step 2: IDE Detection",
+    "------------------------------",
+    "Detected: Cursor",
+    "",
+    "Step 3: Configuration",
+    "------------------------------",
+    "Configure Cursor? [Y/n]: y",
+    ""
+  ]
+}

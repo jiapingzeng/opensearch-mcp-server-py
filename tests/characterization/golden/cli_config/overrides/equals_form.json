@@ -1,0 +1,80 @@
+{
+  "applied": {
+    "args_model_description_changes": {
+      "ListIndexTool.index": "Which index to list"
+    },
+    "global_registry_changes": {
+      "GetShardsTool.description": "a=b",
+      "ListIndexTool.display_name": "Index_Lister",
+      "ListIndexTool.input_schema.properties.index.description": "Which index to list",
+      "SearchIndexTool.max_size_limit": 100
+    },
+    "resolved_changes": {
+      "GetShardsTool.description": "a=b",
+      "ListIndexTool.display_name": "Index_Lister",
+      "ListIndexTool.input_schema.properties.index.description": "Which index to list",
+      "SearchIndexTool.max_size_limit": 100
+    }
+  },
+  "argv": [
+    "--tool.ListIndexTool.display_name=Index_Lister",
+    "--tool.ListIndexTool.args.index.description=Which index to list",
+    "--tool.SearchIndexTool.max_size_limit=100",
+    "--tool.GetShardsTool.description=a=b"
+  ],
+  "error": null,
+  "exit_code": null,
+  "logging": {
+    "added_handlers": [
+      {
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        "formatter": "Formatter",
+        "level": "INFO",
+        "stream_is_stderr": true,
+        "type": "StreamHandler"
+      }
+    ],
+    "kept_existing_handler": false,
+    "root_level": "INFO"
+  },
+  "nested_config": {
+    "GetShardsTool": {
+      "description": "a=b"
+    },
+    "ListIndexTool": {
+      "args": {
+        "index": {
+          "description": "Which index to list"
+        }
+      },
+      "display_name": "Index_Lister"
+    },
+    "SearchIndexTool": {
+      "max_size_limit": 100
+    }
+  },
+  "serve_calls": [
+    {
+      "args": [],
+      "kwargs": {
+        "cli_tool_overrides": {
+          "tool.GetShardsTool.description": "a=b",
+          "tool.ListIndexTool.args.index.description": "Which index to list",
+          "tool.ListIndexTool.display_name": "Index_Lister",
+          "tool.SearchIndexTool.max_size_limit": "100"
+        },
+        "config_file_path": "",
+        "mode": "single",
+        "profile": ""
+      },
+      "server": "stdio_server.serve"
+    }
+  ],
+  "stderr": [
+    "<TIMESTAMP> - mcp_server_opensearch - INFO - Starting MCP server...",
+    ""
+  ],
+  "stdout": [
+    ""
+  ]
+}

@@ -1,0 +1,196 @@
+{
+  "answers": [
+    "https://abc123example.us-west-2.aoss.amazonaws.com",
+    "",
+    "",
+    "y",
+    "y",
+    "y"
+  ],
+  "argv": [
+    "memory",
+    "install"
+  ],
+  "error": null,
+  "exit_code": null,
+  "files": {
+    "cwd": {},
+    "home": {
+      ".claude.json": {
+        "json": {
+          "mcpServers": {
+            "opensearch-memory": {
+              "args": [
+                "opensearch-mcp-server-py"
+              ],
+              "command": "uvx",
+              "env": {
+                "AWS_OPENSEARCH_SERVERLESS": "true",
+                "AWS_REGION": "us-west-2",
+                "MEMORY_TOOLS_ENABLED": "true",
+                "OPENSEARCH_DISABLED_CATEGORIES": "core_tools,skills",
+                "OPENSEARCH_URL": "https://abc123example.us-west-2.aoss.amazonaws.com"
+              }
+            },
+            "other-server": {
+              "command": "x"
+            }
+          },
+          "numStartups": 3
+        },
+        "written_as_json_dumps_indent_2": true
+      },
+      ".claude/CLAUDE.md": {
+        "text": "# Mine\n\n## OpenSearch Agent Memory\n\n- Before responding, search memory for relevant context about the topics in the current message using SearchMemoryTool. This ensures continuity across sessions.\n- Before finishing, review the conversation for important facts, decisions, user preferences, or insights that should persist. Save each as a separate memory using SaveMemoryTool with appropriate tags.\n"
+      },
+      ".cursor/hooks.json": {
+        "json": {
+          "hooks": {
+            "sessionStart": [
+              {
+                "command": "echo '{\"additional_context\": \"Before responding, search memory for relevant context about the topics in the current message using SearchMemoryTool. This ensures continuity across sessions.\"}'"
+              }
+            ],
+            "stop": [
+              {
+                "command": "echo other"
+              },
+              {
+                "command": "echo '{\"followup_message\": \"Before finishing, review the conversation for important facts, decisions, user preferences, or insights that should persist. Save each as a separate memory using SaveMemoryTool with appropriate tags.\"}'",
+                "loop_limit": 1
+              }
+            ]
+          },
+          "version": 1
+        },
+        "written_as_json_dumps_indent_2": true
+      },
+      ".cursor/mcp.json": {
+        "json": {
+          "mcpServers": {
+            "opensearch-memory": {
+              "args": [
+                "opensearch-mcp-server-py"
+              ],
+              "command": "uvx",
+              "env": {
+                "AWS_OPENSEARCH_SERVERLESS": "true",
+                "AWS_REGION": "us-west-2",
+                "MEMORY_TOOLS_ENABLED": "true",
+                "OPENSEARCH_DISABLED_CATEGORIES": "core_tools,skills",
+                "OPENSEARCH_URL": "https://abc123example.us-west-2.aoss.amazonaws.com"
+              }
+            },
+            "other-server": {
+              "command": "x"
+            }
+          }
+        },
+        "written_as_json_dumps_indent_2": true
+      },
+      ".kiro/settings/mcp.json": {
+        "json": {
+          "mcpServers": {
+            "opensearch-memory": {
+              "args": [
+                "opensearch-mcp-server-py"
+              ],
+              "autoApprove": [
+                "SearchMemoryTool"
+              ],
+              "command": "uvx",
+              "env": {
+                "AWS_OPENSEARCH_SERVERLESS": "true",
+                "AWS_REGION": "us-west-2",
+                "MEMORY_TOOLS_ENABLED": "true",
+                "OPENSEARCH_DISABLED_CATEGORIES": "core_tools,skills",
+                "OPENSEARCH_URL": "https://abc123example.us-west-2.aoss.amazonaws.com"
+              }
+            }
+          },
+          "other": true
+        },
+        "written_as_json_dumps_indent_2": true
+      },
+      ".kiro/steering/opensearch-memory.md": {
+        "text": "---\ninclusion: always\n---\n\n# OpenSearch Agent Memory\n\nThis steering file enables persistent memory for AI agents via OpenSearch.\n\n## Memory Behavior\n\n- **At conversation start**: Search memory for relevant context about the\n  topics in the user's message using SearchMemoryTool.\n- **During conversation**: Save important facts, decisions, user preferences,\n  and insights immediately as they arise using SaveMemoryTool with appropriate\n  tags. Don't wait until the end.\n- **Before finishing**: Do a final check to capture anything missed.\n\n## Tool Reference\n\n- **SearchMemoryTool**: Before responding, search memory for relevant context about the topics in the current message using SearchMemoryTool. This ensures continuity across sessions.\n- **SaveMemoryTool**: Before finishing, review the conversation for important facts, decisions, user preferences, or insights that should persist. Save each as a separate memory using SaveMemoryTool with appropriate tags.\n"
+      }
+    }
+  },
+  "given_home": {
+    ".claude.json": {
+      "mcpServers": {
+        "other-server": {
+          "command": "x"
+        }
+      },
+      "numStartups": 3
+    },
+    ".claude/CLAUDE.md": "# Mine\n",
+    ".cursor/hooks.json": {
+      "hooks": {
+        "stop": [
+          {
+            "command": "echo other"
+          }
+        ]
+      }
+    },
+    ".cursor/mcp.json": {
+      "mcpServers": {
+        "other-server": {
+          "command": "x"
+        }
+      }
+    },
+    ".kiro/settings/mcp.json": {
+      "other": true
+    }
+  },
+  "logs": [
+    {
+      "level": "INFO",
+      "logger": "mcp_server_opensearch.install_hooks",
+      "message": "Added Cursor memory hooks to <TMP>/home/.cursor/hooks.json"
+    }
+  ],
+  "stderr": [
+    ""
+  ],
+  "stdin_left_unread": "",
+  "transcript": [
+    "",
+    "OpenSearch MCP Server — Memory Setup",
+    "========================================",
+    "",
+    "Step 1: OpenSearch Connection",
+    "------------------------------",
+    "OpenSearch Serverless endpoint URL: https://abc123example.us-west-2.aoss.amazonaws.com",
+    "AWS region [us-west-2]: ",
+    "AWS profile (leave empty for default credentials): ",
+    "",
+    "Step 2: IDE Detection",
+    "------------------------------",
+    "Detected: Kiro, Claude Code, Cursor",
+    "",
+    "Step 3: Configuration",
+    "------------------------------",
+    "Configure Kiro? [Y/n]: y",
+    "Configure Claude Code? [Y/n]: y",
+    "Configure Cursor? [Y/n]: y",
+    "",
+    "Done!",
+    "------------------------------",
+    "  Configured MCP server in <TMP>/home/.kiro/settings/mcp.json",
+    "  Created steering file: <TMP>/home/.kiro/steering/opensearch-memory.md",
+    "  Configured MCP server in <TMP>/home/.claude.json",
+    "  Appended memory instructions to <TMP>/home/.claude/CLAUDE.md",
+    "  Configured MCP server in <TMP>/home/.cursor/mcp.json",
+    "Added sessionStart memory search hook to <TMP>/home/.cursor/hooks.json",
+    "Added stop memory save hook to <TMP>/home/.cursor/hooks.json",
+    "",
+    "Restart your IDE(s) to activate agent memory.",
+    "",
+    ""
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "applied": {
+    "args_model_description_changes": {},
+    "global_registry_changes": {
+      "GetShardsTool.display_name": "Shard_Lister",
+      "ListIndexTool.description": "Lists the indices"
+    },
+    "resolved_changes": {
+      "GetShardsTool.display_name": "Shard_Lister",
+      "ListIndexTool.description": "Lists the indices"
+    }
+  },
+  "argv": [
+    "--tool.ListIndexTool.description",
+    "Lists the indices",
+    "--tool.GetShardsTool.display_name",
+    "Shard_Lister"
+  ],
+  "error": null,
+  "exit_code": null,
+  "logging": {
+    "added_handlers": [
+      {
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        "formatter": "Formatter",
+        "level": "INFO",
+        "stream_is_stderr": true,
+        "type": "StreamHandler"
+      }
+    ],
+    "kept_existing_handler": false,
+    "root_level": "INFO"
+  },
+  "nested_config": {
+    "GetShardsTool": {
+      "display_name": "Shard_Lister"
+    },
+    "ListIndexTool": {
+      "description": "Lists the indices"
+    }
+  },
+  "serve_calls": [
+    {
+      "args": [],
+      "kwargs": {
+        "cli_tool_overrides": {
+          "tool.GetShardsTool.display_name": "Shard_Lister",
+          "tool.ListIndexTool.description": "Lists the indices"
+        },
+        "config_file_path": "",
+        "mode": "single",
+        "profile": ""
+      },
+      "server": "stdio_server.serve"
+    }
+  ],
+  "stderr": [
+    "<TIMESTAMP> - mcp_server_opensearch - INFO - Starting MCP server...",
+    ""
+  ],
+  "stdout": [
+    ""
+  ]
+}

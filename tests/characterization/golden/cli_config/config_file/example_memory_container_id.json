@@ -1,0 +1,16 @@
+{
+  "env=None": {
+    "container_id": "",
+    "logs": []
+  },
+  "env=env-container": {
+    "container_id": "env-container",
+    "logs": [
+      {
+        "level": "INFO",
+        "logger": "root",
+        "message": "Using memory_container_id from environment variable: env-container"
+      }
+    ]
+  }
+}

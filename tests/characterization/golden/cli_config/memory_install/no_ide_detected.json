@@ -1,0 +1,40 @@
+{
+  "answers": [
+    "https://abc123example.us-west-2.aoss.amazonaws.com",
+    "",
+    ""
+  ],
+  "argv": [
+    "memory",
+    "install"
+  ],
+  "error": null,
+  "exit_code": null,
+  "files": {
+    "cwd": {},
+    "home": {}
+  },
+  "given_home": {},
+  "logs": [],
+  "stderr": [
+    ""
+  ],
+  "stdin_left_unread": "",
+  "transcript": [
+    "",
+    "OpenSearch MCP Server — Memory Setup",
+    "========================================",
+    "",
+    "Step 1: OpenSearch Connection",
+    "------------------------------",
+    "OpenSearch Serverless endpoint URL: https://abc123example.us-west-2.aoss.amazonaws.com",
+    "AWS region [us-west-2]: ",
+    "AWS profile (leave empty for default credentials): ",
+    "",
+    "Step 2: IDE Detection",
+    "------------------------------",
+    "No supported IDEs detected (Kiro, Claude Code, Cursor).",
+    "You can manually configure the MCP server. See MEMORY.md for details.",
+    ""
+  ]
+}

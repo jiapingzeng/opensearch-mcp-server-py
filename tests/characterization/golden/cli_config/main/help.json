@@ -1,0 +1,45 @@
+{
+  "argv": [
+    "--help"
+  ],
+  "error": null,
+  "exit_code": 0,
+  "logging": {
+    "added_handlers": [],
+    "kept_existing_handler": true,
+    "root_level": "WARNING"
+  },
+  "serve_calls": [],
+  "stderr": [
+    ""
+  ],
+  "stdout": [
+    "usage: opensearch-mcp-server-py [-h] [--transport {stdio,stream}]",
+    "                                [--host HOST] [--port PORT]",
+    "                                [--mode {single,multi}] [--profile PROFILE]",
+    "                                [--config CONFIG_FILE_PATH] [--debug]",
+    "                                [--log-format {text,json}]",
+    "",
+    "OpenSearch MCP Server",
+    "",
+    "options:",
+    "  -h, --help            show this help message and exit",
+    "  --transport {stdio,stream}",
+    "                        Transport type (stdio or stream)",
+    "  --host HOST           Host to bind to (streaming only). Defaults to",
+    "                        loopback; pass 0.0.0.0 to expose on all interfaces.",
+    "  --port PORT           Port to listen on (streaming only)",
+    "  --mode {single,multi}",
+    "                        Server mode: single (default) uses environment",
+    "                        variables for OpenSearch connection, multi requires",
+    "                        explicit connection parameters",
+    "  --profile PROFILE     AWS profile to use for OpenSearch connection",
+    "  --config CONFIG_FILE_PATH",
+    "                        Path to a YAML configuration file",
+    "  --debug               Enable debug logging",
+    "  --log-format {text,json}",
+    "                        Log output format: text (default, human-readable) or",
+    "                        json (structured)",
+    ""
+  ]
+}

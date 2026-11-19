@@ -1,0 +1,32 @@
+{
+  "answers": [
+    ""
+  ],
+  "argv": [
+    "memory",
+    "install"
+  ],
+  "error": null,
+  "exit_code": null,
+  "files": {
+    "cwd": {},
+    "home": {}
+  },
+  "given_home": {},
+  "logs": [],
+  "stderr": [
+    ""
+  ],
+  "stdin_left_unread": "",
+  "transcript": [
+    "",
+    "OpenSearch MCP Server — Memory Setup",
+    "========================================",
+    "",
+    "Step 1: OpenSearch Connection",
+    "------------------------------",
+    "OpenSearch Serverless endpoint URL: ",
+    "Error: OpenSearch URL is required.",
+    ""
+  ]
+}

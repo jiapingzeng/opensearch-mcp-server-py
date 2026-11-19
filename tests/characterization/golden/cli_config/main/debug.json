@@ -1,0 +1,39 @@
+{
+  "argv": [
+    "--debug"
+  ],
+  "error": null,
+  "exit_code": null,
+  "logging": {
+    "added_handlers": [
+      {
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        "formatter": "Formatter",
+        "level": "DEBUG",
+        "stream_is_stderr": true,
+        "type": "StreamHandler"
+      }
+    ],
+    "kept_existing_handler": false,
+    "root_level": "DEBUG"
+  },
+  "serve_calls": [
+    {
+      "args": [],
+      "kwargs": {
+        "cli_tool_overrides": {},
+        "config_file_path": "",
+        "mode": "single",
+        "profile": ""
+      },
+      "server": "stdio_server.serve"
+    }
+  ],
+  "stderr": [
+    "<TIMESTAMP> - mcp_server_opensearch - INFO - Starting MCP server...",
+    ""
+  ],
+  "stdout": [
+    ""
+  ]
+}

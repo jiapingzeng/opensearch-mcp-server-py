@@ -1,0 +1,78 @@
+{
+  "allow_write_setting": false,
+  "config": {
+    "clusters": {
+      "local": {
+        "opensearch_url": "http://localhost:9200"
+      }
+    },
+    "tool_category": {
+      "my_tools": [
+        "GetSegmentsTool"
+      ]
+    },
+    "tool_filters": {
+      "disabled_tools": [
+        "ListIndexTool"
+      ],
+      "enabled_categories": [
+        "my_tools"
+      ],
+      "settings": {
+        "allow_write": false
+      }
+    }
+  },
+  "tool_names": [
+    "DataDistributionTool",
+    "LogPatternAnalysisTool",
+    "MetricChangeAnalysisTool",
+    "CreateAgenticMemorySessionTool",
+    "AddAgenticMemoriesTool",
+    "GetAgenticMemoryTool",
+    "UpdateAgenticMemoryTool",
+    "DeleteAgenticMemoryByIDTool",
+    "DeleteAgenticMemoryByQueryTool",
+    "SearchAgenticMemoryTool",
+    "ListIndexTool",
+    "IndexMappingTool",
+    "SearchIndexTool",
+    "GetShardsTool",
+    "GetClusterStateTool",
+    "GetSegmentsTool",
+    "CatNodesTool",
+    "GetIndexInfoTool",
+    "GetIndexStatsTool",
+    "GetQueryInsightsTool",
+    "GetNodesHotThreadsTool",
+    "GetAllocationTool",
+    "GetLongRunningTasksTool",
+    "GetNodesTool",
+    "GetQuerySetTool",
+    "CreateQuerySetTool",
+    "SampleQuerySetTool",
+    "DeleteQuerySetTool",
+    "GetExperimentTool",
+    "CreateExperimentTool",
+    "DeleteExperimentTool",
+    "SearchQuerySetsTool",
+    "SearchSearchConfigurationsTool",
+    "SearchJudgmentsTool",
+    "SearchExperimentsTool",
+    "GenericOpenSearchApiTool",
+    "CreateSearchConfigurationTool",
+    "GetSearchConfigurationTool",
+    "DeleteSearchConfigurationTool",
+    "GetJudgmentListTool",
+    "CreateJudgmentListTool",
+    "CreateUBIJudgmentListTool",
+    "DeleteJudgmentListTool",
+    "CreateLLMJudgmentListTool",
+    "PPLQueryTool",
+    "ListClustersTool",
+    "ClusterHealthTool",
+    "CountTool",
+    "ExplainTool",
+    "MsearchTool"
+  ]
+}

@@ -1,0 +1,292 @@
+{
+  "clusters": {
+    "header-auth-cluster": {
+      "aws_region": null,
+      "iam_arn": null,
+      "is_serverless": null,
+      "max_response_size": null,
+      "opensearch_ca_cert_path": null,
+      "opensearch_client_cert_path": null,
+      "opensearch_client_key_path": null,
+      "opensearch_header_auth": true,
+      "opensearch_no_auth": null,
+      "opensearch_password": null,
+      "opensearch_url": "https://your-opensearch-domain.us-east-2.es.amazonaws.com",
+      "opensearch_username": null,
+      "profile": null,
+      "ssl_verify": null,
+      "timeout": null
+    },
+    "local-cluster": {
+      "aws_region": null,
+      "iam_arn": null,
+      "is_serverless": null,
+      "max_response_size": 5242880,
+      "opensearch_ca_cert_path": null,
+      "opensearch_client_cert_path": null,
+      "opensearch_client_key_path": null,
+      "opensearch_header_auth": null,
+      "opensearch_no_auth": null,
+      "opensearch_password": "<REDACTED>",
+      "opensearch_url": "http://localhost:9200",
+      "opensearch_username": "admin",
+      "profile": null,
+      "ssl_verify": null,
+      "timeout": null
+    },
+    "mtls-cluster": {
+      "aws_region": null,
+      "iam_arn": null,
+      "is_serverless": null,
+      "max_response_size": null,
+      "opensearch_ca_cert_path": "/var/run/opensearch-mtls/ca.crt",
+      "opensearch_client_cert_path": "/var/run/opensearch-mtls/tls.crt",
+      "opensearch_client_key_path": "/var/run/opensearch-mtls/tls.key",
+      "opensearch_header_auth": null,
+      "opensearch_no_auth": null,
+      "opensearch_password": "<REDACTED>",
+      "opensearch_url": "https://your-private-opensearch.example.com:9200",
+      "opensearch_username": "admin",
+      "profile": null,
+      "ssl_verify": null,
+      "timeout": null
+    },
+    "no-auth-cluster": {
+      "aws_region": null,
+      "iam_arn": null,
+      "is_serverless": null,
+      "max_response_size": null,
+      "opensearch_ca_cert_path": null,
+      "opensearch_client_cert_path": null,
+      "opensearch_client_key_path": null,
+      "opensearch_header_auth": null,
+      "opensearch_no_auth": true,
+      "opensearch_password": null,
+      "opensearch_url": "http://localhost:9200",
+      "opensearch_username": null,
+      "profile": null,
+      "ssl_verify": null,
+      "timeout": null
+    },
+    "remote-cluster": {
+      "aws_region": null,
+      "iam_arn": null,
+      "is_serverless": null,
+      "max_response_size": 10485760,
+      "opensearch_ca_cert_path": null,
+      "opensearch_client_cert_path": null,
+      "opensearch_client_key_path": null,
+      "opensearch_header_auth": null,
+      "opensearch_no_auth": null,
+      "opensearch_password": null,
+      "opensearch_url": "https://your-opensearch-domain.us-east-2.es.amazonaws.com",
+      "opensearch_username": null,
+      "profile": "your-aws-profile",
+      "ssl_verify": null,
+      "timeout": null
+    },
+    "remote-cluster-with-iam": {
+      "aws_region": "us-east-2",
+      "iam_arn": "arn:aws:iam::123456789012:role/YourOpenSearchRole",
+      "is_serverless": null,
+      "max_response_size": null,
+      "opensearch_ca_cert_path": null,
+      "opensearch_client_cert_path": null,
+      "opensearch_client_key_path": null,
+      "opensearch_header_auth": null,
+      "opensearch_no_auth": null,
+      "opensearch_password": null,
+      "opensearch_url": "https://your-opensearch-domain.us-east-2.es.amazonaws.com",
+      "opensearch_username": null,
+      "profile": "your-aws-profile",
+      "ssl_verify": null,
+      "timeout": null
+    },
+    "serverless-cluster": {
+      "aws_region": "us-east-1",
+      "iam_arn": null,
+      "is_serverless": true,
+      "max_response_size": null,
+      "opensearch_ca_cert_path": null,
+      "opensearch_client_cert_path": null,
+      "opensearch_client_key_path": null,
+      "opensearch_header_auth": null,
+      "opensearch_no_auth": null,
+      "opensearch_password": null,
+      "opensearch_url": "https://collection-id.us-east-1.aoss.amazonaws.com",
+      "opensearch_username": null,
+      "profile": "your-aws-profile",
+      "ssl_verify": null,
+      "timeout": null
+    }
+  },
+  "customized_tools": [
+    {
+      "description": "This is a custom description for the tool that lists indices. It's much more descriptive now!",
+      "inputSchema": {
+        "description": "Arguments for the ListIndicesTool.",
+        "properties": {
+          "include_detail": {
+            "default": true,
+            "description": "Whether to include detailed information. If False, returns only index name(s). If True, returns full metadata.",
+            "title": "Include Detail",
+            "type": "boolean"
+          },
+          "index": {
+            "default": "",
+            "description": "Custom description for the 'index' argument in ListIndexTool.",
+            "title": "Index",
+            "type": "string"
+          },
+          "opensearch_cluster_name": {
+            "description": "The name of the OpenSearch cluster",
+            "title": "Opensearch Cluster Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opensearch_cluster_name"
+        ],
+        "title": "ListIndicesArgs",
+        "type": "object"
+      },
+      "name": "My_Custom_Index_Lister"
+    },
+    {
+      "description": "Searches an index using a query written in query domain-specific language (DSL) in OpenSearch. PREREQUISITE: You need to know the mappings of the index before constructing queries.",
+      "inputSchema": {
+        "description": "Arguments for the SearchIndexTool.",
+        "properties": {
+          "format": {
+            "default": "json",
+            "description": "Output format: \"json\" or \"csv\"",
+            "title": "Format",
+            "type": "string"
+          },
+          "index": {
+            "description": "Custom description for the 'index' argument in SearchIndexTool.",
+            "title": "Index",
+            "type": "string"
+          },
+          "opensearch_cluster_name": {
+            "description": "The name of the OpenSearch cluster",
+            "title": "Opensearch Cluster Name",
+            "type": "string"
+          },
+          "query_dsl": {
+            "description": "Explain what kind of query DSL JSON is expected here.",
+            "title": "Query Dsl"
+          },
+          "size": {
+            "default": 10,
+            "description": "Number of search results to return. The maximum allowed value is 100, unless overridden by configuration.",
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "index",
+          "opensearch_cluster_name",
+          "query_dsl"
+        ],
+        "title": "SearchIndexArgs",
+        "type": "object"
+      },
+      "name": "Super_Searcher"
+    },
+    {
+      "description": "A better description to get information about shards in OpenSearch.",
+      "inputSchema": {
+        "description": "Arguments for the GetShardsTool.",
+        "properties": {
+          "index": {
+            "description": "Target index whose shards will be listed.",
+            "title": "Index",
+            "type": "string"
+          },
+          "opensearch_cluster_name": {
+            "description": "The name of the OpenSearch cluster",
+            "title": "Opensearch Cluster Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "opensearch_cluster_name"
+        ],
+        "title": "GetShardsArgs",
+        "type": "object"
+      },
+      "name": "GetShardsTool"
+    }
+  ],
+  "logs": [
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Total clusters found in config file: 7"
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Loaded clusters: ['local-cluster', 'remote-cluster', 'remote-cluster-with-iam', 'mtls-cluster', 'serverless-cluster', 'no-auth-cluster', 'header-auth-cluster']"
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Enabled tools: ['DataDistributionTool', 'LogPatternAnalysisTool', 'MetricChangeAnalysisTool', 'CreateAgenticMemorySessionTool', 'AddAgenticMemoriesTool', 'GetAgenticMemoryTool', 'UpdateAgenticMemoryTool', 'DeleteAgenticMemoryByIDTool', 'DeleteAgenticMemoryByQueryTool', 'SearchAgenticMemoryTool', 'ListIndexTool', 'IndexMappingTool', 'SearchIndexTool', 'GetShardsTool', 'GetClusterStateTool', 'GetSegmentsTool', 'CatNodesTool', 'GetIndexInfoTool', 'GetIndexStatsTool', 'GetQueryInsightsTool', 'GetNodesHotThreadsTool', 'GetAllocationTool', 'GetLongRunningTasksTool', 'GetNodesTool', 'GetQuerySetTool', 'CreateQuerySetTool', 'SampleQuerySetTool', 'DeleteQuerySetTool', 'GetExperimentTool', 'CreateExperimentTool', 'DeleteExperimentTool', 'SearchQuerySetsTool', 'SearchSearchConfigurationsTool', 'SearchJudgmentsTool', 'SearchExperimentsTool', 'GenericOpenSearchApiTool', 'CreateSearchConfigurationTool', 'GetSearchConfigurationTool', 'DeleteSearchConfigurationTool', 'GetJudgmentListTool', 'CreateJudgmentListTool', 'CreateUBIJudgmentListTool', 'DeleteJudgmentListTool', 'CreateLLMJudgmentListTool', 'PPLQueryTool', 'ListClustersTool', 'ClusterHealthTool', 'CountTool', 'ExplainTool', 'MsearchTool']"
+    }
+  ],
+  "tool_names": [
+    "DataDistributionTool",
+    "LogPatternAnalysisTool",
+    "MetricChangeAnalysisTool",
+    "CreateAgenticMemorySessionTool",
+    "AddAgenticMemoriesTool",
+    "GetAgenticMemoryTool",
+    "UpdateAgenticMemoryTool",
+    "DeleteAgenticMemoryByIDTool",
+    "DeleteAgenticMemoryByQueryTool",
+    "SearchAgenticMemoryTool",
+    "My_Custom_Index_Lister",
+    "IndexMappingTool",
+    "Super_Searcher",
+    "GetShardsTool",
+    "GetClusterStateTool",
+    "GetSegmentsTool",
+    "CatNodesTool",
+    "GetIndexInfoTool",
+    "GetIndexStatsTool",
+    "GetQueryInsightsTool",
+    "GetNodesHotThreadsTool",
+    "GetAllocationTool",
+    "GetLongRunningTasksTool",
+    "GetNodesTool",
+    "GetQuerySetTool",
+    "CreateQuerySetTool",
+    "SampleQuerySetTool",
+    "DeleteQuerySetTool",
+    "GetExperimentTool",
+    "CreateExperimentTool",
+    "DeleteExperimentTool",
+    "SearchQuerySetsTool",
+    "SearchSearchConfigurationsTool",
+    "SearchJudgmentsTool",
+    "SearchExperimentsTool",
+    "GenericOpenSearchApiTool",
+    "CreateSearchConfigurationTool",
+    "GetSearchConfigurationTool",
+    "DeleteSearchConfigurationTool",
+    "GetJudgmentListTool",
+    "CreateJudgmentListTool",
+    "CreateUBIJudgmentListTool",
+    "DeleteJudgmentListTool",
+    "CreateLLMJudgmentListTool",
+    "PPLQueryTool",
+    "ListClustersTool",
+    "ClusterHealthTool",
+    "CountTool",
+    "ExplainTool",
+    "MsearchTool"
+  ]
+}

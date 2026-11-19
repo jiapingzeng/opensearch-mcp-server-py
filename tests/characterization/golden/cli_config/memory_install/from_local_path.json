@@ -1,0 +1,84 @@
+{
+  "answers": [
+    "https://search-example.eu-west-1.es.amazonaws.com",
+    "",
+    "",
+    "y"
+  ],
+  "argv": [
+    "memory",
+    "install",
+    "--from-local",
+    "checkout/opensearch-mcp-server-py"
+  ],
+  "error": null,
+  "exit_code": null,
+  "files": {
+    "cwd": {},
+    "home": {
+      ".kiro/settings/mcp.json": {
+        "json": {
+          "mcpServers": {
+            "opensearch-memory": {
+              "args": [
+                "run",
+                "--directory",
+                "<TMP>/cwd/checkout/opensearch-mcp-server-py",
+                "opensearch-mcp-server-py"
+              ],
+              "autoApprove": [
+                "SearchMemoryTool"
+              ],
+              "command": "uv",
+              "env": {
+                "AWS_OPENSEARCH_SERVERLESS": "true",
+                "AWS_REGION": "us-east-1",
+                "MEMORY_TOOLS_ENABLED": "true",
+                "OPENSEARCH_DISABLED_CATEGORIES": "core_tools,skills",
+                "OPENSEARCH_URL": "https://search-example.eu-west-1.es.amazonaws.com"
+              }
+            }
+          }
+        },
+        "written_as_json_dumps_indent_2": true
+      },
+      ".kiro/steering/opensearch-memory.md": {
+        "text": "---\ninclusion: always\n---\n\n# OpenSearch Agent Memory\n\nThis steering file enables persistent memory for AI agents via OpenSearch.\n\n## Memory Behavior\n\n- **At conversation start**: Search memory for relevant context about the\n  topics in the user's message using SearchMemoryTool.\n- **During conversation**: Save important facts, decisions, user preferences,\n  and insights immediately as they arise using SaveMemoryTool with appropriate\n  tags. Don't wait until the end.\n- **Before finishing**: Do a final check to capture anything missed.\n\n## Tool Reference\n\n- **SearchMemoryTool**: Before responding, search memory for relevant context about the topics in the current message using SearchMemoryTool. This ensures continuity across sessions.\n- **SaveMemoryTool**: Before finishing, review the conversation for important facts, decisions, user preferences, or insights that should persist. Save each as a separate memory using SaveMemoryTool with appropriate tags.\n"
+      }
+    }
+  },
+  "given_home": {},
+  "logs": [],
+  "stderr": [
+    ""
+  ],
+  "stdin_left_unread": "",
+  "transcript": [
+    "",
+    "OpenSearch MCP Server — Memory Setup",
+    "========================================",
+    "",
+    "Step 1: OpenSearch Connection",
+    "------------------------------",
+    "OpenSearch Serverless endpoint URL: https://search-example.eu-west-1.es.amazonaws.com",
+    "AWS region [us-east-1]: ",
+    "AWS profile (leave empty for default credentials): ",
+    "",
+    "Step 2: IDE Detection",
+    "------------------------------",
+    "Detected: Kiro",
+    "",
+    "Step 3: Configuration",
+    "------------------------------",
+    "Configure Kiro? [Y/n]: y",
+    "",
+    "Done!",
+    "------------------------------",
+    "  Configured MCP server in <TMP>/home/.kiro/settings/mcp.json",
+    "  Created steering file: <TMP>/home/.kiro/steering/opensearch-memory.md",
+    "",
+    "Restart your IDE(s) to activate agent memory.",
+    "",
+    ""
+  ]
+}
