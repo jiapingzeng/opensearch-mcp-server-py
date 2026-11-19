@@ -83,33 +83,34 @@ def test_deleted_golden_alone_is_a_behaviour_change():
     assert f'missing: {CHANGELOG} is not changed' in problems
 
 
-def test_renamed_golden_old_and_new_paths_must_be_named():
-    # A rename arrives as its old path deleted and its new path added.
+def test_renamed_golden_old_path_must_be_named():
+    # A rename arrives as its old path deleted and its new path added; the deleted path
+    # is the behaviour change, so it is the one the ledger must name.
     changes = [
         ('D', GOLDEN + 'area/old_name.json'),
         ('A', GOLDEN + 'area/new_name.json'),
         ('M', LEDGER),
         ('M', CHANGELOG),
     ]
-    assert check(changes, '- `area/old_name.json`\n', require_entry=False) == [
-        f'golden not named in {LEDGER}: area/new_name.json'
+    assert check(changes, '- `area/new_name.json`\n', require_entry=False) == [
+        f'golden not named in {LEDGER}: area/old_name.json'
     ]
-    text = '- `area/old_name.json`\n- `area/new_name.json`\n'
-    assert check(changes, text, require_entry=False) == []
+    assert check(changes, '- `area/old_name.json`\n', require_entry=False) == []
 
 
-def test_golden_added_next_to_a_modified_one_must_be_named():
+def test_golden_added_next_to_a_modified_one_need_not_be_named():
+    # New characterization merged into the same range (as over --base 29db1eb^1) is not a
+    # behaviour change, so only the modified golden must be named.
     changes = [
         ('M', GOLDEN + NAME),
         ('A', GOLDEN + 'area/new_case.json'),
         ('M', LEDGER),
         ('M', CHANGELOG),
     ]
-    assert check(changes, LEDGER_TEXT, require_entry=False) == [
-        f'golden not named in {LEDGER}: area/new_case.json'
+    assert check(changes, LEDGER_TEXT, require_entry=False) == []
+    assert check(changes, '### Fix 22\n', require_entry=False) == [
+        f'golden not named in {LEDGER}: {NAME}'
     ]
-    text = LEDGER_TEXT + '- `area/new_case.json`\n'
-    assert check(changes, text, require_entry=False) == []
 
 
 def test_name_inside_a_longer_path_does_not_count():

@@ -4,9 +4,10 @@
 """Check that every behaviour change is recorded in the behaviour-change ledger.
 
 A behaviour change is a modified or deleted characterization golden. When there is one,
-the ledger and CHANGELOG.md must be changed too, and the ledger must name every changed
-golden (its path relative to the golden directory, or its full repo path). A change that
-only adds goldens is new characterization and passes.
+the ledger and CHANGELOG.md must be changed too, and the ledger must name every modified or
+deleted golden (its path relative to the golden directory, or its full repo path). An added
+golden is new characterization: it needs no name, and a change that only adds goldens passes.
+A rename is its old path deleted and its new path added, so the old path must be named.
 
 Usage: python scripts/check_behaviour_ledger.py [--base REF] [--require-entry]
 """
@@ -54,7 +55,8 @@ def check(changes: list[tuple[str, str]], ledger_text: str, require_entry: bool)
     if behaviour_change:
         if CHANGELOG not in changed:
             problems.append(f'missing: {CHANGELOG} is not changed')
-        for name in sorted({path[len(GOLDEN_DIR) :] for _, path in goldens}):
+        changed_goldens = {path for status, path in goldens if status in ('M', 'D')}
+        for name in sorted(path[len(GOLDEN_DIR) :] for path in changed_goldens):
             if not _named(name, ledger_text):
                 problems.append(f'golden not named in {LEDGER}: {name}')
     return problems
