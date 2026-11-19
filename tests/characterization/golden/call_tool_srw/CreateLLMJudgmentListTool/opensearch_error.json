@@ -1,0 +1,58 @@
+{
+  "arguments": {
+    "context_fields": "[\"title\", \"description\"]",
+    "model_id": "ml-model-1",
+    "name": "llm-judgments",
+    "query_set_id": "qs-laptops",
+    "search_configuration_id": "sc-baseline",
+    "size": 5
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "contextFields": [
+          "title",
+          "description"
+        ],
+        "modelId": "ml-model-1",
+        "name": "llm-judgments",
+        "querySetId": "qs-laptops",
+        "searchConfigurationList": [
+          "sc-baseline"
+        ],
+        "size": 5,
+        "type": "LLM_JUDGMENT"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "PUT",
+      "params": {},
+      "path": "/_plugins/_search_relevance/judgments"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error creating LLM judgment list: RequestError(400, '{\"error\":{\"root_cause\":[{\"type\":\"illegal_argument_exception\",\"reason\":\"Failed to find model: ml-model-1\"}],\"type\":\"illegal_argument_exception\",\"reason\":\"Failed to find model: ml-model-1\"},\"status\":400}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "CreateLLMJudgmentListTool"
+}

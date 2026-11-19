@@ -1,0 +1,40 @@
+{
+  "arguments": {
+    "search_configuration_id": "sc-baseline"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_plugins/_search_relevance/search_configurations/sc-baseline"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Search configuration sc-baseline:\n{\"_id\":\"sc-baseline\",\"_source\":{\"id\":\"sc-baseline\",\"name\":\"baseline\",\"index\":\"products\",\"query\":\"{\\\"query\\\":{\\\"match\\\":{\\\"title\\\":\\\"%SearchText%\\\"}}}\",\"timestamp\":\"2020-01-01T00:00:00Z\"}}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "GetSearchConfigurationTool"
+}

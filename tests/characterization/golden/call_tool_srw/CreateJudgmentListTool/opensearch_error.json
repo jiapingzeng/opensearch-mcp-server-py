@@ -1,0 +1,61 @@
+{
+  "arguments": {
+    "description": "Manual relevance judgments for product search",
+    "judgment_ratings": "[{\"query\": \"laptop\", \"ratings\": [{\"docId\": \"doc1\", \"rating\": 3}, {\"docId\": \"doc2\", \"rating\": 1}]}]",
+    "name": "manual-judgments"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "description": "Manual relevance judgments for product search",
+        "judgmentRatings": [
+          {
+            "query": "laptop",
+            "ratings": [
+              {
+                "docId": "doc1",
+                "rating": 3
+              },
+              {
+                "docId": "doc2",
+                "rating": 1
+              }
+            ]
+          }
+        ],
+        "name": "manual-judgments",
+        "type": "IMPORT_JUDGMENT"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "PUT",
+      "params": {},
+      "path": "/_plugins/_search_relevance/judgments"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error creating judgment list: RequestError(400, '{\"error\":{\"root_cause\":[{\"type\":\"illegal_argument_exception\",\"reason\":\"Invalid judgmentRatings: rating must be a number for docId [doc1]\"}],\"type\":\"illegal_argument_exception\",\"reason\":\"Invalid judgmentRatings: rating must be a number for docId [doc1]\"},\"status\":400}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "CreateJudgmentListTool"
+}

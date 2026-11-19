@@ -1,0 +1,40 @@
+{
+  "arguments": {
+    "experiment_id": "exp-abc123"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_plugins/_search_relevance/experiments/exp-abc123"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error retrieving experiment: NotFoundError(404, '{\"error\":{\"root_cause\":[{\"type\":\"resource_not_found_exception\",\"reason\":\"Experiment not found: exp-abc123\"}],\"type\":\"resource_not_found_exception\",\"reason\":\"Experiment not found: exp-abc123\"},\"status\":404}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "GetExperimentTool"
+}

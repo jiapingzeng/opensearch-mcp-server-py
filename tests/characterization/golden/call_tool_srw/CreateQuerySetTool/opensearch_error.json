@@ -1,0 +1,56 @@
+{
+  "arguments": {
+    "name": "product-queries",
+    "queries": "[\"laptop\", {\"queryText\": \"wireless headphones\"}, 42]"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "description": "Query set: product-queries",
+        "name": "product-queries",
+        "querySetQueries": [
+          {
+            "queryText": "laptop"
+          },
+          {
+            "queryText": "wireless headphones"
+          },
+          {
+            "queryText": "42"
+          }
+        ],
+        "sampling": "manual"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "PUT",
+      "params": {},
+      "path": "/_plugins/_search_relevance/query_sets"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error creating query set: RequestError(400, '{\"error\":{\"root_cause\":[{\"type\":\"illegal_argument_exception\",\"reason\":\"Query set with name [product-queries] already exists\"}],\"type\":\"illegal_argument_exception\",\"reason\":\"Query set with name [product-queries] already exists\"},\"status\":400}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "CreateQuerySetTool"
+}

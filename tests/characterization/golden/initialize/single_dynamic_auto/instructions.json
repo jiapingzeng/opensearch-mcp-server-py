@@ -1,0 +1,18 @@
+{
+  "instructions_lines": [
+    "This OpenSearch MCP server has no pre-configured endpoint. You must provide connection parameters on each tool call.",
+    "",
+    "Every tool accepts these optional connection parameters:",
+    "- opensearch_url (required): OpenSearch endpoint URL",
+    "- opensearch_username / opensearch_password: For basic auth",
+    "- opensearch_no_auth: Set true to skip authentication",
+    "- aws_region: AWS region for IAM or Serverless auth",
+    "- aws_iam_arn: IAM role ARN for role assumption",
+    "- aws_profile: AWS profile name for credentials",
+    "- aws_opensearch_serverless: Set true for OpenSearch Serverless",
+    "- opensearch_ssl_verify: Set false to skip SSL verification",
+    "- opensearch_timeout: Connection timeout in seconds",
+    "",
+    "Provide opensearch_url plus the appropriate auth parameters for your target cluster. Parameters not provided fall back to server environment variables (if any)."
+  ]
+}
