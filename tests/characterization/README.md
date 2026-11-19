@@ -10,7 +10,10 @@ Tests never reach into internals a migration would replace. The server is built 
 `create_mcp_server(...)` and driven with the installed SDK's in-process `Client` and
 in-memory transport, which accept both the low-level `Server` and `MCPServer`; through the
 Starlette app `streaming_server.serve` runs (`http_app`); or as the real entry point
-`main()` in a subprocess over stdio (`stdio_launcher`).
+`main()` in a subprocess over stdio (`stdio_launcher`). The exception is
+`test_gaps_serve.py`: it reads the running uvicorn server through the SIGTERM handler's
+`__self__` and sse-starlette's shutdown state, so a migration must keep `serve()` running a
+`uvicorn.Server` that installs that handler.
 
 ## Run
 
@@ -21,7 +24,8 @@ uv run --offline python -m pytest tests/characterization -q
 Nothing in this directory touches the network: OpenSearch is faked, the OpenAPI spec comes
 from `fixtures/openapi/`, boto3 calls are answered by `boto3_stub` in a test that uses it,
 and any DNS lookup or connection off this machine fails the test, in a server launched as
-a subprocess too. `http_app` opens no socket.
+a subprocess too. `http_app` opens no socket; `test_gaps_serve.py` runs the real `serve()`
+on a 127.0.0.1 listener (port 0).
 The tests run the same on Linux, macOS and Windows (the project CI runs all three).
 
 ## The rule

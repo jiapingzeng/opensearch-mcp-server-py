@@ -38,9 +38,10 @@ What a run changes outside the server and puts back afterwards: the SIGTERM hand
 recorder while ``serve()`` runs, which also catches the SIGTERM uvicorn raises again once
 ``serve()`` returns), the log record factory (records are read where they are made: uvicorn
 configures its own loggers, which do not propagate to pytest's capture), the ``uvicorn``
-loggers' configuration (``uvicorn.Config`` calls ``logging.config.dictConfig``) and
-sse-starlette's process-wide ``AppStatus.should_exit``, which uvicorn's SIGTERM sets and
-nothing resets (left set, it would end every later test's event streams at once).
+loggers' configuration (``uvicorn.Config`` calls ``logging.config.dictConfig``; the process's
+existing log handlers, which it would close, are kept open) and sse-starlette's process-wide
+``AppStatus.should_exit``, which uvicorn's SIGTERM sets and nothing resets (left set, it would
+end every later test's event streams at once).
 
 The module is skipped where a loopback TCP port cannot be bound, listened on and connected to.
 """
@@ -49,8 +50,10 @@ import asyncio
 import codecs
 import contextlib
 import httpx
+import io
 import json
 import logging
+import logging.config
 import pytest
 import re
 import signal
@@ -417,6 +420,9 @@ def serving(monkeypatch, caplog):
             monkeypatch.setenv(name, value)
         # Put back at teardown: uvicorn's SIGTERM sets it and nothing resets it.
         monkeypatch.setattr(sse_starlette.AppStatus, 'should_exit', False)
+        # dictConfig (from uvicorn.Config) would close every handler in the process through
+        # this private stdlib function; make it do nothing, so handlers set up before stay open.
+        monkeypatch.setattr(logging.config, '_clearExistingHandlers', lambda: None)
         # The app's lifespan lines are logged at INFO on the root logger.
         caplog.set_level(logging.INFO)
         log: list[LogEntry] = []
@@ -676,7 +682,7 @@ def stuck_request(port: int) -> bytes:
 
 
 async def test_graceful_shutdown_timeout(serving, golden, normalize):
-    async with serving() as run:
+    async with serving(env=NO_AUTH) as run:
         reader, writer = await asyncio.open_connection(LOOPBACK, run.port)
         try:
             writer.write(stuck_request(run.port))
@@ -720,3 +726,37 @@ async def test_graceful_shutdown_timeout(serving, golden, normalize):
             }
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# the process's log handlers
+# ---------------------------------------------------------------------------
+
+
+class CloseRecordingHandler(logging.StreamHandler):
+    """A handler on an ``io.StringIO`` that counts its ``close()`` calls."""
+
+    def __init__(self):
+        super().__init__(io.StringIO())
+        self.close_calls = 0
+
+    def close(self) -> None:
+        self.close_calls += 1
+        super().close()
+
+
+async def test_serving_keeps_existing_log_handlers_open(serving):
+    # `uvicorn.Config` calls `logging.config.dictConfig`, which closes every handler in the
+    # process: a handler set up before the run must stay open and still emit after it.
+    handler = CloseRecordingHandler()
+    root = logging.getLogger()
+    root.addHandler(handler)
+    try:
+        async with serving(env=NO_AUTH) as run:
+            await run.stop()
+        assert handler.close_calls == 0, handler.close_calls
+        root.warning('logged after serve() returned')
+        assert 'logged after serve() returned' in handler.stream.getvalue()
+    finally:
+        root.removeHandler(handler)
+        handler.close()
