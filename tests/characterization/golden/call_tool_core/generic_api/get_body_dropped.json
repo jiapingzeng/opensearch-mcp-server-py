@@ -28,8 +28,14 @@
       "auth": {
         "kind": "none"
       },
-      "body": null,
-      "body_format": "none",
+      "body": {
+        "query": {
+          "match": {
+            "level": "error"
+          }
+        }
+      },
+      "body_format": "json",
       "host": "http://fake-opensearch.invalid:9200",
       "method": "GET",
       "params": {},

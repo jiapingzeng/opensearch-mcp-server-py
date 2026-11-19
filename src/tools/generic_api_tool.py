@@ -135,7 +135,7 @@ async def generic_opensearch_api_tool(args: GenericOpenSearchApiArgs) -> list[di
             request_params = {'method': method, 'url': url}
 
             # Add body for methods that support it
-            if args.body is not None and method in ['POST', 'PUT', 'PATCH']:
+            if args.body is not None and method in ['GET', 'POST', 'PUT', 'PATCH']:
                 if isinstance(args.body, (dict, list)):
                     request_params['body'] = json.dumps(args.body)
                 else:

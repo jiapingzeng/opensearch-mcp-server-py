@@ -2,6 +2,7 @@
 """Simple test script for the GenericOpenSearchApiTool."""
 
 import asyncio
+import json
 import os
 import pytest
 import sys
@@ -130,6 +131,77 @@ async def test_write_disabled_message_does_not_leak_config():
     finally:
         os.environ['OPENSEARCH_SETTINGS_ALLOW_WRITE'] = original_allow_write
         set_allow_write_setting(None)
+
+
+def _mock_client_context():
+    """A fake ``get_opensearch_client`` and the transport mock it yields."""
+    from contextlib import asynccontextmanager
+    from unittest.mock import AsyncMock, MagicMock
+
+    client = MagicMock()
+    client.transport.perform_request = AsyncMock(return_value={'acknowledged': True})
+
+    @asynccontextmanager
+    async def fake_get_opensearch_client(args):
+        yield client
+
+    return fake_get_opensearch_client, client.transport.perform_request
+
+
+async def _call_with_mock_client(method, body):
+    """Run the tool for ``method``/``body`` with writes allowed; return perform_request's kwargs."""
+    from tools.tool_filter import set_allow_write_setting
+    from unittest.mock import patch
+
+    fake_get_opensearch_client, perform_request = _mock_client_context()
+    set_allow_write_setting(True)
+    try:
+        with patch('opensearch.client.get_opensearch_client', fake_get_opensearch_client):
+            args = GenericOpenSearchApiArgs(
+                opensearch_cluster_name='', path='/logs/_search', method=method, body=body
+            )
+            result = await generic_opensearch_api_tool(args)
+    finally:
+        set_allow_write_setting(None)
+
+    assert 'is_error' not in result[0], result
+    perform_request.assert_awaited_once()
+    return perform_request.await_args.kwargs
+
+
+@pytest.mark.asyncio
+async def test_get_with_dict_body_sends_it_json_encoded():
+    """A GET with a dict body sends it JSON-encoded."""
+    body = {'query': {'match': {'level': 'error'}}}
+    kwargs = await _call_with_mock_client('GET', body)
+    assert kwargs['method'] == 'GET'
+    assert kwargs['body'] == json.dumps(body)
+
+
+@pytest.mark.asyncio
+async def test_get_with_string_body_sends_it_as_is():
+    """A GET with a string body sends it as is."""
+    body = '{"query": {"match_all": {}}}'
+    kwargs = await _call_with_mock_client('GET', body)
+    assert kwargs['method'] == 'GET'
+    assert kwargs['body'] == body
+
+
+@pytest.mark.asyncio
+async def test_get_without_body_sends_none():
+    """A GET without a body sends none."""
+    kwargs = await _call_with_mock_client('GET', None)
+    assert kwargs['method'] == 'GET'
+    assert 'body' not in kwargs
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('method', ['DELETE', 'HEAD'])
+async def test_delete_and_head_with_body_still_send_none(method):
+    """DELETE and HEAD with a body still send none."""
+    kwargs = await _call_with_mock_client(method, {'query': {'match_all': {}}})
+    assert kwargs['method'] == method
+    assert 'body' not in kwargs
 
 
 if __name__ == '__main__':
