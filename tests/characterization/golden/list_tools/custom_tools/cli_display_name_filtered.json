@@ -8,7 +8,7 @@
     "config": null,
     "config_file_missing": false,
     "env": {
-      "OPENSEARCH_DISABLED_TOOLS": "Shard_Info,GetShardsTool",
+      "OPENSEARCH_DISABLED_TOOLS": "Shard_Info",
       "OPENSEARCH_NO_AUTH": "true"
     },
     "memory_tools_enabled": false,

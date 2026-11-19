@@ -6,6 +6,7 @@
       "tool_filters": {
         "enabled_categories": [
           "search_relevance",
+          "agentic_memory",
           "skills"
         ],
         "settings": {
@@ -23,7 +24,7 @@
     "memory_tools_enabled": false,
     "mode": "single",
     "openapi_unavailable": false,
-    "opensearch_version": "3.1.0"
+    "opensearch_version": "3.5.0"
   },
   "list_error": null,
   "opensearch_requests": [
@@ -271,6 +272,229 @@
           "type": "object"
         },
         "name": "MetricChangeAnalysisTool"
+      },
+      {
+        "description": "Retrieve a specific memory by its type and ID.",
+        "inputSchema": {
+          "$defs": {
+            "MemoryType": {
+              "description": "Specifies the different types of agentic memory.",
+              "enum": [
+                "sessions",
+                "working",
+                "long-term",
+                "history"
+              ],
+              "title": "MemoryType",
+              "type": "string"
+            }
+          },
+          "description": "Arguments for retrieving a specific agentic memory by its type and ID.",
+          "examples": [
+            {
+              "id": "XyEuiJkBeh2gPPwzjYWM",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "type": "working"
+            },
+            {
+              "id": "DcxjTpkBvwXRq366C1Zz",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "type": "long-term"
+            },
+            {
+              "id": "CcxjTpkBvwXRq366A1aE",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "type": "sessions"
+            },
+            {
+              "id": "eMxnTpkBvwXRq366hmAU",
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "type": "history"
+            }
+          ],
+          "properties": {
+            "id": {
+              "description": "The ID of the memory to retrieve.",
+              "title": "Id",
+              "type": "string"
+            },
+            "memory_container_id": {
+              "description": "The ID of the memory container.",
+              "title": "Memory Container Id",
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/$defs/MemoryType",
+              "description": "The memory type. Valid values are sessions, working, long-term, and history."
+            }
+          },
+          "required": [
+            "id",
+            "memory_container_id",
+            "type"
+          ],
+          "title": "GetAgenticMemoryArgs",
+          "type": "object"
+        },
+        "name": "GetAgenticMemoryTool"
+      },
+      {
+        "description": "Search for memories of a specific type within a memory container.",
+        "inputSchema": {
+          "$defs": {
+            "MemoryType": {
+              "description": "Specifies the different types of agentic memory.",
+              "enum": [
+                "sessions",
+                "working",
+                "long-term",
+                "history"
+              ],
+              "title": "MemoryType",
+              "type": "string"
+            }
+          },
+          "description": "Arguments for searching memories of a specific type within a agentic memory container.",
+          "examples": [
+            {
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "query": {
+                "match_all": {}
+              },
+              "sort": [
+                {
+                  "created_time": {
+                    "order": "desc"
+                  }
+                }
+              ],
+              "type": "sessions"
+            },
+            {
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "query": {
+                "bool": {
+                  "must": [
+                    {
+                      "term": {
+                        "namespace.user_id": "bob"
+                      }
+                    }
+                  ]
+                }
+              },
+              "sort": [
+                {
+                  "created_time": {
+                    "order": "desc"
+                  }
+                }
+              ],
+              "type": "long-term"
+            },
+            {
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "query": {
+                "match_all": {}
+              },
+              "sort": [
+                {
+                  "created_time": {
+                    "order": "desc"
+                  }
+                }
+              ],
+              "type": "history"
+            },
+            {
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "query": {
+                "bool": {
+                  "must": [
+                    {
+                      "term": {
+                        "namespace.user_id": "bob"
+                      }
+                    }
+                  ],
+                  "must_not": [
+                    {
+                      "exists": {
+                        "field": "tags.parent_memory_id"
+                      }
+                    }
+                  ]
+                }
+              },
+              "sort": [
+                {
+                  "created_time": {
+                    "order": "desc"
+                  }
+                }
+              ],
+              "type": "working"
+            },
+            {
+              "memory_container_id": "HudqiJkB1SltqOcZusVU",
+              "query": {
+                "term": {
+                  "namespace.session_id": "123"
+                }
+              },
+              "sort": [
+                {
+                  "created_time": {
+                    "order": "desc"
+                  }
+                }
+              ],
+              "type": "working"
+            }
+          ],
+          "properties": {
+            "memory_container_id": {
+              "description": "The ID of the memory container.",
+              "title": "Memory Container Id",
+              "type": "string"
+            },
+            "query": {
+              "additionalProperties": true,
+              "description": "The search query using OpenSearch query DSL.",
+              "title": "Query",
+              "type": "object"
+            },
+            "sort": {
+              "anyOf": [
+                {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Sort specification for the search results.",
+              "title": "Sort"
+            },
+            "type": {
+              "$ref": "#/$defs/MemoryType",
+              "description": "The memory type. Valid values are sessions, working, long-term, and history."
+            }
+          },
+          "required": [
+            "memory_container_id",
+            "query",
+            "type"
+          ],
+          "title": "SearchAgenticMemoryArgs",
+          "type": "object"
+        },
+        "name": "SearchAgenticMemoryTool"
       },
       {
         "description": "Lists indices in the OpenSearch cluster. If an index name or pattern is specified, return only information about the provided index or index pattern. The include_detail flag controls output: if False, returns only index name(s); if True (default), returns full metadata.",
@@ -634,6 +858,178 @@
           "type": "object"
         },
         "name": "DeleteExperimentTool"
+      },
+      {
+        "description": "Searches query sets in the OpenSearch Search Relevance plugin using OpenSearch query DSL.Accepts a full query DSL body to filter, sort, and paginate results. Returns all query sets when called without a query body.",
+        "inputSchema": {
+          "description": "Arguments for the SearchQuerySetsTool.",
+          "examples": [
+            {},
+            {
+              "query_body": {
+                "query": {
+                  "match_all": {}
+                },
+                "size": 20
+              }
+            },
+            {
+              "query_body": {
+                "query": {
+                  "match": {
+                    "name": "my-name"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "query_body": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "OpenSearch query DSL body to filter, sort, and paginate results. Defaults to {\"query\": {\"match_all\": {}}} if not provided. Example: {\"query\": {\"match\": {\"name\": \"my-config\"}}, \"size\": 20}",
+              "title": "Query Body"
+            }
+          },
+          "required": [],
+          "title": "SearchQuerySetsArgs",
+          "type": "object"
+        },
+        "name": "SearchQuerySetsTool"
+      },
+      {
+        "description": "Searches search configurations in the OpenSearch Search Relevance plugin using OpenSearch query DSL.Accepts a full query DSL body to filter, sort, and paginate results. Returns all search configurations when called without a query body.",
+        "inputSchema": {
+          "description": "Arguments for the SearchSearchConfigurationsTool.",
+          "examples": [
+            {},
+            {
+              "query_body": {
+                "query": {
+                  "match_all": {}
+                },
+                "size": 20
+              }
+            },
+            {
+              "query_body": {
+                "query": {
+                  "match": {
+                    "name": "my-name"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "query_body": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "OpenSearch query DSL body to filter, sort, and paginate results. Defaults to {\"query\": {\"match_all\": {}}} if not provided. Example: {\"query\": {\"match\": {\"name\": \"my-config\"}}, \"size\": 20}",
+              "title": "Query Body"
+            }
+          },
+          "required": [],
+          "title": "SearchSearchConfigurationsArgs",
+          "type": "object"
+        },
+        "name": "SearchSearchConfigurationsTool"
+      },
+      {
+        "description": "Searches judgments in the OpenSearch Search Relevance plugin using OpenSearch query DSL.Accepts a full query DSL body to filter, sort, and paginate results. Returns all judgments when called without a query body.",
+        "inputSchema": {
+          "description": "Arguments for the SearchJudgmentsTool.",
+          "examples": [
+            {},
+            {
+              "query_body": {
+                "query": {
+                  "match_all": {}
+                },
+                "size": 20
+              }
+            },
+            {
+              "query_body": {
+                "query": {
+                  "match": {
+                    "name": "my-name"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "query_body": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "OpenSearch query DSL body to filter, sort, and paginate results. Defaults to {\"query\": {\"match_all\": {}}} if not provided. Example: {\"query\": {\"match\": {\"name\": \"my-config\"}}, \"size\": 20}",
+              "title": "Query Body"
+            }
+          },
+          "required": [],
+          "title": "SearchJudgmentsArgs",
+          "type": "object"
+        },
+        "name": "SearchJudgmentsTool"
+      },
+      {
+        "description": "Searches experiments in the OpenSearch Search Relevance plugin using OpenSearch query DSL.Accepts a full query DSL body to filter, sort, and paginate results. Returns all experiments when called without a query body.",
+        "inputSchema": {
+          "description": "Arguments for the SearchExperimentsTool.",
+          "examples": [
+            {},
+            {
+              "query_body": {
+                "query": {
+                  "match_all": {}
+                },
+                "size": 20
+              }
+            },
+            {
+              "query_body": {
+                "query": {
+                  "match": {
+                    "name": "my-name"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "query_body": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "OpenSearch query DSL body to filter, sort, and paginate results. Defaults to {\"query\": {\"match_all\": {}}} if not provided. Example: {\"query\": {\"match\": {\"name\": \"my-config\"}}, \"size\": 20}",
+              "title": "Query Body"
+            }
+          },
+          "required": [],
+          "title": "SearchExperimentsArgs",
+          "type": "object"
+        },
+        "name": "SearchExperimentsTool"
       },
       {
         "description": "A flexible tool for calling any OpenSearch API endpoint. Supports all HTTP methods with custom paths, query parameters, request bodies, and headers. Use this when you need to access OpenSearch APIs that don't have dedicated tools, or when you need more control over the request. Leverages your knowledge of OpenSearch API documentation to construct appropriate requests.",
@@ -1323,6 +1719,8 @@
     "DataDistributionTool",
     "LogPatternAnalysisTool",
     "MetricChangeAnalysisTool",
+    "GetAgenticMemoryTool",
+    "SearchAgenticMemoryTool",
     "ListIndexTool",
     "IndexMappingTool",
     "SearchIndexTool",
@@ -1334,6 +1732,10 @@
     "GetExperimentTool",
     "CreateExperimentTool",
     "DeleteExperimentTool",
+    "SearchQuerySetsTool",
+    "SearchSearchConfigurationsTool",
+    "SearchJudgmentsTool",
+    "SearchExperimentsTool",
     "GenericOpenSearchApiTool",
     "CreateSearchConfigurationTool",
     "GetSearchConfigurationTool",

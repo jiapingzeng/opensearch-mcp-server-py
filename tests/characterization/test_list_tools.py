@@ -158,7 +158,8 @@ CASES = {
     'multi/two_clusters': Case(mode='multi', config={'clusters': TWO_CLUSTERS}),
     # No --config: nothing loaded, the same tools.
     'multi/no_config_file': Case(mode='multi'),
-    # Env filters are not read in multi mode, OPENSEARCH_SETTINGS_ALLOW_WRITE=false included.
+    # characterization: current behaviour: multi mode reads no env filter, and
+    # OPENSEARCH_SETTINGS_ALLOW_WRITE=false does not remove write tools: every tool is listed.
     'multi/env_filters_allow_write_false': Case(
         mode='multi',
         config={'clusters': TWO_CLUSTERS},
@@ -296,13 +297,15 @@ CASES = {
             OPENSEARCH_SETTINGS_ALLOW_WRITE='false',
         )
     ),
-    # search_relevance's write tools exempt; the other categories stay read-only.
+    # search_relevance's write tools exempt; agentic_memory, not exempt, keeps only its GET
+    # tools (GetAgenticMemoryTool, SearchAgenticMemoryTool); skills tools bypass the filter.
     'env_filters/allow_write_categories': Case(
         env=_env(
-            OPENSEARCH_ENABLED_CATEGORIES='search_relevance,skills',
+            OPENSEARCH_ENABLED_CATEGORIES='search_relevance,agentic_memory,skills',
             OPENSEARCH_SETTINGS_ALLOW_WRITE='false',
             OPENSEARCH_SETTINGS_ALLOW_WRITE_CATEGORIES='search_relevance',
-        )
+        ),
+        version=LATEST_VERSION,
     ),
     # --- the same filters from a config file ----------------------------------------------
     # characterization: current behaviour: every config-file case without
@@ -344,13 +347,15 @@ CASES = {
             }
         }
     ),
+    # As env_filters/allow_write_categories: agentic_memory keeps only its GET tools.
     'config_filters/allow_write_categories': Case(
         config={
             'tool_filters': {
-                'enabled_categories': ['search_relevance', 'skills'],
+                'enabled_categories': ['search_relevance', 'agentic_memory', 'skills'],
                 'settings': {'allow_write': False, 'allow_write_categories': ['search_relevance']},
             }
-        }
+        },
+        version=LATEST_VERSION,
     ),
     # Config file and env vars together: the config file wins, the env filters are ignored.
     'config_filters/config_and_env': Case(
@@ -471,11 +476,14 @@ CASES = {
     'custom_tools/cli_unknown_arg': Case(
         cli_overrides={'tool.ListIndexTool.args.no_such_arg.description': 'Description.'}
     ),
-    # An unknown key under tools.<Key> fails startup.
+    # characterization: current behaviour: an unknown key under tools.<Key> in the YAML fails
+    # startup, while the same key on the CLI (cli_unknown_key) is dropped silently. The error
+    # message names only display_name, description and args as supported, yet max_size_limit
+    # is accepted too (config_max_size_limit).
     'custom_tools/config_unknown_key': Case(
         config={'tools': {'ListIndexTool': {'http_methods': 'POST'}}}
     ),
-    # On the CLI an unknown key is dropped silently.
+    # characterization: current behaviour: on the CLI an unknown key is dropped silently.
     'custom_tools/cli_unknown_key': Case(
         cli_overrides={'tool.ListIndexTool.http_methods': 'POST'}
     ),
@@ -510,13 +518,22 @@ CASES = {
         cli_overrides={'tool.GetShardsTool.description': 'From the CLI.'},
     ),
     # Custom display names feed the filters: core_tools follows the new name, and an env
-    # filter names the tool by its display name.
+    # filter naming the display name removes the tool.
     'custom_tools/cli_display_name_filtered': Case(
         cli_overrides={
             'tool.ListIndexTool.display_name': 'Index_Manager',
             'tool.GetShardsTool.display_name': 'Shard_Info',
         },
-        env=_env(OPENSEARCH_DISABLED_TOOLS='Shard_Info,GetShardsTool'),
+        env=_env(OPENSEARCH_DISABLED_TOOLS='Shard_Info'),
+    ),
+    # characterization: current behaviour: an env filter naming the registry key of a renamed
+    # tool is ignored (filters match display names only): GetShardsTool stays, as Shard_Info.
+    'custom_tools/cli_display_name_filtered_by_key': Case(
+        cli_overrides={
+            'tool.ListIndexTool.display_name': 'Index_Manager',
+            'tool.GetShardsTool.display_name': 'Shard_Info',
+        },
+        env=_env(OPENSEARCH_DISABLED_TOOLS='GetShardsTool'),
     ),
 }
 
