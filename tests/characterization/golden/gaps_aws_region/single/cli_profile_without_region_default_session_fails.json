@@ -1,0 +1,89 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [
+    "Failed to get region from default boto3 session: The config profile (char-no-such-profile) could not be found",
+    "Failed to get region from default boto3 session: The config profile (char-no-such-profile) could not be found",
+    "Failed to get region from default boto3 session: The config profile (char-no-such-profile) could not be found"
+  ],
+  "region_log": [
+    {
+      "function": "get_aws_region_single_mode",
+      "level": "WARNING",
+      "message": "Failed to get region from default boto3 session: The config profile (char-no-such-profile) could not be found"
+    },
+    {
+      "function": "get_aws_region_single_mode",
+      "level": "DEBUG",
+      "message": "No AWS region found, but this may be acceptable for basic auth or no auth"
+    },
+    {
+      "function": "get_aws_region_single_mode",
+      "level": "WARNING",
+      "message": "Failed to get region from default boto3 session: The config profile (char-no-such-profile) could not be found"
+    },
+    {
+      "function": "get_aws_region_single_mode",
+      "level": "DEBUG",
+      "message": "No AWS region found, but this may be acceptable for basic auth or no auth"
+    },
+    {
+      "function": "get_aws_region_single_mode",
+      "level": "WARNING",
+      "message": "Failed to get region from default boto3 session: The config profile (char-no-such-profile) could not be found"
+    },
+    {
+      "function": "get_aws_region_single_mode",
+      "level": "DEBUG",
+      "message": "No AWS region found, but this may be acceptable for basic auth or no auth"
+    }
+  ],
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: Failed to authenticate with AWS credentials: AWS region is required for AWS credentials authentication",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "setup": {
+    "aws_files": {
+      "aws_config": [
+        "[profile char-noregion]",
+        "output = json",
+        "",
+        "[profile char-west]",
+        "region = eu-west-1"
+      ],
+      "aws_credentials": [
+        "[default]",
+        "aws_access_key_id = AKIACHARDEFAULT00001",
+        "aws_secret_access_key = char-default-secret",
+        "",
+        "[char-noregion]",
+        "aws_access_key_id = AKIACHARNOREGION0001",
+        "aws_secret_access_key = char-noregion-secret",
+        "",
+        "[char-west]",
+        "aws_access_key_id = AKIACHARWEST00000001",
+        "aws_secret_access_key = char-west-secret"
+      ]
+    },
+    "clusters": null,
+    "env": {
+      "AWS_CONFIG_FILE": "<TMP>/aws_config",
+      "AWS_PROFILE": "char-no-such-profile",
+      "AWS_SHARED_CREDENTIALS_FILE": "<TMP>/aws_credentials"
+    },
+    "mode": "single",
+    "profile": "char-noregion"
+  }
+}

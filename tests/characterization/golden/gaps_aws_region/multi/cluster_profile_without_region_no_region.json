@@ -1,0 +1,79 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false,
+      "opensearch_cluster_name": "noregion-cluster"
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [],
+  "region_log": [
+    {
+      "function": "get_aws_region_single_mode",
+      "level": "DEBUG",
+      "message": "No AWS region found, but this may be acceptable for basic auth or no auth"
+    },
+    {
+      "function": "get_aws_region_single_mode",
+      "level": "DEBUG",
+      "message": "No AWS region found, but this may be acceptable for basic auth or no auth"
+    }
+  ],
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: Failed to authenticate with AWS credentials: AWS region is required for AWS credentials authentication",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "setup": {
+    "aws_files": {
+      "aws_config": [
+        "[profile char-noregion]",
+        "output = json",
+        "",
+        "[profile char-west]",
+        "region = eu-west-1"
+      ],
+      "aws_credentials": [
+        "[default]",
+        "aws_access_key_id = AKIACHARDEFAULT00001",
+        "aws_secret_access_key = char-default-secret",
+        "",
+        "[char-noregion]",
+        "aws_access_key_id = AKIACHARNOREGION0001",
+        "aws_secret_access_key = char-noregion-secret",
+        "",
+        "[char-west]",
+        "aws_access_key_id = AKIACHARWEST00000001",
+        "aws_secret_access_key = char-west-secret"
+      ]
+    },
+    "clusters": {
+      "missing-profile-cluster": {
+        "opensearch_url": "http://missing-profile-cluster.invalid:9200",
+        "profile": "char-no-such-profile"
+      },
+      "noregion-cluster": {
+        "opensearch_url": "http://noregion-cluster.invalid:9200",
+        "profile": "char-noregion"
+      },
+      "noregion-serverless-cluster": {
+        "is_serverless": true,
+        "opensearch_url": "http://noregion-serverless-cluster.invalid:9200",
+        "profile": "char-noregion"
+      }
+    },
+    "env": {
+      "AWS_CONFIG_FILE": "<TMP>/aws_config",
+      "AWS_SHARED_CREDENTIALS_FILE": "<TMP>/aws_credentials"
+    },
+    "mode": "multi",
+    "profile": null
+  }
+}
