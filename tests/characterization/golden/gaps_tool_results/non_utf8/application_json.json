@@ -1,0 +1,42 @@
+{
+  "call": {
+    "arguments": {
+      "path": "/logs/_doc/1"
+    },
+    "name": "GenericOpenSearchApiTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/logs/_doc/1"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error calling OpenSearch API (GET /logs/_doc/1): ('b\\'{\"name\": \"caf\\\\xe9\"}\\'', JSONDecodeError('Expecting value: line 1 column 1 (char 0)'))",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

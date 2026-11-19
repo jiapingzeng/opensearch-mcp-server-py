@@ -1,0 +1,72 @@
+{
+  "call": {
+    "arguments": {
+      "body": {
+        "query": {
+          "match_all": {}
+        }
+      },
+      "id": "1",
+      "index": ""
+    },
+    "name": "ExplainTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": {
+          "match_all": {}
+        }
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "analyze_wildcard": "None",
+        "analyzer": "None",
+        "default_operator": "None",
+        "lenient": "None",
+        "preference": "None",
+        "q": "None",
+        "routing": "None",
+        "stored_fields": "None"
+      },
+      "path": "/_explain/1"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "{\"_index\": \"logs\", \"_id\": \"1\", \"matched\": false, \"explanation\": {\"value\": 0.0, \"description\": \"no matching term\", \"details\": []}}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

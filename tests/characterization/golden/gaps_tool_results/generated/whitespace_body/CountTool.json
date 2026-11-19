@@ -1,0 +1,65 @@
+{
+  "call": {
+    "arguments": {
+      "body": "   "
+    },
+    "name": "CountTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "allow_no_indices": "None",
+        "analyze_wildcard": "None",
+        "analyzer": "None",
+        "default_operator": "None",
+        "expand_wildcards": "None",
+        "ignore_unavailable": "None",
+        "min_score": "None",
+        "preference": "None",
+        "q": "None",
+        "routing": "None",
+        "terminate_after": "None"
+      },
+      "path": "/_count"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "{\"count\": 42, \"_shards\": {\"total\": 1, \"successful\": 1, \"skipped\": 0, \"failed\": 0}}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

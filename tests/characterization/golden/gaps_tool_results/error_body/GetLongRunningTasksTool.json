@@ -1,0 +1,56 @@
+{
+  "call": {
+    "arguments": {
+      "limit": 2
+    },
+    "name": "GetLongRunningTasksTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "format": "json",
+        "s": "running_time:desc"
+      },
+      "path": "/_cat/tasks"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error getting long-running tasks: fake: error reported with HTTP 200",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  }
+}

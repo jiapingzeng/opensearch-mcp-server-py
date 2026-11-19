@@ -1,0 +1,47 @@
+{
+  "call": {
+    "arguments": {
+      "path": "/_cat/health",
+      "query_params": {
+        "v": "true"
+      }
+    },
+    "name": "GenericOpenSearchApiTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {
+        "v": "true"
+      },
+      "path": "/_cat/health"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "OpenSearch API Response (GET /_cat/health) with query params: {'v': 'true'}:\nepoch      timestamp cluster      status node.total node.data shards pri relo init\n1577836800 00:00:00  fake-cluster green           1         1      2   2    0    0\n",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}

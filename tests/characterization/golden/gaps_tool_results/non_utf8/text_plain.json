@@ -1,0 +1,42 @@
+{
+  "call": {
+    "arguments": {
+      "path": "/_cat/health"
+    },
+    "name": "GenericOpenSearchApiTool"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/_cat/health"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "OpenSearch API Response (GET /_cat/health):\nb'caf\\xe9 \\xff\\n'",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  }
+}
