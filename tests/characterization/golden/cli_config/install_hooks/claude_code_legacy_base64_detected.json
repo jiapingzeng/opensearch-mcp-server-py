@@ -1,0 +1,64 @@
+{
+  "argv": [
+    "install-hooks",
+    "--client",
+    "claude-code"
+  ],
+  "error": null,
+  "exit_code": null,
+  "files": {
+    "cwd": {
+      ".claude/settings.json": {
+        "json": {
+          "hooks": {
+            "Stop": [
+              {
+                "hooks": [
+                  {
+                    "command": "python3 -c \"import base64; base64.b64decode('U2F2ZU1lbW9yeVRvb2w=')\"",
+                    "type": "command"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "written_as_json_dumps_indent_2": true
+      }
+    },
+    "home": {}
+  },
+  "given_cwd": {
+    ".claude/settings.json": {
+      "hooks": {
+        "Stop": [
+          {
+            "hooks": [
+              {
+                "command": "python3 -c \"import base64; base64.b64decode('U2F2ZU1lbW9yeVRvb2w=')\"",
+                "type": "command"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "logs": [
+    {
+      "level": "INFO",
+      "logger": "mcp_server_opensearch.install_hooks",
+      "message": "Memory hooks already installed in Claude Code settings"
+    }
+  ],
+  "stderr": [
+    ""
+  ],
+  "stdout": [
+    "Installing memory hooks for claude-code (scope: workspace)...",
+    "All hooks already installed.",
+    "",
+    "Restart your IDE to activate the hooks.",
+    ""
+  ]
+}

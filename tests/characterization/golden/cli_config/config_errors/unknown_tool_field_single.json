@@ -1,0 +1,22 @@
+{
+  "clusters": {},
+  "config": "tools:\n  ListIndexTool:\n    bogus: 1\n",
+  "error": {
+    "message": "Invalid field 'bogus' for tool 'ListIndexTool' in config file. Only 'display_name', 'description' and 'args' are supported.",
+    "type": "ValueError"
+  },
+  "logs": [
+    {
+      "level": "DEBUG",
+      "logger": "mcp_server_opensearch.global_state",
+      "message": "Set global mode to: single"
+    },
+    {
+      "level": "DEBUG",
+      "logger": "mcp_server_opensearch.global_state",
+      "message": "Set global config_file_path to: <TMP>/config.yml"
+    }
+  ],
+  "mode": "single",
+  "tool_names": null
+}

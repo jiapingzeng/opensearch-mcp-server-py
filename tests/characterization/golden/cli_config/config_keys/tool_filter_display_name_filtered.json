@@ -1,0 +1,51 @@
+{
+  "allow_write_setting": true,
+  "config": {
+    "tool_filters": {
+      "disabled_tools": [
+        "Index_Lister"
+      ]
+    },
+    "tools": {
+      "ListIndexTool": {
+        "display_name": "Index_Lister"
+      }
+    }
+  },
+  "env": {
+    "OPENSEARCH_DISABLED_TOOLS": "ListIndexTool",
+    "OPENSEARCH_NO_AUTH": "true"
+  },
+  "logs": [
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Connected OpenSearch version: 3.1.0"
+    },
+    {
+      "level": "WARNING",
+      "logger": "root",
+      "message": "Both config file and environment variables are set. Using config file."
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Applied tool filter from <TMP>/config.yml"
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Enabled tools: ['IndexMappingTool', 'SearchIndexTool', 'GetShardsTool', 'GenericOpenSearchApiTool', 'ClusterHealthTool', 'CountTool', 'ExplainTool', 'MsearchTool']"
+    }
+  ],
+  "tool_names": [
+    "IndexMappingTool",
+    "SearchIndexTool",
+    "GetShardsTool",
+    "GenericOpenSearchApiTool",
+    "ClusterHealthTool",
+    "CountTool",
+    "ExplainTool",
+    "MsearchTool"
+  ]
+}

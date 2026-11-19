@@ -1,0 +1,16 @@
+{
+  "stderr": [
+    {
+      "count": 3,
+      "event_type": "probe",
+      "level": "INFO",
+      "logger": "characterization.cli_config",
+      "message": "one record: formatted",
+      "obj": "fixed-str",
+      "timestamp": "<TIMESTAMP>",
+      "when": "2020-01-01 00:00:00"
+    },
+    ""
+  ],
+  "stdout": ""
+}

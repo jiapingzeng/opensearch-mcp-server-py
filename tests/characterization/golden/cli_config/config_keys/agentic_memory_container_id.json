@@ -1,0 +1,212 @@
+{
+  "configs": {
+    "empty_id": "agentic_memory:\n  memory_container_id: \"\"\n",
+    "malformed_yaml": "agentic_memory: [unclosed\n",
+    "not_a_mapping": "agentic_memory: file-container\n",
+    "with_id": "agentic_memory:\n  memory_container_id: file-container\n"
+  },
+  "lookups": {
+    "empty_id/env=None": {
+      "container_id": "",
+      "logs": []
+    },
+    "empty_id/env=env-container": {
+      "container_id": "env-container",
+      "logs": [
+        {
+          "level": "INFO",
+          "logger": "root",
+          "message": "Using memory_container_id from environment variable: env-container"
+        }
+      ]
+    },
+    "malformed_yaml/env=None": {
+      "container_id": "",
+      "logs": [
+        {
+          "level": "DEBUG",
+          "logger": "root",
+          "message": "Could not load memory_container_id from config file <TMP>/malformed_yaml.yml: while parsing a flow sequence\n  in \"<TMP>/malformed_yaml.yml\", line 1, column 17\nexpected ',' or ']', but got '<stream end>'\n  in \"<TMP>/malformed_yaml.yml\", line 2, column 1"
+        }
+      ]
+    },
+    "malformed_yaml/env=env-container": {
+      "container_id": "env-container",
+      "logs": [
+        {
+          "level": "DEBUG",
+          "logger": "root",
+          "message": "Could not load memory_container_id from config file <TMP>/malformed_yaml.yml: while parsing a flow sequence\n  in \"<TMP>/malformed_yaml.yml\", line 1, column 17\nexpected ',' or ']', but got '<stream end>'\n  in \"<TMP>/malformed_yaml.yml\", line 2, column 1"
+        },
+        {
+          "level": "INFO",
+          "logger": "root",
+          "message": "Using memory_container_id from environment variable: env-container"
+        }
+      ]
+    },
+    "missing_file/env=None": {
+      "container_id": "",
+      "logs": [
+        {
+          "level": "DEBUG",
+          "logger": "root",
+          "message": "Could not load memory_container_id from config file <TMP>/missing.yml: [Errno 2] No such file or directory: '<TMP>/missing.yml'"
+        }
+      ]
+    },
+    "missing_file/env=env-container": {
+      "container_id": "env-container",
+      "logs": [
+        {
+          "level": "DEBUG",
+          "logger": "root",
+          "message": "Could not load memory_container_id from config file <TMP>/missing.yml: [Errno 2] No such file or directory: '<TMP>/missing.yml'"
+        },
+        {
+          "level": "INFO",
+          "logger": "root",
+          "message": "Using memory_container_id from environment variable: env-container"
+        }
+      ]
+    },
+    "no_config/env=None": {
+      "container_id": "",
+      "logs": []
+    },
+    "no_config/env=env-container": {
+      "container_id": "env-container",
+      "logs": [
+        {
+          "level": "INFO",
+          "logger": "root",
+          "message": "Using memory_container_id from environment variable: env-container"
+        }
+      ]
+    },
+    "not_a_mapping/env=None": {
+      "container_id": "",
+      "logs": []
+    },
+    "not_a_mapping/env=env-container": {
+      "container_id": "env-container",
+      "logs": [
+        {
+          "level": "INFO",
+          "logger": "root",
+          "message": "Using memory_container_id from environment variable: env-container"
+        }
+      ]
+    },
+    "with_id/env=None": {
+      "container_id": "file-container",
+      "logs": [
+        {
+          "level": "INFO",
+          "logger": "root",
+          "message": "Using memory_container_id from config file: file-container"
+        }
+      ]
+    },
+    "with_id/env=env-container": {
+      "container_id": "file-container",
+      "logs": [
+        {
+          "level": "INFO",
+          "logger": "root",
+          "message": "Using memory_container_id from config file: file-container"
+        }
+      ]
+    }
+  },
+  "resolved_schemas": {
+    "AddAgenticMemoriesTool": {
+      "memory_container_id": {
+        "default": "file-container",
+        "description": "The ID of the memory container.",
+        "title": "Memory Container Id",
+        "type": "string"
+      },
+      "required": [
+        "opensearch_cluster_name",
+        "payload_type"
+      ]
+    },
+    "CreateAgenticMemorySessionTool": {
+      "memory_container_id": {
+        "default": "file-container",
+        "description": "The ID of the memory container.",
+        "title": "Memory Container Id",
+        "type": "string"
+      },
+      "required": [
+        "opensearch_cluster_name"
+      ]
+    },
+    "DeleteAgenticMemoryByIDTool": {
+      "memory_container_id": {
+        "default": "file-container",
+        "description": "The ID of the memory container.",
+        "title": "Memory Container Id",
+        "type": "string"
+      },
+      "required": [
+        "id",
+        "opensearch_cluster_name",
+        "type"
+      ]
+    },
+    "DeleteAgenticMemoryByQueryTool": {
+      "memory_container_id": {
+        "default": "file-container",
+        "description": "The ID of the memory container.",
+        "title": "Memory Container Id",
+        "type": "string"
+      },
+      "required": [
+        "opensearch_cluster_name",
+        "query",
+        "type"
+      ]
+    },
+    "GetAgenticMemoryTool": {
+      "memory_container_id": {
+        "default": "file-container",
+        "description": "The ID of the memory container.",
+        "title": "Memory Container Id",
+        "type": "string"
+      },
+      "required": [
+        "id",
+        "opensearch_cluster_name",
+        "type"
+      ]
+    },
+    "SearchAgenticMemoryTool": {
+      "memory_container_id": {
+        "default": "file-container",
+        "description": "The ID of the memory container.",
+        "title": "Memory Container Id",
+        "type": "string"
+      },
+      "required": [
+        "opensearch_cluster_name",
+        "query",
+        "type"
+      ]
+    },
+    "UpdateAgenticMemoryTool": {
+      "memory_container_id": {
+        "default": "file-container",
+        "description": "The ID of the memory container.",
+        "title": "Memory Container Id",
+        "type": "string"
+      },
+      "required": [
+        "id",
+        "opensearch_cluster_name",
+        "type"
+      ]
+    }
+  }
+}

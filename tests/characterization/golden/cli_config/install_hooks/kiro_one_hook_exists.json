@@ -1,0 +1,63 @@
+{
+  "argv": [
+    "install-hooks",
+    "--client",
+    "kiro"
+  ],
+  "error": null,
+  "exit_code": null,
+  "files": {
+    "cwd": {
+      ".kiro/hooks/memory-save-on-stop.json": {
+        "json": {
+          "custom": true
+        },
+        "written_as_json_dumps_indent_2": true
+      },
+      ".kiro/hooks/memory-search-on-prompt.json": {
+        "json": {
+          "description": "Searches memory for relevant context before every response. Installed by opensearch-mcp-server-py.",
+          "name": "Memory: Search on prompt",
+          "then": {
+            "prompt": "Before responding, search memory for relevant context about the topics in the current message using SearchMemoryTool. This ensures continuity across sessions.",
+            "type": "askAgent"
+          },
+          "version": "1.0.0",
+          "when": {
+            "type": "promptSubmit"
+          }
+        },
+        "written_as_json_dumps_indent_2": true
+      }
+    },
+    "home": {}
+  },
+  "given_cwd": {
+    ".kiro/hooks/memory-save-on-stop.json": {
+      "custom": true
+    }
+  },
+  "logs": [
+    {
+      "level": "INFO",
+      "logger": "mcp_server_opensearch.install_hooks",
+      "message": "Created hook: .kiro/hooks/memory-search-on-prompt.json"
+    },
+    {
+      "level": "INFO",
+      "logger": "mcp_server_opensearch.install_hooks",
+      "message": "Hook already exists, skipping: .kiro/hooks/memory-save-on-stop.json"
+    }
+  ],
+  "stderr": [
+    ""
+  ],
+  "stdout": [
+    "Installing memory hooks for kiro (scope: workspace)...",
+    "Created 1 hook(s):",
+    "  .kiro/hooks/memory-search-on-prompt.json",
+    "",
+    "Restart your IDE to activate the hooks.",
+    ""
+  ]
+}

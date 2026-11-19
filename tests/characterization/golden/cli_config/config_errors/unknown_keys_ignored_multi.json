@@ -1,0 +1,108 @@
+{
+  "clusters": {
+    "local": {
+      "aws_region": null,
+      "iam_arn": null,
+      "is_serverless": null,
+      "max_response_size": null,
+      "opensearch_ca_cert_path": null,
+      "opensearch_client_cert_path": null,
+      "opensearch_client_key_path": null,
+      "opensearch_header_auth": null,
+      "opensearch_no_auth": null,
+      "opensearch_password": null,
+      "opensearch_url": "http://localhost:9200",
+      "opensearch_username": null,
+      "profile": null,
+      "ssl_verify": null,
+      "timeout": null
+    }
+  },
+  "config": "bogus_section:\n  a: 1\nclusters:\n  local:\n    opensearch_url: http://localhost:9200\n    bogus_cluster_key: 1\ntool_filters:\n  bogus_filter: [ListIndexTool]\n  settings:\n    bogus_setting: true\n",
+  "error": null,
+  "logs": [
+    {
+      "level": "DEBUG",
+      "logger": "mcp_server_opensearch.global_state",
+      "message": "Set global mode to: multi"
+    },
+    {
+      "level": "DEBUG",
+      "logger": "mcp_server_opensearch.global_state",
+      "message": "Set global config_file_path to: <TMP>/config.yml"
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Total clusters found in config file: 1"
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Loaded clusters: ['local']"
+    },
+    {
+      "level": "DEBUG",
+      "logger": "root",
+      "message": "Set global allow_write setting to: True"
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Enabled tools: ['DataDistributionTool', 'LogPatternAnalysisTool', 'MetricChangeAnalysisTool', 'CreateAgenticMemorySessionTool', 'AddAgenticMemoriesTool', 'GetAgenticMemoryTool', 'UpdateAgenticMemoryTool', 'DeleteAgenticMemoryByIDTool', 'DeleteAgenticMemoryByQueryTool', 'SearchAgenticMemoryTool', 'ListIndexTool', 'IndexMappingTool', 'SearchIndexTool', 'GetShardsTool', 'GetClusterStateTool', 'GetSegmentsTool', 'CatNodesTool', 'GetIndexInfoTool', 'GetIndexStatsTool', 'GetQueryInsightsTool', 'GetNodesHotThreadsTool', 'GetAllocationTool', 'GetLongRunningTasksTool', 'GetNodesTool', 'GetQuerySetTool', 'CreateQuerySetTool', 'SampleQuerySetTool', 'DeleteQuerySetTool', 'GetExperimentTool', 'CreateExperimentTool', 'DeleteExperimentTool', 'SearchQuerySetsTool', 'SearchSearchConfigurationsTool', 'SearchJudgmentsTool', 'SearchExperimentsTool', 'GenericOpenSearchApiTool', 'CreateSearchConfigurationTool', 'GetSearchConfigurationTool', 'DeleteSearchConfigurationTool', 'GetJudgmentListTool', 'CreateJudgmentListTool', 'CreateUBIJudgmentListTool', 'DeleteJudgmentListTool', 'CreateLLMJudgmentListTool', 'PPLQueryTool', 'ListClustersTool', 'ClusterHealthTool', 'CountTool', 'ExplainTool', 'MsearchTool']"
+    }
+  ],
+  "mode": "multi",
+  "tool_names": [
+    "DataDistributionTool",
+    "LogPatternAnalysisTool",
+    "MetricChangeAnalysisTool",
+    "CreateAgenticMemorySessionTool",
+    "AddAgenticMemoriesTool",
+    "GetAgenticMemoryTool",
+    "UpdateAgenticMemoryTool",
+    "DeleteAgenticMemoryByIDTool",
+    "DeleteAgenticMemoryByQueryTool",
+    "SearchAgenticMemoryTool",
+    "ListIndexTool",
+    "IndexMappingTool",
+    "SearchIndexTool",
+    "GetShardsTool",
+    "GetClusterStateTool",
+    "GetSegmentsTool",
+    "CatNodesTool",
+    "GetIndexInfoTool",
+    "GetIndexStatsTool",
+    "GetQueryInsightsTool",
+    "GetNodesHotThreadsTool",
+    "GetAllocationTool",
+    "GetLongRunningTasksTool",
+    "GetNodesTool",
+    "GetQuerySetTool",
+    "CreateQuerySetTool",
+    "SampleQuerySetTool",
+    "DeleteQuerySetTool",
+    "GetExperimentTool",
+    "CreateExperimentTool",
+    "DeleteExperimentTool",
+    "SearchQuerySetsTool",
+    "SearchSearchConfigurationsTool",
+    "SearchJudgmentsTool",
+    "SearchExperimentsTool",
+    "GenericOpenSearchApiTool",
+    "CreateSearchConfigurationTool",
+    "GetSearchConfigurationTool",
+    "DeleteSearchConfigurationTool",
+    "GetJudgmentListTool",
+    "CreateJudgmentListTool",
+    "CreateUBIJudgmentListTool",
+    "DeleteJudgmentListTool",
+    "CreateLLMJudgmentListTool",
+    "PPLQueryTool",
+    "ListClustersTool",
+    "ClusterHealthTool",
+    "CountTool",
+    "ExplainTool",
+    "MsearchTool"
+  ]
+}

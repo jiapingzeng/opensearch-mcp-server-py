@@ -1,0 +1,61 @@
+{
+  "applied": {
+    "args_model_description_changes": {},
+    "global_registry_changes": {
+      "ListIndexTool.description": "kept"
+    },
+    "resolved_changes": {
+      "ListIndexTool.description": "kept"
+    }
+  },
+  "argv": [
+    "--foo=bar",
+    "--tool.ListIndexTool=whole-tool",
+    "--tool.ListIndexTool.http_methods=POST",
+    "--tool.ListIndexTool.description=kept"
+  ],
+  "error": null,
+  "exit_code": null,
+  "logging": {
+    "added_handlers": [
+      {
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        "formatter": "Formatter",
+        "level": "INFO",
+        "stream_is_stderr": true,
+        "type": "StreamHandler"
+      }
+    ],
+    "kept_existing_handler": false,
+    "root_level": "INFO"
+  },
+  "nested_config": {
+    "ListIndexTool": {
+      "description": "kept"
+    }
+  },
+  "serve_calls": [
+    {
+      "args": [],
+      "kwargs": {
+        "cli_tool_overrides": {
+          "foo": "bar",
+          "tool.ListIndexTool": "whole-tool",
+          "tool.ListIndexTool.description": "kept",
+          "tool.ListIndexTool.http_methods": "POST"
+        },
+        "config_file_path": "",
+        "mode": "single",
+        "profile": ""
+      },
+      "server": "stdio_server.serve"
+    }
+  ],
+  "stderr": [
+    "<TIMESTAMP> - mcp_server_opensearch - INFO - Starting MCP server...",
+    ""
+  ],
+  "stdout": [
+    ""
+  ]
+}

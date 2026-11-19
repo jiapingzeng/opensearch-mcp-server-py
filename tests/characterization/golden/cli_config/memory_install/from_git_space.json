@@ -1,0 +1,81 @@
+{
+  "answers": [
+    "https://search-example.eu-west-1.es.amazonaws.com",
+    "eu-west-1",
+    "dev-profile",
+    "y"
+  ],
+  "argv": [
+    "memory",
+    "install",
+    "--from-git",
+    "https://github.com/example/opensearch-mcp-server-py.git@feature"
+  ],
+  "error": null,
+  "exit_code": null,
+  "files": {
+    "cwd": {},
+    "home": {
+      ".claude.json": {
+        "json": {
+          "mcpServers": {
+            "opensearch-memory": {
+              "args": [
+                "--from",
+                "git+https://github.com/example/opensearch-mcp-server-py.git@feature",
+                "opensearch-mcp-server-py"
+              ],
+              "command": "uvx",
+              "env": {
+                "AWS_OPENSEARCH_SERVERLESS": "true",
+                "AWS_PROFILE": "dev-profile",
+                "AWS_REGION": "eu-west-1",
+                "MEMORY_TOOLS_ENABLED": "true",
+                "OPENSEARCH_DISABLED_CATEGORIES": "core_tools,skills",
+                "OPENSEARCH_URL": "https://search-example.eu-west-1.es.amazonaws.com"
+              }
+            }
+          }
+        },
+        "written_as_json_dumps_indent_2": true
+      },
+      ".claude/CLAUDE.md": {
+        "text": "## OpenSearch Agent Memory\n\n- Before responding, search memory for relevant context about the topics in the current message using SearchMemoryTool. This ensures continuity across sessions.\n- Before finishing, review the conversation for important facts, decisions, user preferences, or insights that should persist. Save each as a separate memory using SaveMemoryTool with appropriate tags.\n"
+      }
+    }
+  },
+  "given_home": {},
+  "logs": [],
+  "stderr": [
+    ""
+  ],
+  "stdin_left_unread": "",
+  "transcript": [
+    "",
+    "OpenSearch MCP Server — Memory Setup",
+    "========================================",
+    "",
+    "Step 1: OpenSearch Connection",
+    "------------------------------",
+    "OpenSearch Serverless endpoint URL: https://search-example.eu-west-1.es.amazonaws.com",
+    "AWS region [us-east-1]: eu-west-1",
+    "AWS profile (leave empty for default credentials): dev-profile",
+    "",
+    "Step 2: IDE Detection",
+    "------------------------------",
+    "Detected: Claude Code",
+    "",
+    "Step 3: Configuration",
+    "------------------------------",
+    "Configure Claude Code? [Y/n]: y",
+    "",
+    "Done!",
+    "------------------------------",
+    "  Configured MCP server in <TMP>/home/.claude.json",
+    "  Created <TMP>/home/.claude/CLAUDE.md with memory instructions",
+    "",
+    "Restart your IDE(s) to activate agent memory.",
+    "",
+    ""
+  ]
+}

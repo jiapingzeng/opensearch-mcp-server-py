@@ -1,0 +1,31 @@
+{
+  "argv": [
+    "--tool.ListIndexTool.description"
+  ],
+  "error": null,
+  "exit_code": 2,
+  "logging": {
+    "added_handlers": [
+      {
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        "formatter": "Formatter",
+        "level": "INFO",
+        "stream_is_stderr": true,
+        "type": "StreamHandler"
+      }
+    ],
+    "kept_existing_handler": false,
+    "root_level": "INFO"
+  },
+  "serve_calls": [],
+  "stderr": [
+    "<TIMESTAMP> - mcp_server_opensearch - INFO - Starting MCP server...",
+    "usage: opensearch-mcp-server-py [-h]",
+    "                                [--tool.ListIndexTool.description TOOL.LISTINDEXTOOL.DESCRIPTION]",
+    "opensearch-mcp-server-py: error: argument --tool.ListIndexTool.description: expected one argument",
+    ""
+  ],
+  "stdout": [
+    ""
+  ]
+}

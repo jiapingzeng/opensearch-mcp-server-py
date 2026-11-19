@@ -1,0 +1,25 @@
+{
+  "argv": [
+    "install-hooks",
+    "--client",
+    "kiro",
+    "--scope",
+    "global"
+  ],
+  "error": null,
+  "exit_code": 2,
+  "files": {
+    "cwd": {},
+    "home": {}
+  },
+  "stderr": [
+    "usage: opensearch-mcp-server-py install-hooks [-h] --client",
+    "                                              {kiro,claude-code,cursor}",
+    "                                              [--scope {workspace,user}]",
+    "opensearch-mcp-server-py install-hooks: error: argument --scope: invalid choice: 'global' (choose from 'workspace', 'user')",
+    ""
+  ],
+  "stdout": [
+    ""
+  ]
+}

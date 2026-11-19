@@ -1,0 +1,38 @@
+{
+  "env=-5": {
+    "sleep_seconds": [
+      1,
+      1
+    ]
+  },
+  "env=0": {
+    "sleep_seconds": [
+      1,
+      1
+    ]
+  },
+  "env=1": {
+    "sleep_seconds": [
+      1,
+      1
+    ]
+  },
+  "env=30": {
+    "sleep_seconds": [
+      30,
+      30
+    ]
+  },
+  "env=None": {
+    "sleep_seconds": [
+      60,
+      60
+    ]
+  },
+  "env=abc": {
+    "error": {
+      "message": "invalid literal for int() with base 10: 'abc'",
+      "type": "ValueError"
+    }
+  }
+}
