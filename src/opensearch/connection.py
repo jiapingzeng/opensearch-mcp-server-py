@@ -7,10 +7,11 @@ This module provides custom connection classes that extend the standard
 OpenSearch connection classes with additional features like response size limiting.
 """
 
+import asyncio
 import logging
 import time
 from opensearchpy import AsyncHttpConnection
-from opensearchpy.exceptions import TransportError
+from opensearchpy.exceptions import ConnectionError, ConnectionTimeout, SSLError, TransportError
 
 
 # Configure logging
@@ -278,7 +279,28 @@ class BufferedAsyncHttpConnection(AsyncHttpConnection):
             # would undo a refusal this request was meant to make.
             if not self.follow_redirects:
                 raise
-            # For connection errors and other failures, fall back to parent implementation
+            # A connection failure: raise it as the parent does, so the transport retries
+            # it, instead of the fallback sending the same request a second time.
+            if isinstance(e, (aiohttp.ClientError, asyncio.TimeoutError)):
+                duration = self.loop.time() - start
+                self.log_request_fail(method, str(url), url_path, orig_body, duration, exception=e)
+                if isinstance(e, aiohttp.ServerFingerprintMismatch):
+                    error = SSLError('N/A', str(e), e)
+                elif isinstance(e, (asyncio.TimeoutError, aiohttp.ServerTimeoutError)):
+                    error = ConnectionTimeout('TIMEOUT', str(e), e)
+                else:
+                    error = ConnectionError('N/A', str(e), e)
+                # The same error event the fallback logged for it.
+                _log_request_event(
+                    method,
+                    original_url,
+                    None,
+                    round(duration * 1000, 2),
+                    'error',
+                    error=str(error),
+                )
+                raise error
+            # For other failures, fall back to parent implementation
             logger.warning(
                 f'Streaming request failed ({type(e).__name__}: {e}), falling back to parent implementation'
             )

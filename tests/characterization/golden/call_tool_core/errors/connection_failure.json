@@ -79,58 +79,6 @@
         "format": "json"
       },
       "path": "/_cat/indices"
-    },
-    {
-      "auth": {
-        "kind": "none"
-      },
-      "body": null,
-      "body_format": "none",
-      "host": "http://fake-opensearch.invalid:9200",
-      "method": "GET",
-      "params": {
-        "format": "json"
-      },
-      "path": "/_cat/indices"
-    },
-    {
-      "auth": {
-        "kind": "none"
-      },
-      "body": null,
-      "body_format": "none",
-      "host": "http://fake-opensearch.invalid:9200",
-      "method": "GET",
-      "params": {
-        "format": "json"
-      },
-      "path": "/_cat/indices"
-    },
-    {
-      "auth": {
-        "kind": "none"
-      },
-      "body": null,
-      "body_format": "none",
-      "host": "http://fake-opensearch.invalid:9200",
-      "method": "GET",
-      "params": {
-        "format": "json"
-      },
-      "path": "/_cat/indices"
-    },
-    {
-      "auth": {
-        "kind": "none"
-      },
-      "body": null,
-      "body_format": "none",
-      "host": "http://fake-opensearch.invalid:9200",
-      "method": "GET",
-      "params": {
-        "format": "json"
-      },
-      "path": "/_cat/indices"
     }
   ],
   "result": {
