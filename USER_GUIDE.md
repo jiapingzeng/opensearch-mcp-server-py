@@ -748,7 +748,7 @@ tool_filters:
     - <category_name_to_enable>
   disabled_categories:
     - <category_name_to_disable>
-  enable_tools_regex:
+  enabled_tools_regex:
     - <regex_pattern_to_enable>  # (e.g., search.*)
   disabled_tools_regex:
     - <regex_pattern_to_disable>
