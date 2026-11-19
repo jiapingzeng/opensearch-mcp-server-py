@@ -26,7 +26,7 @@ def _is_secret_key(key: Any) -> bool:
     """Return True when an argument key looks like it holds a secret."""
     if not isinstance(key, str):
         return False
-    lowered = key.lower()
+    lowered = key.lower().replace('-', '_')
     if lowered == 'token' or lowered.endswith('_token'):
         return True
     return any(part in lowered for part in _SECRET_KEY_PARTS)

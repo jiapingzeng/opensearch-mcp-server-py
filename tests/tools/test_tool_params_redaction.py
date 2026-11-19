@@ -178,3 +178,53 @@ def test_original_args_not_mutated(mode):
 
     assert _redact_secrets(args) is not args
     assert args == snapshot
+
+
+# Hyphenated header-style secret keys (X-Api-Key, X-Auth-Token, X-Amz-Security-Token,
+# Private-Key) are masked at the top level and inside a nested headers dict, in single
+# and multi mode; hyphenated non-secret keys (Content-Type, X-Request-Id) stay visible.
+_HYPHENATED_SECRETS = {
+    'X-Api-Key': 'key-AAA111',
+    'X-Auth-Token': 'tok-BBB222',
+    'X-Amz-Security-Token': 'sts-CCC333',
+    'Private-Key': 'pk-DDD444',
+}
+_HYPHENATED_PLAIN = {'Content-Type': 'application/json', 'X-Request-Id': 'req-42'}
+
+
+@pytest.mark.parametrize('key', list(_HYPHENATED_SECRETS))
+def test_hyphenated_secret_keys_match(key):
+    assert _is_secret_key(key)
+
+
+@pytest.mark.parametrize('key', list(_HYPHENATED_PLAIN))
+def test_hyphenated_non_secret_keys_do_not_match(key):
+    assert not _is_secret_key(key)
+
+
+@pytest.mark.parametrize('server_mode', ['single', 'multi'])
+def test_hyphenated_secret_keys_masked_at_top_level(mode, server_mode):
+    mode(server_mode)
+    message, _ = _provided({**_HYPHENATED_SECRETS, **_HYPHENATED_PLAIN})
+
+    assert message.endswith(
+        "Provided: {'X-Api-Key': '***', 'X-Auth-Token': '***', "
+        "'X-Amz-Security-Token': '***', 'Private-Key': '***', "
+        "'Content-Type': 'application/json', 'X-Request-Id': 'req-42'}"
+    )
+    for secret in _HYPHENATED_SECRETS.values():
+        assert secret not in message
+
+
+@pytest.mark.parametrize('server_mode', ['single', 'multi'])
+def test_hyphenated_secret_keys_masked_in_nested_headers(mode, server_mode):
+    mode(server_mode)
+    message, _ = _provided({'headers': {**_HYPHENATED_SECRETS, **_HYPHENATED_PLAIN}})
+
+    assert message.endswith(
+        "Provided: {'headers': {'X-Api-Key': '***', 'X-Auth-Token': '***', "
+        "'X-Amz-Security-Token': '***', 'Private-Key': '***', "
+        "'Content-Type': 'application/json', 'X-Request-Id': 'req-42'}}"
+    )
+    for secret in _HYPHENATED_SECRETS.values():
+        assert secret not in message
