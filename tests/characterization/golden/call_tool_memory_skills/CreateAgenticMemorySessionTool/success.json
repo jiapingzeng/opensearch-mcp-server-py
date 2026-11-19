@@ -1,0 +1,61 @@
+{
+  "arguments": {
+    "memory_container_id": "HudqiJkB1SltqOcZusVU",
+    "metadata": {
+      "category": "onboarding",
+      "priority": "high"
+    },
+    "namespace": {
+      "agent_id": "onboarding_bot",
+      "user_id": "alice"
+    },
+    "session_id": "custom_session_123",
+    "summary": "Session for user onboarding"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "GET",
+      "params": {},
+      "path": "/"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "metadata": {
+          "category": "onboarding",
+          "priority": "high"
+        },
+        "namespace": {
+          "agent_id": "onboarding_bot",
+          "user_id": "alice"
+        },
+        "session_id": "custom_session_123",
+        "summary": "Session for user onboarding"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/_plugins/_ml/memory_containers/HudqiJkB1SltqOcZusVU/memories/sessions"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Session created:\n{\"session_id\":\"custom_session_123\",\"status\":\"created\"}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "CreateAgenticMemorySessionTool"
+}

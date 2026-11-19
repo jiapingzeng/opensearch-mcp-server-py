@@ -1,0 +1,21 @@
+{
+  "arguments": {
+    "memory": "User prefers vegetarian food and is allergic to nuts",
+    "opensearch_cluster_name": "fake-cluster",
+    "session_id": "session-42",
+    "tags": "preference, dietary,",
+    "user_id": "user-123"
+  },
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Unknown or disabled tool: SaveMemoryTool",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "SaveMemoryTool"
+}

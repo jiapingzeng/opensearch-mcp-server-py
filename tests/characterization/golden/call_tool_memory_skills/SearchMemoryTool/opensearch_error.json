@@ -1,0 +1,81 @@
+{
+  "arguments": {
+    "query": "dietary preferences",
+    "size": 5,
+    "user_id": "user-123"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "HEAD",
+      "params": {},
+      "path": "/agent-memory"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "_source": true,
+        "query": {
+          "script_score": {
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "term": {
+                      "user_id": "user-123"
+                    }
+                  }
+                ],
+                "must": {
+                  "match": {
+                    "memory_text": "dietary preferences"
+                  }
+                }
+              }
+            },
+            "script": {
+              "lang": "painless",
+              "params": {
+                "half_life_hours": 168.0,
+                "now_ms": "<TIMESTAMP>",
+                "offset_hours": 24.0
+              },
+              "source": "double relevance = _score;long now = params.now_ms;long created = doc['created_at'].value.toInstant().toEpochMilli();double ageHours = (now - created) / 3600000.0;double decay = Math.exp(-0.693 * Math.max(0, ageHours - params.offset_hours) / params.half_life_hours);return relevance * decay;"
+            }
+          }
+        },
+        "size": 5,
+        "sort": [
+          {
+            "_score": {
+              "order": "desc"
+            }
+          }
+        ]
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/agent-memory/_search"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error searching memories: RequestError(400, '{\"error\":{\"root_cause\":[{\"type\":\"search_phase_execution_exception\",\"reason\":\"all shards failed\",\"phase\":\"query\",\"grouped\":true,\"failed_shards\":[{\"shard\":0,\"index\":\"agent-memory\",\"reason\":{\"type\":\"illegal_argument_exception\",\"reason\":\"No field found for [created_at] in mapping\"}}]}],\"type\":\"search_phase_execution_exception\",\"reason\":\"all shards failed\",\"phase\":\"query\",\"grouped\":true,\"failed_shards\":[{\"shard\":0,\"index\":\"agent-memory\",\"reason\":{\"type\":\"illegal_argument_exception\",\"reason\":\"No field found for [created_at] in mapping\"}}]},\"status\":400}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "SearchMemoryTool"
+}

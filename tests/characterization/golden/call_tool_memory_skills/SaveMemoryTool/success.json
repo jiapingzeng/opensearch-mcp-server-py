@@ -1,0 +1,53 @@
+{
+  "arguments": {
+    "memory": "User prefers vegetarian food and is allergic to nuts",
+    "session_id": "session-42",
+    "tags": "preference, dietary,",
+    "user_id": "user-123"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "HEAD",
+      "params": {},
+      "path": "/agent-memory"
+    },
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "created_at": "<TIMESTAMP>",
+        "memory_text": "User prefers vegetarian food and is allergic to nuts",
+        "session_id": "session-42",
+        "tags": [
+          "preference",
+          "dietary"
+        ],
+        "updated_at": "<TIMESTAMP>",
+        "user_id": "user-123"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {},
+      "path": "/agent-memory/_doc"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Memory saved (id: mem-7Kx2):\n\"User prefers vegetarian food and is allergic to nuts\"",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "SaveMemoryTool"
+}

@@ -1,0 +1,39 @@
+{
+  "arguments": {
+    "baseTimeRangeEnd": "2020-01-01 09:30:00",
+    "baseTimeRangeStart": "2020-01-01 09:00:00",
+    "index": "logs-app",
+    "logFieldName": "message",
+    "selectionTimeRangeEnd": "2020-01-01 10:30:00",
+    "selectionTimeRangeStart": "2020-01-01 10:00:00",
+    "timeField": "@timestamp"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": {
+        "query": "source=logs-app | where @timestamp>'2020-01-01T09:00:00.000Z' and @timestamp<'2020-01-01T09:30:00.000Z' | fields message | patterns message method=brain mode=aggregation variable_count_threshold=3 | fields pattern_count, patterns_field"
+      },
+      "body_format": "json",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "POST",
+      "params": {
+        "format": "jdbc"
+      },
+      "path": "/_plugins/_ppl"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error executing LogPatternAnalysisTool: RequestError(400, '{\"error\":{\"reason\":\"Invalid Query\",\"details\":\"can\\'t resolve Symbol(namespace=FIELD_NAME, name=message) in type env\",\"type\":\"SemanticCheckException\"},\"status\":400}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "LogPatternAnalysisTool"
+}

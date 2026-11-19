@@ -1,0 +1,29 @@
+{
+  "arguments": {
+    "memory_id": "mem-7Kx2"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "DELETE",
+      "params": {},
+      "path": "/agent-memory/_doc/mem-7Kx2"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "Error deleting memory: NotFoundError(404, '{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [agent-memory]\",\"index\":\"agent-memory\",\"index_uuid\":\"_na_\",\"resource.id\":\"agent-memory\",\"resource.type\":\"index_or_alias\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [agent-memory]\",\"index\":\"agent-memory\",\"index_uuid\":\"_na_\",\"resource.id\":\"agent-memory\",\"resource.type\":\"index_or_alias\"},\"status\":404}')",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "tool": "DeleteMemoryTool"
+}

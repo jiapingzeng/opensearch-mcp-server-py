@@ -1,0 +1,31 @@
+{
+  "arguments": {
+    "query": "dietary preferences",
+    "size": 5,
+    "user_id": "user-123"
+  },
+  "requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "body": null,
+      "body_format": "none",
+      "host": "http://fake-opensearch.invalid:9200",
+      "method": "HEAD",
+      "params": {},
+      "path": "/agent-memory"
+    }
+  ],
+  "result": {
+    "content": [
+      {
+        "text": "No memories found. The memory index has not been created yet. Use SaveMemoryTool to store your first memory.",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete"
+  },
+  "tool": "SearchMemoryTool"
+}
