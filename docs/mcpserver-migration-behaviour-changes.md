@@ -158,6 +158,30 @@ server behaviour change:
 
 **Upstream**: Not opened yet: the user decides.
 
+### Fix 27: generated tools send the `timeout` argument to OpenSearch
+
+**What changed**: Before, a tool generated from the OpenAPI spec (such as
+`ClusterHealthTool`) called with `timeout`, OpenSearch's own wait timeout such as `5s`,
+never sent it: opensearch-py's transport took `timeout` out of the query parameters and
+used it as the HTTP client timeout, so `GET /_cluster/health` went out without
+`?timeout=5s`, and against a real cluster the string `5s` as a client timeout failed the
+call. Now `timeout` is sent as a query parameter (`/_cluster/health?timeout=5s`) and the
+HTTP client timeout stays the one the client is configured with (`OPENSEARCH_TIMEOUT` or
+its default, for example). A call without `timeout` sends the same request as before.
+
+**Why**: Bug fix: the documented `timeout` parameter did not reach OpenSearch and broke the
+call. Found by the call_tool characterization review (06), finding (a).
+
+**Who is affected**: Clients passing `timeout` to a generated tool; their calls now reach
+the cluster with the wait timeout they asked for. No config or client action is needed.
+
+**Tests and goldens**: Unit tests in `tests/tools/test_tool_generator.py`. No golden
+changed, added or deleted: no characterization case passes `timeout` (the
+`generated/ClusterHealthTool` cases in `tests/characterization/test_call_tool_core.py`
+leave it out because of this bug).
+
+**Upstream**: Not opened yet: the user decides.
+
 ## Migration steps (issue #34)
 
 Each migration step adds one line here.

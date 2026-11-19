@@ -18,6 +18,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - Fix tools generated from the OpenAPI spec sending every omitted optional query parameter as the literal string `None` (e.g. `/_count?allow_no_indices=None`); omitted parameters are no longer sent, while `False`, `0` and empty values still are
 - Fix the generic API tool dropping the request body on GET, so a `GET /_search` with a query ran match-all; GET now sends the body as documented, and DELETE and HEAD still send none
 - Fix a connection failure (refused, reset, timed out or a certificate fingerprint mismatch) being sent twice per transport try, once by the streaming connection and again by its fallback; each try is now sent once, and the error returned to the client is unchanged
+- Fix tools generated from the OpenAPI spec dropping the caller's `timeout` argument (e.g. `ClusterHealthTool` with `timeout: '5s'`) from the request and using it as the HTTP client timeout, which failed the call; `timeout` is now sent to OpenSearch as a query parameter and the client timeout stays the configured one
 
 ### Removed
 

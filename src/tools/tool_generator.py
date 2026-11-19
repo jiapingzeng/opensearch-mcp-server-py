@@ -270,9 +270,15 @@ def generate_tool_from_group(base_name: str, endpoints: List[Dict]) -> Dict[str,
                 # Drop the query parameters the caller left out (None), so they are not sent
                 params_dict = {k: v for k, v in params_dict.items() if v is not None}
 
+                # A caller's `timeout` is OpenSearch's query parameter: pass the client's
+                # configured timeout, so the transport does not take it as the client timeout
+                transport_options = {}
+                if 'timeout' in params_dict:
+                    transport_options['timeout'] = request_client.transport.kwargs.get('timeout')
+
                 # Execute the OpenSearch API request
                 response = await request_client.transport.perform_request(
-                    method=method, url=api_path, params=params_dict, body=body
+                    method=method, url=api_path, params=params_dict, body=body, **transport_options
                 )
 
                 return [
