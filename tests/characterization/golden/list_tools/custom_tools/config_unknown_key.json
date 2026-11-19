@@ -1,0 +1,28 @@
+{
+  "error": {
+    "message": "Invalid field 'http_methods' for tool 'ListIndexTool' in config file. Only 'display_name', 'description' and 'args' are supported.",
+    "type": "ValueError"
+  },
+  "inputs": {
+    "cli_overrides": null,
+    "config": {
+      "tools": {
+        "ListIndexTool": {
+          "http_methods": "POST"
+        }
+      }
+    },
+    "config_file_missing": false,
+    "env": {
+      "OPENSEARCH_NO_AUTH": "true"
+    },
+    "memory_tools_enabled": false,
+    "mode": "single",
+    "openapi_unavailable": false,
+    "opensearch_version": "3.1.0"
+  },
+  "list_error": null,
+  "opensearch_requests": [],
+  "result": null,
+  "tool_names": null
+}

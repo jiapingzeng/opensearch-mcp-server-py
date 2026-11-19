@@ -1,0 +1,298 @@
+{
+  "error": null,
+  "inputs": {
+    "cli_overrides": null,
+    "config": null,
+    "config_file_missing": false,
+    "env": {
+      "OPENSEARCH_DISABLED_CATEGORIES": "core_tools",
+      "OPENSEARCH_ENABLED_CATEGORIES": "observability,skills",
+      "OPENSEARCH_NO_AUTH": "true"
+    },
+    "memory_tools_enabled": false,
+    "mode": "single",
+    "openapi_unavailable": false,
+    "opensearch_version": "3.1.0"
+  },
+  "list_error": null,
+  "opensearch_requests": [
+    {
+      "auth": {
+        "kind": "none"
+      },
+      "method": "GET",
+      "path": "/"
+    }
+  ],
+  "result": {
+    "cacheScope": "private",
+    "resultType": "complete",
+    "tools": [
+      {
+        "description": "Analyzes the frequency distribution of categorical field values (e.g. service names, error codes, status values) and identifies which values shifted most between a baseline and an anomaly window. Provide a baseline time range to get a ranked list of field-value changes sorted by divergence score; omit baseline for a single-window frequency snapshot. Works on any index with keyword/boolean/numeric fields. Note: this tool measures value frequency changes, NOT latency or duration. A service appearing more frequently in traces does not necessarily mean it is the root cause — always cross-check with latency data (e.g. SearchIndexTool sorted by duration).",
+        "inputSchema": {
+          "description": "Arguments for the DataDistributionTool.",
+          "properties": {
+            "baselineTimeRangeEnd": {
+              "default": "",
+              "description": "End time for baseline period (format: yyyy-MM-dd HH:mm:ss)",
+              "title": "Baselinetimerangeend",
+              "type": "string"
+            },
+            "baselineTimeRangeStart": {
+              "default": "",
+              "description": "Start time for baseline period (format: yyyy-MM-dd HH:mm:ss)",
+              "title": "Baselinetimerangestart",
+              "type": "string"
+            },
+            "dsl": {
+              "default": "",
+              "description": "Complete DSL query as JSON string",
+              "title": "Dsl",
+              "type": "string"
+            },
+            "filter": {
+              "default": "",
+              "description": "Optional DSL filter clauses as JSON array. Target a business field (e.g. serviceName), NOT metadata fields like _id or _field_names. Example: [{\"term\":{\"serviceName\":\"ts-auth-service\"}}].",
+              "title": "Filter",
+              "type": "string"
+            },
+            "index": {
+              "description": "Target OpenSearch index name",
+              "title": "Index",
+              "type": "string"
+            },
+            "ppl": {
+              "default": "",
+              "description": "PPL query without time filtering (added automatically)",
+              "title": "Ppl",
+              "type": "string"
+            },
+            "queryType": {
+              "default": "dsl",
+              "description": "Query type: 'dsl' (default) or 'ppl'",
+              "title": "Querytype",
+              "type": "string"
+            },
+            "selectionTimeRangeEnd": {
+              "description": "End time for analysis period (format: yyyy-MM-dd HH:mm:ss)",
+              "title": "Selectiontimerangeend",
+              "type": "string"
+            },
+            "selectionTimeRangeStart": {
+              "description": "Start time for analysis period (format: yyyy-MM-dd HH:mm:ss)",
+              "title": "Selectiontimerangestart",
+              "type": "string"
+            },
+            "size": {
+              "default": 1000,
+              "description": "Maximum number of documents to analyze",
+              "title": "Size",
+              "type": "integer"
+            },
+            "timeField": {
+              "description": "Date/time field for filtering(required)",
+              "title": "Timefield",
+              "type": "string"
+            }
+          },
+          "required": [
+            "index",
+            "selectionTimeRangeStart",
+            "selectionTimeRangeEnd",
+            "timeField"
+          ],
+          "title": "DataDistributionToolArgs",
+          "type": "object"
+        },
+        "name": "DataDistributionTool"
+      },
+      {
+        "description": "Clusters raw log messages into patterns using ML, then highlights which patterns are new or surging compared to a baseline period. Supports three modes: (1) Insight mode (no baseline): extracts and ranks all patterns in the target window; (2) Diff mode (with baseline, no trace): shows patterns that appeared or surged; (3) Sequence mode (with baseline + traceFieldName): finds anomalous request sequences. Useful for discovering error patterns without knowing specific keywords upfront.",
+        "inputSchema": {
+          "description": "Arguments for the LogPatternAnalysisTool.",
+          "properties": {
+            "baseTimeRangeEnd": {
+              "default": "",
+              "description": "End time for baseline comparison period (format: yyyy-MM-dd HH:mm:ss)",
+              "title": "Basetimerangeend",
+              "type": "string"
+            },
+            "baseTimeRangeStart": {
+              "default": "",
+              "description": "Start time for baseline comparison period (format: yyyy-MM-dd HH:mm:ss)",
+              "title": "Basetimerangestart",
+              "type": "string"
+            },
+            "filter": {
+              "default": "",
+              "description": "PPL boolean expression to filter logs (e.g. serviceName='ts-auth-service')",
+              "title": "Filter",
+              "type": "string"
+            },
+            "index": {
+              "description": "Target OpenSearch index name containing log data",
+              "title": "Index",
+              "type": "string"
+            },
+            "logFieldName": {
+              "description": "Field containing raw log messages to analyze",
+              "title": "Logfieldname",
+              "type": "string"
+            },
+            "selectionTimeRangeEnd": {
+              "description": "End time for analysis target period (format: yyyy-MM-dd HH:mm:ss)",
+              "title": "Selectiontimerangeend",
+              "type": "string"
+            },
+            "selectionTimeRangeStart": {
+              "description": "Start time for analysis target period (format: yyyy-MM-dd HH:mm:ss)",
+              "title": "Selectiontimerangestart",
+              "type": "string"
+            },
+            "timeField": {
+              "description": "Date/time field for time-based filtering(required)",
+              "title": "Timefield",
+              "type": "string"
+            },
+            "traceFieldName": {
+              "default": "",
+              "description": "Field for trace/correlation ID (optional)",
+              "title": "Tracefieldname",
+              "type": "string"
+            }
+          },
+          "required": [
+            "index",
+            "logFieldName",
+            "selectionTimeRangeStart",
+            "selectionTimeRangeEnd",
+            "timeField"
+          ],
+          "title": "LogPatternAnalysisToolArgs",
+          "type": "object"
+        },
+        "name": "LogPatternAnalysisTool"
+      },
+      {
+        "description": "Compares percentile distributions (P50, P90) of ALL numeric fields between a baseline and an anomaly window, then returns the top fields ranked by change score. Provide two short time windows of similar duration (e.g. 15-30 min each): one before the anomaly (baseline) and one during (selection). Returns changeScore, P50/P90 values, and log-ratios for each field. IMPORTANT: ALWAYS pass timeField. Discover the time field first, being sure to find the correct field. Omitting timeField, or passing a field that is absent from the index, causes a 'No data found' error and leads to a wrong conclusion.",
+        "inputSchema": {
+          "description": "Arguments for the MetricChangeAnalysisTool.",
+          "properties": {
+            "baselineTimeRangeEnd": {
+              "description": "End of baseline period (format: yyyy-MM-dd HH:mm:ss). Should be at or before selectionTimeRangeStart",
+              "title": "Baselinetimerangeend",
+              "type": "string"
+            },
+            "baselineTimeRangeStart": {
+              "description": "Start of baseline period (format: yyyy-MM-dd HH:mm:ss)",
+              "title": "Baselinetimerangestart",
+              "type": "string"
+            },
+            "dsl": {
+              "default": "",
+              "description": "Complete raw DSL query as JSON string (optional)",
+              "title": "Dsl",
+              "type": "string"
+            },
+            "filter": {
+              "default": "",
+              "description": "Optional DSL filter, a single JSON object or a JSON array of clauses. Target a business field (e.g. serviceName), NOT metadata fields like _id. Example: {\"term\":{\"serviceName\":\"ts-auth-service\"}}.",
+              "title": "Filter",
+              "type": "string"
+            },
+            "groupBy": {
+              "description": "Optional categorical keyword fields to bucket by before computing percentiles. Leave empty when the index has many numeric columns (metric identity is in the column name); pass dimensions like service_name / cmdb_id / kpi_name when there are few numeric columns so distinct services / hosts / KPIs are not blended. Never pass time/date fields. Output `field` becomes \"<group>_<column>\" (or \"<g1>|<g2>_<column>\" for multiple).",
+              "items": {
+                "type": "string"
+              },
+              "title": "Groupby",
+              "type": "array"
+            },
+            "index": {
+              "description": "Target OpenSearch index name",
+              "title": "Index",
+              "type": "string"
+            },
+            "ppl": {
+              "default": "",
+              "description": "Complete PPL statement without time information (optional)",
+              "title": "Ppl",
+              "type": "string"
+            },
+            "queryType": {
+              "default": "dsl",
+              "description": "Query type: 'ppl' or 'dsl' (default: 'dsl')",
+              "title": "Querytype",
+              "type": "string"
+            },
+            "selectionTimeRangeEnd": {
+              "description": "End of target period (format: yyyy-MM-dd HH:mm:ss)",
+              "title": "Selectiontimerangeend",
+              "type": "string"
+            },
+            "selectionTimeRangeStart": {
+              "description": "Start of target period (format: yyyy-MM-dd HH:mm:ss)",
+              "title": "Selectiontimerangestart",
+              "type": "string"
+            },
+            "timeField": {
+              "description": "Date/time field for filtering",
+              "title": "Timefield",
+              "type": "string"
+            },
+            "topN": {
+              "default": 10,
+              "description": "Number of top fields to return, ranked by change score (default: 10)",
+              "title": "Topn",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "index",
+            "selectionTimeRangeStart",
+            "selectionTimeRangeEnd",
+            "timeField",
+            "baselineTimeRangeStart",
+            "baselineTimeRangeEnd"
+          ],
+          "title": "MetricChangeAnalysisToolArgs",
+          "type": "object"
+        },
+        "name": "MetricChangeAnalysisTool"
+      },
+      {
+        "description": "Executes a PPL (Piped Processing Language) query against OpenSearch. PPL provides a pipe-based syntax for querying data: source=<index> | <command> | <command>. Supports filtering (where), aggregation (stats), sorting (sort), deduplication (dedup), field selection (fields), and more. Useful for log analytics and exploratory data analysis.",
+        "inputSchema": {
+          "description": "Arguments for the PplQueryTool.",
+          "properties": {
+            "format": {
+              "default": "jdbc",
+              "description": "Response format: \"jdbc\" (default, tabular JSON with schema+datarows), \"csv\", or \"raw\" (pipe-delimited text).",
+              "title": "Format",
+              "type": "string"
+            },
+            "query": {
+              "description": "The PPL (Piped Processing Language) query to execute. PPL uses a pipe syntax: source=<index> | <command> | <command>. Examples: \"source=my_index | where status=200 | stats count() by host\", \"source=logs-* | where timestamp > '2024-01-01' | sort - timestamp | head 20\"",
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "title": "PplQueryArgs",
+          "type": "object"
+        },
+        "name": "PPLQueryTool"
+      }
+    ],
+    "ttlMs": 0
+  },
+  "tool_names": [
+    "DataDistributionTool",
+    "LogPatternAnalysisTool",
+    "MetricChangeAnalysisTool",
+    "PPLQueryTool"
+  ]
+}

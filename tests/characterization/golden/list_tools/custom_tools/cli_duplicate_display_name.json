@@ -1,0 +1,25 @@
+{
+  "error": {
+    "message": "Display name 'Same_Name' conflicts with another tool.",
+    "type": "ValueError"
+  },
+  "inputs": {
+    "cli_overrides": {
+      "tool.GetShardsTool.display_name": "Same_Name",
+      "tool.ListIndexTool.display_name": "Same_Name"
+    },
+    "config": null,
+    "config_file_missing": false,
+    "env": {
+      "OPENSEARCH_NO_AUTH": "true"
+    },
+    "memory_tools_enabled": false,
+    "mode": "single",
+    "openapi_unavailable": false,
+    "opensearch_version": "3.1.0"
+  },
+  "list_error": null,
+  "opensearch_requests": [],
+  "result": null,
+  "tool_names": null
+}

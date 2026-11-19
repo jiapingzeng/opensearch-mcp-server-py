@@ -1,0 +1,24 @@
+{
+  "error": {
+    "message": "Argument 'no_such_arg' does not exist on tool 'ListIndexTool'.",
+    "type": "ValueError"
+  },
+  "inputs": {
+    "cli_overrides": {
+      "tool.ListIndexTool.args.no_such_arg.description": "Description."
+    },
+    "config": null,
+    "config_file_missing": false,
+    "env": {
+      "OPENSEARCH_NO_AUTH": "true"
+    },
+    "memory_tools_enabled": false,
+    "mode": "single",
+    "openapi_unavailable": false,
+    "opensearch_version": "3.1.0"
+  },
+  "list_error": null,
+  "opensearch_requests": [],
+  "result": null,
+  "tool_names": null
+}
