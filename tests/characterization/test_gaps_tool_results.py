@@ -167,8 +167,10 @@ ERROR_BODY_CASES = [
 
 @pytest.mark.parametrize('case', ERROR_BODY_CASES, ids=lambda case: case.name)
 async def test_tool_error_body_with_http_200(run_case, case):
-    """Gap 1: GetShards, GetSegments, CatNodes, GetAllocation, GetNodes, GetLongRunningTasks
-    answering HTTP 200 with a body ``{"error": ...}``."""
+    """Gap 1: six tools answering HTTP 200 with a body ``{"error": ...}``.
+
+    GetShards, GetSegments, CatNodes, GetAllocation, GetNodes and GetLongRunningTasks.
+    """
     await run_case(case)
 
 
@@ -373,10 +375,10 @@ async def test_generated_tool_endpoint_selection_fallback(run_case, case):
 
 @pytest.fixture
 def body_path_param_spec(pinned_openapi, tmp_path):
-    """Serve the pinned ``_core.yaml`` and a ``cluster.yaml`` whose ``cluster.health`` group
-    has a path parameter named ``body``.
+    """Serve the pinned ``_core.yaml`` and a ``cluster.yaml`` with a ``{body}`` path parameter.
 
-    ``tool_func`` takes ``body`` (and the connection arguments) out of the call's parameters
+    In that ``cluster.yaml``, the ``cluster.health`` group has ``/_cluster/health`` and
+    ``/_cluster/health/{body}``. ``tool_func`` takes ``body`` (and the connection arguments) out of the call's parameters
     before it fills the path in, so a path parameter with that name is the one way a path
     parameter can be missing from them: every other one is there, as ``None`` when left out.
     """
