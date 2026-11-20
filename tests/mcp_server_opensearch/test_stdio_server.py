@@ -54,7 +54,7 @@ def mock_generate_tools():
         return None
 
     with patch(
-        'mcp_server_opensearch.stdio_server.generate_tools_from_openapi',
+        'mcp_server_opensearch.server_factory.generate_tools_from_openapi',
         side_effect=mock_gen_tools,
     ):
         yield
@@ -76,7 +76,7 @@ def mock_server():
     # Make the mock class return our mock instance
     mock.return_value = mock_instance
 
-    with patch('mcp_server_opensearch.stdio_server.Server', mock):
+    with patch('mcp_server_opensearch.server_factory.Server', mock):
         yield mock  # Return the mock class
 
 
@@ -102,7 +102,7 @@ def mock_tool_registry():
         return MOCK_TOOL_REGISTRY
 
     with patch(
-        'mcp_server_opensearch.stdio_server.get_tools',
+        'mcp_server_opensearch.server_factory.get_tools',
         side_effect=mock_get_tools,
     ):
         yield MOCK_TOOL_REGISTRY

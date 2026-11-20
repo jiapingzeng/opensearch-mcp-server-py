@@ -41,10 +41,10 @@ class TestMCPServer:
         }
 
     @pytest.mark.asyncio
-    @patch('mcp_server_opensearch.streaming_server.apply_custom_tool_config')
-    @patch('mcp_server_opensearch.streaming_server.get_tools')
-    @patch('mcp_server_opensearch.streaming_server.generate_tools_from_openapi')
-    @patch('mcp_server_opensearch.streaming_server.load_clusters_from_yaml')
+    @patch('mcp_server_opensearch.server_factory.apply_custom_tool_config')
+    @patch('mcp_server_opensearch.server_factory.get_tools')
+    @patch('mcp_server_opensearch.server_factory.generate_tools_from_openapi')
+    @patch('mcp_server_opensearch.server_factory.load_clusters_from_yaml')
     async def test_create_mcp_server(
         self,
         mock_load_clusters,
@@ -76,9 +76,9 @@ class TestMCPServer:
         )
 
     @pytest.mark.asyncio
-    @patch('mcp_server_opensearch.streaming_server.get_tools')
-    @patch('mcp_server_opensearch.streaming_server.generate_tools_from_openapi')
-    @patch('mcp_server_opensearch.streaming_server.load_clusters_from_yaml')
+    @patch('mcp_server_opensearch.server_factory.get_tools')
+    @patch('mcp_server_opensearch.server_factory.generate_tools_from_openapi')
+    @patch('mcp_server_opensearch.server_factory.load_clusters_from_yaml')
     async def test_list_tools(
         self, mock_load_clusters, mock_generate_tools, mock_get_tools, mock_tool_registry
     ):
@@ -111,9 +111,9 @@ class TestMCPServer:
         assert tools[0].input_schema == {'type': 'object'}
 
     @pytest.mark.asyncio
-    @patch('mcp_server_opensearch.streaming_server.get_tools')
-    @patch('mcp_server_opensearch.streaming_server.generate_tools_from_openapi')
-    @patch('mcp_server_opensearch.streaming_server.load_clusters_from_yaml')
+    @patch('mcp_server_opensearch.server_factory.get_tools')
+    @patch('mcp_server_opensearch.server_factory.generate_tools_from_openapi')
+    @patch('mcp_server_opensearch.server_factory.load_clusters_from_yaml')
     async def test_call_tool(
         self, mock_load_clusters, mock_generate_tools, mock_get_tools, mock_tool_registry
     ):
@@ -147,17 +147,17 @@ class TestMCPStarletteApp:
         # Mock dependencies
         with (
             patch(
-                'mcp_server_opensearch.streaming_server.get_tools',
+                'mcp_server_opensearch.server_factory.get_tools',
                 new_callable=AsyncMock,
                 return_value={},
             ),
             patch(
-                'mcp_server_opensearch.streaming_server.generate_tools_from_openapi',
+                'mcp_server_opensearch.server_factory.generate_tools_from_openapi',
                 new_callable=AsyncMock,
                 return_value=None,
             ),
             patch(
-                'mcp_server_opensearch.streaming_server.load_clusters_from_yaml',
+                'mcp_server_opensearch.server_factory.load_clusters_from_yaml',
                 new_callable=AsyncMock,
                 return_value=None,
             ),
@@ -250,11 +250,11 @@ async def test_serve():
     with (
         patch('uvicorn.Server', return_value=mock_server) as mock_server_class,
         patch('uvicorn.Config', return_value=mock_config) as mock_config_class,
-        patch('mcp_server_opensearch.streaming_server.get_tools', return_value={}),
+        patch('mcp_server_opensearch.server_factory.get_tools', return_value={}),
         patch(
-            'mcp_server_opensearch.streaming_server.generate_tools_from_openapi', return_value=None
+            'mcp_server_opensearch.server_factory.generate_tools_from_openapi', return_value=None
         ),
-        patch('mcp_server_opensearch.streaming_server.load_clusters_from_yaml', return_value=None),
+        patch('mcp_server_opensearch.server_factory.load_clusters_from_yaml', return_value=None),
     ):
         await serve(host='localhost', port=8000)
 

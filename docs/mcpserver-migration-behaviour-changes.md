@@ -268,6 +268,7 @@ Each migration step adds one line here.
 
 | Step | Spec | Visible change | Characterization |
 |------|------|----------------|------------------|
+| shared server factory (still the low-level Server) | `15-mcpserver-server-factory` | None | 760 passed, 0 skipped, every golden unchanged |
 
 ## Known, unchanged
 
