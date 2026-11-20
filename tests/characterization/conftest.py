@@ -944,6 +944,7 @@ _TRACKED_SCALARS = (
     (global_state, '_current_profile'),
     (global_state, '_current_config_file_path'),
     (tool_filter, '_resolved_allow_write_setting'),
+    (tool_config, '_resolved_memory_container_id'),
 )
 
 _CONTEXT_VARS = ((client_name_var, 'unknown'), (request_context_var, None))
