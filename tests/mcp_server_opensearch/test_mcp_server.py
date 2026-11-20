@@ -11,6 +11,7 @@ from mcp.client._memory import InMemoryTransport
 from mcp.server.lowlevel.server import NotificationOptions
 from mcp.server.mcpserver import Context, MCPServer, RequestStateBoundary
 from mcp.shared.exceptions import MCPError
+from mcp.shared.memory import create_client_server_memory_streams
 from mcp.shared.message import SessionMessage
 from mcp.types import TextContent
 from mcp_server_opensearch import mcp_server as mcp_server_module
@@ -580,3 +581,95 @@ async def test_unserved_methods_answer_method_not_found(method, params, version)
 
     assert answer['error']['code'] == -32601
     assert answer['error']['message'] == 'Method not found'
+
+
+# --- run_streams: the stdio run, the low-level server with raise_exceptions=True ---
+
+
+def _leaves(error: BaseException) -> list[BaseException]:
+    """The exceptions in ``error``, nested exception groups flattened."""
+    if hasattr(error, 'exceptions'):
+        return [leaf for inner in error.exceptions for leaf in _leaves(inner)]
+    return [error]
+
+
+async def test_run_streams_runs_the_lowlevel_server_with_raise_exceptions(monkeypatch):
+    """run_streams: one low-level run on the streams, its own options, raise_exceptions=True."""
+    server = OpenSearchMCPServer({'Known': _tool()})
+    lowlevel = server._lowlevel_server
+    options = object()
+    run = AsyncMock()
+    monkeypatch.setattr(lowlevel, 'create_initialization_options', lambda: options)
+    monkeypatch.setattr(lowlevel, 'run', run)
+    read_stream, write_stream = object(), object()
+
+    await server.run_streams(read_stream, write_stream)
+
+    run.assert_awaited_once_with(read_stream, write_stream, options, raise_exceptions=True)
+
+
+async def _initialize_then(server, method: str, answers: list) -> BaseException | None:
+    """Run ``server.run_streams`` on memory streams: initialize, then ``method``; its error."""
+    async with create_client_server_memory_streams() as (client_streams, server_streams):
+        client_read, client_write = client_streams
+        server_read, server_write = server_streams
+
+        async def drive() -> None:
+            init = {
+                'protocolVersion': HANDSHAKE_VERSION,
+                'capabilities': {},
+                'clientInfo': CLIENT_INFO,
+            }
+            await client_write.send(
+                SessionMessage(
+                    JSONRPCRequest(jsonrpc='2.0', id=0, method='initialize', params=init)
+                )
+            )
+            answers.append((await client_read.receive()).message)
+            await client_write.send(
+                SessionMessage(
+                    JSONRPCNotification(jsonrpc='2.0', method='notifications/initialized')
+                )
+            )
+            await client_write.send(
+                SessionMessage(JSONRPCRequest(jsonrpc='2.0', id=1, method=method, params={}))
+            )
+            answers.append((await client_read.receive()).message)
+            # EOF on the server's read side: a server still running ends its run.
+            await client_write.aclose()
+
+        try:
+            with anyio.fail_after(10):
+                async with anyio.create_task_group() as tg:
+                    tg.start_soon(drive)
+                    await server.run_streams(server_read, server_write)
+        except BaseException as error:  # what the run raised is what the tests check
+            return error
+    return None
+
+
+async def test_run_streams_serves_until_the_read_side_closes():
+    """run_streams: initialize and tools/list are answered; EOF ends the run without error."""
+    server = OpenSearchMCPServer({'Known': _tool()})
+    answers = []
+
+    error = await _initialize_then(server, 'tools/list', answers)
+
+    assert error is None
+    assert answers[0].result['serverInfo'] == {'name': 'opensearch-mcp-server', 'version': ''}
+    assert [t['name'] for t in answers[1].result['tools']] == ['Known']
+
+
+async def test_run_streams_ends_on_a_non_mcp_exception_in_an_sdk_handler(monkeypatch):
+    """run_streams: a non-MCP exception inside an SDK handler ends the run (stdio parity)."""
+    server = OpenSearchMCPServer({'Known': _tool()})
+    monkeypatch.setattr(
+        server, 'list_tools', AsyncMock(side_effect=RuntimeError('handler failed'))
+    )
+    answers = []
+
+    error = await _initialize_then(server, 'tools/list', answers)
+
+    # raise_exceptions=True: the exception leaves run_streams, so serve() and the process end.
+    assert error is not None
+    assert [repr(e) for e in _leaves(error)] == [repr(RuntimeError('handler failed'))]

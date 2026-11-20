@@ -5,7 +5,9 @@ import asyncio
 import os
 import pytest
 from contextlib import asynccontextmanager
+from mcp.server.lowlevel.server import Server
 from mcp.types import TextContent
+from mcp_server_opensearch.mcp_server import OpenSearchMCPServer
 from unittest.mock import AsyncMock, Mock, patch
 
 
@@ -61,44 +63,75 @@ def mock_generate_tools():
 
 
 @pytest.fixture
-def mock_server():
-    """Replace OpenSearchMCPServer in the factory; the transport runs its low-level server."""
-    # Create mock class and instance
-    mock = Mock()
-    mock_instance = Mock()
-    lowlevel = mock_instance._lowlevel_server
-
-    # Set up the low-level server's create_initialization_options and run
-    lowlevel.create_initialization_options.return_value = {
-        'protocolVersion': '1.0',
-        'serverInfo': {'name': 'test-server', 'version': '1.0'},
-    }
-    lowlevel.run = AsyncMock()
-
-    # Make the mock class return our mock instance
-    mock.return_value = mock_instance
-
-    with patch('mcp_server_opensearch.server_factory.OpenSearchMCPServer', mock):
-        yield mock  # Return the mock class
-
-
-def _real_server(mock_server):
-    """A real OpenSearchMCPServer built from the enabled tools serve() passed to the class."""
-    from mcp_server_opensearch.mcp_server import OpenSearchMCPServer
-
-    (enabled_tools,) = mock_server.call_args.args
-    return OpenSearchMCPServer(enabled_tools)
+def events():
+    """What happens, in order: the stdio context, the memory monitor and the low-level run."""
+    return []
 
 
 @pytest.fixture
-def mock_stdio():
+def lowlevel_run(events):
+    """Stub the low-level Server.run that run_streams calls; the mock records its arguments."""
+
+    async def run(*args, **kwargs):
+        events.append('run')
+
+    with patch.object(Server, 'run', autospec=True, side_effect=run) as mock:
+        yield mock
+
+
+@pytest.fixture
+def served(lowlevel_run):
+    """Spy on OpenSearchMCPServer.run_streams: the real one runs, and each call records self."""
+    with patch.object(
+        OpenSearchMCPServer,
+        'run_streams',
+        autospec=True,
+        side_effect=OpenSearchMCPServer.run_streams,
+    ) as mock:
+        yield mock
+
+
+def _served_server(served) -> OpenSearchMCPServer:
+    """The server serve() actually ran: the self of its one run_streams call."""
+    served.assert_awaited_once()
+    server = served.call_args.args[0]
+    assert isinstance(server, OpenSearchMCPServer)
+    return server
+
+
+@pytest.fixture
+def monitor(events):
+    """Replace start_memory_monitor with a task that waits until it is cancelled."""
+    tasks = []
+
+    def finished(task):
+        events.append('monitor cancelled' if task.cancelled() else 'monitor ended')
+
+    def start():
+        events.append('monitor started')
+        task = asyncio.create_task(asyncio.Event().wait())
+        # Registered before serve() awaits the task, so it runs before serve() resumes.
+        task.add_done_callback(finished)
+        tasks.append(task)
+        return task
+
+    with patch('mcp_server_opensearch.logging_config.start_memory_monitor', side_effect=start):
+        yield tasks
+
+
+@pytest.fixture
+def mock_stdio(events):
     """Create mock stdio reader and writer."""
     reader = AsyncMock()
     writer = AsyncMock()
 
     @asynccontextmanager
     async def mock_context():
-        yield reader, writer
+        events.append('stdio entered')
+        try:
+            yield reader, writer
+        finally:
+            events.append('stdio exited')
 
     with patch('mcp_server_opensearch.stdio_server.stdio_server', mock_context):
         yield reader, writer
@@ -118,46 +151,54 @@ def mock_tool_registry():
         yield MOCK_TOOL_REGISTRY
 
 
-@pytest.mark.asyncio
-async def test_serve_initialization(
-    mock_server, mock_stdio, mock_tool_registry, mock_generate_tools
-):
-    """Test server initialization."""
-    reader, writer = mock_stdio
-
-    # Start the server
+async def _serve() -> None:
+    """Run serve() to its end: the stubbed low-level run returns at once."""
     from mcp_server_opensearch.stdio_server import serve
 
-    asyncio.create_task(serve())
+    await asyncio.wait_for(serve(), timeout=10)
 
-    # Wait for the server to start
-    await asyncio.sleep(0.1)
 
-    # Verify server was initialized correctly, from the enabled tools
-    mock_server.assert_called_once_with(MOCK_TOOL_REGISTRY)
-    lowlevel = mock_server.return_value._lowlevel_server
-    lowlevel.create_initialization_options.assert_called_once()
-    lowlevel.run.assert_awaited_once_with(
+@pytest.mark.asyncio
+async def test_serve_initialization(
+    served, lowlevel_run, monitor, events, mock_stdio, mock_tool_registry, mock_generate_tools
+):
+    """Test server initialization: from the enabled tools, monitored, raise_exceptions=True."""
+    reader, writer = mock_stdio
+
+    await _serve()
+
+    # The server serve() runs is built from the enabled tools and runs on the stdio streams
+    server = _served_server(served)
+    assert server.enabled_tools is MOCK_TOOL_REGISTRY
+    served.assert_awaited_once_with(server, reader, writer)
+    # run_streams runs the server's low-level server with raise_exceptions=True
+    lowlevel = server._lowlevel_server
+    lowlevel_run.assert_awaited_once_with(
+        lowlevel,
         reader,
         writer,
-        lowlevel.create_initialization_options.return_value,
+        lowlevel.create_initialization_options(),
         raise_exceptions=True,
     )
+    # The memory monitor starts inside the stdio context and is cancelled after the run
+    assert len(monitor) == 1
+    assert monitor[0].cancelled()
+    assert events == [
+        'stdio entered',
+        'monitor started',
+        'run',
+        'monitor cancelled',
+        'stdio exited',
+    ]
 
 
 @pytest.mark.asyncio
-async def test_list_tools(mock_server, mock_stdio, mock_tool_registry, mock_generate_tools):
+async def test_list_tools(served, monitor, mock_stdio, mock_tool_registry, mock_generate_tools):
     """Test list_tools functionality."""
-    reader, writer = mock_stdio
+    await _serve()
 
-    # Start the server
-    from mcp_server_opensearch.stdio_server import serve
-
-    asyncio.create_task(serve())
-    await asyncio.sleep(0.1)
-
-    # The server serve() built lists the enabled tools
-    tools = await _real_server(mock_server).list_tools()
+    # The server serve() ran lists the enabled tools
+    tools = await _served_server(served).list_tools()
     assert len(tools) == 1
     assert tools[0].name == 'test_tool'
     assert tools[0].description == 'Test tool'
@@ -165,57 +206,46 @@ async def test_list_tools(mock_server, mock_stdio, mock_tool_registry, mock_gene
 
 
 @pytest.mark.asyncio
-async def test_call_tool(mock_server, mock_stdio, mock_tool_registry, mock_generate_tools):
+async def test_call_tool(served, monitor, mock_stdio, mock_tool_registry, mock_generate_tools):
     """Test call_tool functionality."""
-    reader, writer = mock_stdio
+    await _serve()
 
-    # Start the server
-    from mcp_server_opensearch.stdio_server import serve
-
-    asyncio.create_task(serve())
-    await asyncio.sleep(0.1)
-
-    # Test the call_tool of the server serve() built
-    result = await _real_server(mock_server).call_tool('test_tool', {})
+    # Test the call_tool of the server serve() ran
+    result = await _served_server(served).call_tool('test_tool', {})
     assert result.is_error is False
     assert len(result.content) == 1
     assert result.content[0].text == 'test result'
 
 
 @pytest.mark.asyncio
-async def test_server_error_handling(mock_server, mock_stdio, mock_tool_registry):
-    """Test server error handling."""
-    reader, writer = mock_stdio
-
+async def test_server_error_handling(
+    served, lowlevel_run, monitor, events, mock_stdio, mock_tool_registry
+):
+    """Test server error handling: the run's exception ends serve(); the monitor is cancelled."""
     # Simulate an error in the server
-    mock_server.return_value._lowlevel_server.run.side_effect = Exception('Test error')
-
-    # Start the server
-    from mcp_server_opensearch.stdio_server import serve
+    lowlevel_run.side_effect = Exception('Test error')
 
     with pytest.raises(Exception, match='Test error'):
-        await serve()
+        await _serve()
+
+    assert len(monitor) == 1
+    assert monitor[0].cancelled()
+    assert events == ['stdio entered', 'monitor started', 'monitor cancelled', 'stdio exited']
 
 
 @pytest.mark.asyncio
 async def test_tool_execution_error(
-    mock_server, mock_stdio, mock_tool_registry, mock_generate_tools
+    served, monitor, mock_stdio, mock_tool_registry, mock_generate_tools
 ):
     """Test tool execution error handling."""
-    reader, writer = mock_stdio
-
     # Modify mock tool to raise an error
     mock_tool_registry['test_tool']['function'].side_effect = Exception('Tool error')
 
-    # Start the server
-    from mcp_server_opensearch.stdio_server import serve
-
-    asyncio.create_task(serve())
-    await asyncio.sleep(0.1)
+    await _serve()
 
     # Test tool execution error: the error text comes back as an isError result
     try:
-        result = await _real_server(mock_server).call_tool('test_tool', {})
+        result = await _served_server(served).call_tool('test_tool', {})
     finally:
         mock_tool_registry['test_tool']['function'].side_effect = None
     assert result.is_error is True

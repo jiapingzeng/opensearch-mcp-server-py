@@ -20,17 +20,15 @@ async def serve(
     enabled_tools = await prepare_enabled_tools(
         mode, profile, config_file_path, cli_tool_overrides
     )
-    # temporary: removed by 20-remove-lowlevel-server-path (stdio runs the low-level server)
-    server = build_server(enabled_tools)._lowlevel_server
+    server = build_server(enabled_tools)
 
     # Start stdio-based MCP server
     from mcp_server_opensearch.logging_config import start_memory_monitor
 
-    options = server.create_initialization_options()
     async with stdio_server() as (reader, writer):
         monitor_task = start_memory_monitor()
         try:
-            await server.run(reader, writer, options, raise_exceptions=True)
+            await server.run_streams(reader, writer)
         finally:
             monitor_task.cancel()
             try:
