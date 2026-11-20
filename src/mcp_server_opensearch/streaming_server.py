@@ -5,8 +5,7 @@ import asyncio
 import contextlib
 import logging
 import uvicorn
-from mcp.server.sse import SseServerTransport
-from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+from mcp.server.transport_security import TransportSecuritySettings
 from mcp_server_opensearch.client_context import ClientNameMiddleware
 from mcp_server_opensearch.mcp_server import OpenSearchMCPServer
 from mcp_server_opensearch.server_factory import build_server, prepare_enabled_tools
@@ -43,39 +42,30 @@ class _ASGIApp:
         await self._handler(scope, receive, send)
 
 
+# No DNS-rebinding protection, as before: a foreign Host or Origin is served like any other.
+# MCPServer's apps turn the protection on by themselves when the host is 127.0.0.1.
+_NO_DNS_REBINDING_PROTECTION = TransportSecuritySettings(enable_dns_rebinding_protection=False)
+
+
 class MCPStarletteApp:
     """Starlette application wrapper for the MCP server."""
 
     def __init__(self, mcp_server: OpenSearchMCPServer, stateless: bool = True):
         """Initialize the MCP Starlette application."""
         self.mcp_server = mcp_server
-        # temporary: removed by 20-remove-lowlevel-server-path (the transports run the
-        # low-level server)
-        self.lowlevel_server = mcp_server._lowlevel_server
-        self.sse = SseServerTransport('/messages/')
-        self.session_manager = StreamableHTTPSessionManager(
-            app=self.lowlevel_server,  # temporary: removed by 20-remove-lowlevel-server-path
-            event_store=None,
+        # MCPServer's own apps are not mounted (they would answer '/mcp/' with 307 and have no
+        # '/health'): only their session manager and SSE routes go into create_app's table.
+        mcp_server.streamable_http_app(
+            stateless_http=stateless,
             json_response=False,
-            stateless=stateless,
+            transport_security=_NO_DNS_REBINDING_PROTECTION,
         )
-
-    async def handle_sse(self, request: Request) -> Response:
-        """Handle SSE connection requests."""
-        async with self.sse.connect_sse(
-            request.scope,
-            request.receive,
-            request._send,
-        ) as (read_stream, write_stream):
-            # temporary: removed by 20-remove-lowlevel-server-path
-            await self.lowlevel_server.run(
-                read_stream,
-                write_stream,
-                self.lowlevel_server.create_initialization_options(),
-            )
-
-        # Done to prevent 'NoneType' errors. For more details: https://github.com/modelcontextprotocol/python-sdk/blob/main/src/mcp/server/sse.py#L33-L37
-        return Response()
+        self.session_manager = mcp_server.session_manager
+        # GET '/sse' (runs the server over the event stream) and the '/messages/' Mount.
+        self.sse_route, self.messages_mount = mcp_server.sse_app(
+            message_path='/messages/',
+            transport_security=_NO_DNS_REBINDING_PROTECTION,
+        ).routes
 
     async def handle_health(self, request: Request) -> Response:
         """Handle health check requests."""
@@ -112,9 +102,9 @@ class MCPStarletteApp:
         streamable_http_app = _ASGIApp(self.handle_streamable_http)
         app = Starlette(
             routes=[
-                Route('/sse', endpoint=self.handle_sse, methods=['GET']),
+                self.sse_route,
                 Route('/health', endpoint=self.handle_health, methods=['GET']),
-                Mount('/messages/', app=self.sse.handle_post_message),
+                self.messages_mount,
                 Route('/mcp', endpoint=streamable_http_app),
                 Mount('/mcp', app=streamable_http_app),
             ],
