@@ -270,6 +270,7 @@ Each migration step adds one line here.
 |------|------|----------------|------------------|
 | shared server factory (still the low-level Server) | `15-mcpserver-server-factory` | None | 760 passed, 0 skipped, every golden unchanged |
 | OpenSearchMCPServer on MCPServer (tools, call_tool, capabilities, request context) | `16-mcpserver-tool-registration` | None | 760 passed, 0 skipped, every golden unchanged |
+| tools/list keeps duplicate listed names (fix to step 16) | `16b-mcpserver-duplicate-tool-names` | None (restores the c71570c listing) | 766 passed, 0 skipped, every existing golden unchanged |
 
 ## Known, unchanged
 
