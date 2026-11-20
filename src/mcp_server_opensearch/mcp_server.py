@@ -4,10 +4,8 @@
 """The OpenSearch MCP server: a thin subclass of the MCP SDK's MCPServer."""
 
 from mcp.server.mcpserver import Context, MCPServer, RequestStateBoundary
-from mcp.server.mcpserver.tools import Tool
-from mcp.server.mcpserver.utilities.func_metadata import ArgModelBase, FuncMetadata
 from mcp.shared.exceptions import MCPError
-from mcp.types import CallToolResult, TextContent
+from mcp.types import CallToolResult, TextContent, Tool
 from mcp_server_opensearch.server_instructions import get_server_instructions
 from typing import Any
 
@@ -27,43 +25,16 @@ _UNSERVED_METHODS = (
 )
 
 
-async def _never_called(**kwargs: Any) -> Any:
-    """Tool.fn placeholder: OpenSearchMCPServer.call_tool runs every call itself."""
-    raise NotImplementedError('OpenSearchMCPServer.call_tool handles tool calls')
-
-
-def _build_tools(enabled_tools: dict) -> list[Tool]:
-    """One SDK Tool per enabled tool, in the dict's order, with its schema as it is.
-
-    Built without validation (model_construct), as the low-level server took the registry:
-    a field of the wrong type, such as a description the CLI parsed as a number, still
-    starts the server, and tools/list then fails when the listed Tool is validated (-32602).
-    """
-    return [
-        Tool.model_construct(
-            fn=_never_called,
-            name=info.get('display_name', key),
-            description=info['description'],
-            parameters=info['input_schema'],
-            # An empty FuncMetadata: no output schema, so no outputSchema in tools/list.
-            fn_metadata=FuncMetadata(arg_model=ArgModelBase),
-            is_async=True,
-        )
-        for key, info in enabled_tools.items()
-    ]
-
-
 class OpenSearchMCPServer(MCPServer):
     """MCPServer that lists and calls the enabled OpenSearch tools."""
 
     def __init__(self, enabled_tools: dict):
         """Build the server from the enabled tools, keeping them for call_tool."""
+        # No tools go to the SDK's ToolManager: it keys them by name, so of two enabled tools
+        # with the same listed name it would keep one and log "Tool already exists", where
+        # the low-level Server listed both. list_tools and call_tool are overridden instead.
         # Server instructions guide the LLM on dynamic connection params (single mode only)
-        super().__init__(
-            SERVER_NAME,
-            instructions=get_server_instructions(),
-            tools=_build_tools(enabled_tools),
-        )
+        super().__init__(SERVER_NAME, instructions=get_server_instructions())
         # Permanent: the SDK has no public way to unregister a handler, so the ones this
         # server does not serve are taken out of the low-level server's table directly.
         for method in _UNSERVED_METHODS:
@@ -76,6 +47,24 @@ class OpenSearchMCPServer(MCPServer):
             m for m in self.middleware if not isinstance(m, RequestStateBoundary)
         ]
         self.enabled_tools = enabled_tools
+
+    async def list_tools(self) -> list[Tool]:
+        """One Tool per enabled tool, in the dict's order, duplicate listed names included.
+
+        Overridden, as the low-level Server's tools/list handler was written: the name is the
+        display_name, else the registry key; the description and input_schema are as given,
+        with no outputSchema. Nothing is validated at startup: a field of the wrong type, such
+        as a description the CLI parsed as a number, still starts the server, and tools/list
+        then fails when this Tool is validated (-32602).
+        """
+        return [
+            Tool(
+                name=info.get('display_name', key),
+                description=info['description'],
+                input_schema=info['input_schema'],
+            )
+            for key, info in self.enabled_tools.items()
+        ]
 
     async def call_tool(
         self,

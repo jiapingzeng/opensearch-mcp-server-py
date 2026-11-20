@@ -1,0 +1,59 @@
+{
+  "already_exists_warnings": [],
+  "config": "tools:\n  ListIndexTool:\n    display_name: IndexMappingTool\n    description: ListIndexTool, listed as IndexMappingTool\n  IndexMappingTool:\n    description: IndexMappingTool, configured but not renamed\n",
+  "listed_under_shared_name": [
+    {
+      "description": "IndexMappingTool, configured but not renamed",
+      "inputSchema": {
+        "description": "Arguments for the GetIndexMappingTool.",
+        "properties": {
+          "index": {
+            "description": "The name of the index to get mapping information for",
+            "title": "Index",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index"
+        ],
+        "title": "GetIndexMappingArgs",
+        "type": "object"
+      },
+      "name": "IndexMappingTool"
+    }
+  ],
+  "logs": [
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Connected OpenSearch version: 3.1.0"
+    },
+    {
+      "level": "WARNING",
+      "logger": "root",
+      "message": "Both config file and environment variables are set. Using config file."
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Applied tool filter from <TMP>/config.yml"
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Enabled tools: ['IndexMappingTool', 'SearchIndexTool', 'GetShardsTool', 'GenericOpenSearchApiTool', 'ClusterHealthTool', 'CountTool', 'ExplainTool', 'MsearchTool']"
+    }
+  ],
+  "mode": "single",
+  "shared_name": "IndexMappingTool",
+  "tool_names": [
+    "IndexMappingTool",
+    "SearchIndexTool",
+    "GetShardsTool",
+    "GenericOpenSearchApiTool",
+    "ClusterHealthTool",
+    "CountTool",
+    "ExplainTool",
+    "MsearchTool"
+  ]
+}

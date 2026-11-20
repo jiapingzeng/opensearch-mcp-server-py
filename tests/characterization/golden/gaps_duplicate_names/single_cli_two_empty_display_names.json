@@ -1,0 +1,61 @@
+{
+  "already_exists_warnings": [],
+  "argv": [
+    "--tool.ListIndexTool.display_name=",
+    "--tool.IndexMappingTool.display_name="
+  ],
+  "listed_under_shared_name": [
+    {
+      "description": "Retrieves index mapping and setting information for an index in OpenSearch",
+      "inputSchema": {
+        "description": "Arguments for the GetIndexMappingTool.",
+        "properties": {
+          "index": {
+            "description": "The name of the index to get mapping information for",
+            "title": "Index",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index"
+        ],
+        "title": "GetIndexMappingArgs",
+        "type": "object"
+      },
+      "name": ""
+    }
+  ],
+  "logs": [
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Connected OpenSearch version: 3.1.0"
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Applied tool filter from environment variables"
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Enabled tools: ['', 'SearchIndexTool', 'GetShardsTool', 'GenericOpenSearchApiTool', 'ClusterHealthTool', 'CountTool', 'ExplainTool', 'MsearchTool']"
+    }
+  ],
+  "mode": "single",
+  "overrides": {
+    "tool.IndexMappingTool.display_name": "",
+    "tool.ListIndexTool.display_name": ""
+  },
+  "shared_name": "",
+  "tool_names": [
+    "",
+    "SearchIndexTool",
+    "GetShardsTool",
+    "GenericOpenSearchApiTool",
+    "ClusterHealthTool",
+    "CountTool",
+    "ExplainTool",
+    "MsearchTool"
+  ]
+}
