@@ -4,7 +4,8 @@
 """Smoke tests for the harness hooks the coverage gaps need (see conftest.py and README.md).
 
 - ``fake_opensearch.fail_streaming``: the streaming attempt of
-  ``BufferedAsyncHttpConnection.perform_request`` fails at the connection level and the
+  ``BufferedAsyncHttpConnection.perform_request`` fails with an unexpected error that is not
+  a connection failure (``RuntimeError``), which still reaches the fallback, and the
   fallback retry (``_fallback_perform_request``) is answered;
 - ``stdio_launcher(..., entry='module')``: the server started as
   ``python -m mcp_server_opensearch``;

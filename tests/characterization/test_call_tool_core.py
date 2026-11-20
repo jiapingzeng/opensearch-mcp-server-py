@@ -963,8 +963,8 @@ GENERIC_API_CASES = [
         {'path': '/_cluster/health', 'method': 'get'},
         (ok('GET', '/_cluster/health', CLUSTER_HEALTH),),
     ),
-    # characterization: current behaviour. A GET body is dropped (only POST, PUT and PATCH
-    # send one), although the `body` description says "Request body for GET/POST/PUT".
+    # A GET sends its body as JSON, as the `body` description ("Request body for
+    # GET/POST/PUT") says. The case id is historical: the body is no longer dropped.
     Case(
         'generic_api/get_body_dropped',
         'GenericOpenSearchApiTool',
@@ -1052,9 +1052,8 @@ async def test_generic_api_tool_headers(mcp_session, fake_opensearch, pin, reque
 MSEARCH_NDJSON = '{"index":"logs"}\n{"query":{"match_all":{}}}\n'
 MSEARCH_ITEMS = [{'index': 'logs'}, {'query': {'match_all': {}}}]
 
-# characterization: current behaviour. A generated tool sends every query parameter of its
-# OpenAPI operation, and each one the caller left out as the literal string "None"
-# (`/_count?allow_no_indices=None&...`), which OpenSearch rejects for typed parameters.
+# A generated tool sends only the query parameters the caller sets (`q=level:error` on
+# `/logs/_count`); the ones left out are not sent.
 # Each call opens a client, then checks the version (GET /) before any body is processed.
 GENERATED_CASES = [
     # MsearchTool: body as NDJSON, as a JSON array and as a string holding a JSON array.
@@ -1141,11 +1140,9 @@ GENERATED_CASES = [
         is_error=True,
     ),
     # ClusterHealthTool: endpoint selection without and with the {index} path param.
-    # characterization: current behaviour. The generated tools' `timeout` parameter never
-    # reaches OpenSearch: opensearch-py's transport takes it out of the query params as the
-    # client request timeout, so a string such as '5s' ends up in aiohttp.ClientTimeout and
-    # fails against a real session (the fake drops transport options). The `with_timeout`
-    # case pins it: its recorded request has no `timeout` query parameter.
+    # The generated tools' `timeout` argument goes to OpenSearch as a query parameter, and
+    # the client request timeout stays the configured one. The `with_timeout` case pins it:
+    # its recorded `/_cluster/health` request has `timeout=5s` in its query parameters.
     Case(
         'generated/ClusterHealthTool/without_index',
         'ClusterHealthTool',
@@ -1213,10 +1210,8 @@ ERROR_CASES = [
         env={**ALLOW_WRITE_OFF, **enable('CreateQuerySetTool')},
         is_error=True,
     ),
-    # characterization: current behaviour. The connection breaks before any response:
-    # opensearch-py's transport tries four times, and each try is sent twice, because
-    # BufferedAsyncHttpConnection falls back to the parent implementation after its own
-    # request fails, so OpenSearch would see eight requests.
+    # The connection breaks before any response: opensearch-py's transport tries four
+    # times and each try is sent once, so OpenSearch sees four `/_cat/indices` requests.
     Case(
         'errors/connection_failure',
         'ListIndexTool',

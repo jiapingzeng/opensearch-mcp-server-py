@@ -497,12 +497,11 @@ MEMORY_CASES = (
         SAVE_ARGS,
         (MEMORY_INDEX_MISSING,),
     ),
-    # characterization: current behaviour. First use with the domain named: the tool calls
-    # boto3's `opensearch` create_index with camelCase parameters (domainName, indexName,
-    # indexSchema) where the API takes DomainName, IndexName and IndexSchema, so botocore's
-    # parameter validation rejects the call before it is signed or sent: on a managed domain
-    # the memory index is never auto-created. test_gaps_memory_index.py pins that this holds
-    # with credentials and whatever the service would answer (boto3_stub).
+    # First use with the domain named: the tool calls boto3's `opensearch` create_index with
+    # DomainName, IndexName and IndexSchema, but the harness has no AWS credentials, so the
+    # call fails at signing before it is sent and the save fails ("Unable to locate
+    # credentials"). With credentials and boto3 answered (boto3_stub), the call sent and the
+    # memory indexed are pinned in test_gaps_memory_index.py.
     Case(
         'SaveMemoryTool',
         'index_auto_create_domain',
@@ -950,11 +949,9 @@ async def test_agentic_memory_tool_call(mcp_session, fake_opensearch, golden, no
 GET_WITHOUT_CONTAINER = {'type': 'working', 'id': 'XyEuiJkBeh2gPPwzjYWM'}
 
 
-# characterization: current behaviour. A memory_container_id in the config file's
-# `agentic_memory` section becomes the schema default (tools/list shows it, no longer
-# required), but the args model injects a default from OPENSEARCH_MEMORY_CONTAINER_ID only
-# (get_memory_container_id_from_config() is called without the config path), so a call that
-# relies on the advertised default fails validation without reaching OpenSearch.
+# A memory_container_id in the config file's `agentic_memory` section becomes the schema
+# default (tools/list shows it, no longer required), and a call that leaves the field out
+# uses it: the call reaches OpenSearch with the configured container id.
 async def test_agentic_memory_container_id_default_from_config_file(
     mcp_session, fake_opensearch, golden, normalize, tmp_path
 ):
