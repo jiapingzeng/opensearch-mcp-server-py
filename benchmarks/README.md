@@ -12,14 +12,28 @@ low-level `Server`?); the findings are in
 uv run --offline python scripts/bench_tools_call.py --quick   # 2 rounds: checks that it runs
 uv run --offline python scripts/bench_tools_call.py           # full run, 30 rounds
 uv run --offline python scripts/bench_tools_call.py --profile memory-concurrent-n50-0ms
+uv run --offline python scripts/bench_tools_call.py --context-cost  # one SDK Context, unprofiled
 ```
 
 The full run takes about an hour on a loaded host (each round runs every workload on every
 tree) and writes `benchmarks/results/tools_call.json`; `--quick` writes to the temp
-directory. Options: `--rev REV` adds a revision (repeatable), `--only-revs` runs only the
-`--rev` ones, `--rounds N` (at least 30 for a full run), `--transport memory|http`,
-`--warmup N` (untimed calls per session, default 2), `--batches N` (timed batches per
-session, default 1), `--out PATH`. Standard library only, no new dependency.
+directory. The results file is rewritten after every round, so a run that fails in a late
+round keeps the rounds it finished (`meta.rounds_done`; `meta.complete` is true only when
+every round ran). Options: `--rev REV` adds a revision (repeatable), `--only-revs` runs
+only the `--rev` ones (it needs at least one), `--rounds N` (30 by default; fewer only
+with an `--out` other than `tools_call.json`), `--transport memory|http`, `--warmup N`
+(untimed calls per session, default 2), `--batches N` (timed batches per session, default
+1), `--candidate REV` and `--reference REV` (the trees the verdict compares, default
+`18b7002` and `c71570c`; both must be in the run), `--out PATH`. Standard library only, no
+new dependency.
+
+The step 18 transport check (`tools_call_http_457a4bc.json`, 10 rounds) ran:
+
+```sh
+uv run --offline python scripts/bench_tools_call.py --only-revs \
+  --rev 508e806 --rev 18b7002 --rev 457a4bc --candidate 457a4bc --reference 18b7002 \
+  --transport http --rounds 10 --batches 3 --out benchmarks/results/tools_call_http_457a4bc.json
+```
 
 ### How it runs
 
@@ -29,7 +43,12 @@ session, default 1), `--out PATH`. Standard library only, no new dependency.
   directory, never checked out; the driver copies `tools_call_case.py` into the tree's
   `tests/characterization/` and makes the tree read-only.
 - A run is one pytest process in that tree (`-c` and `--rootdir` the tree's,
-  `-p no:cacheprovider`), with the tree's `src` first on `PYTHONPATH`. The case uses the
+  `-p no:cacheprovider`), with the tree's `src` first on `PYTHONPATH`. The trees'
+  pytest-timeout (`timeout = 120`, when the `integration` group is installed) is turned
+  off with `-p no:timeout`; instead the driver stops a pytest process that runs longer
+  than 120 s + 2 s per call it makes (warm-up and timed, all its workloads), so the limit
+  grows with `--batches` and also covers `--profile`. Each round is a new process, so
+  `--rounds` does not change it. The case uses the
   tree's own characterization harness: the server is built by
   `streaming_server.create_mcp_server`, OpenSearch is the harness's `fake_opensearch`, and
   nothing touches the network. Each run reports where every loaded module of
@@ -65,12 +84,21 @@ untimed warm-up calls, then N `ListIndexTool` calls (each makes 2 fake OpenSearc
   `concurrent`). Per workload and tree: the median and p10/p90 over the rounds, the ratio
   of medians to `508e806` and to `c71570c`, and a paired sign test over the rounds (how many
   rounds the tree was slower, two-sided exact p-value, ties dropped).
-- `overlap_on_baseline_50ms`: on `508e806` at 50 ms, the concurrent batch's time over the
-  sequential one's; under 0.5 means the transport overlaps calls in-process. Concurrency
-  conclusions are drawn only for transports that do.
-- `slower_than_reference`: workloads where `18b7002` is more than 5% slower than `c71570c`
-  with p < 0.05.
+- `overlap_50ms`: at 50 ms, the concurrent batch's time over the sequential one's, on
+  `508e806` when it is in the run and otherwise on the first tree (`rev` names it); under
+  0.5 means the transport overlaps calls in-process. Concurrency conclusions are drawn
+  only for transports that do. (`tools_call.json`, from before this change, has it as
+  `overlap_on_baseline_50ms`, computed on `508e806`.)
+- `slower_than_reference`: workloads where the candidate (`18b7002` by default) is more
+  than 5% slower than the reference (`c71570c` by default) by medians, with sign-test
+  p < 0.05, and slower in more rounds than it was faster.
 - `--profile WORKLOAD` runs that workload under `cProfile` on each tree and prints the
   functions with the most own time and the largest per-call differences against the first
-  tree (`--top`, `--profile-out`). cProfile sees the event loop's thread only: time the
-  server spends in `asyncio.to_thread` shows as the loop waiting in `epoll`.
+  tree (`--top`, `--profile-out`). It profiles `--batches` batches of N calls after the
+  warm-up, so `--profile memory-sequential-n50-0ms --batches 2` covers 100 calls per tree.
+  cProfile sees the event loop's thread only: time the server spends in `asyncio.to_thread`
+  shows as the loop waiting in `epoll`.
+- `--context-cost` needs no tree: it times, with `timeit` and no profiler, building one
+  `mcp.server.mcpserver.Context` the way `MCPServer._handle_call_tool` does for each
+  `tools/call`, on the venv's SDK (the one every tree runs on), and prints the minimum and
+  median over 7 repeats.

@@ -311,10 +311,10 @@ per-round 18b7002/c71570c ratios; "slower" is the number of rounds 18b7002 was s
 | `memory-sequential-n5-0ms` | 23.6 [18.6–30.9] | 26.1 [18.7–32.1] | 22.6 [18.8–29.1] | 0.867 | 0.951 | 14/30 | 0.86 |
 | `memory-concurrent-n5-0ms` | 25.7 [19.9–36.1] | 26.6 [20.1–39.1] | 22.2 [20.2–44.4] | 0.833 | 0.996 | 13/30 | 0.58 |
 | `memory-sequential-n50-0ms` | 29.0 [21.9–43.1] | 31.0 [22.1–42.4] | 27.8 [21.9–39.4] | 0.896 | 0.983 | 13/30 | 0.58 |
-| `memory-concurrent-n50-0ms` | 37.8 [25.6–65.4] | 38.2 [29.1–54.7] | 33.6 [27.7–50.6] | 0.879 | 0.950 | 10/30 | 0.10 |
+| `memory-concurrent-n50-0ms` | 37.8 [25.6–65.4] | 38.2 [29.1–54.7] | 33.6 [27.7–50.6] | 0.879 | 0.950 | 10/30 | 0.099 |
 | `memory-sequential-n5-50ms` | 138.1 [124.2–161.4] | 133.7 [122.7–188.7] | 129.3 [122.3–164.8] | 0.967 | 0.995 | 13/30 | 0.58 |
 | `memory-concurrent-n5-50ms` | 47.3 [38.4–103.4] | 48.8 [39.6–83.1] | 44.0 [38.8–104.6] | 0.901 | 0.947 | 12/30 | 0.36 |
-| `memory-sequential-n50-50ms` | 134.0 [127.0–153.7] | 135.7 [125.0–168.3] | 135.1 [125.7–159.8] | 0.996 | 0.976 | 10/30 | 0.10 |
+| `memory-sequential-n50-50ms` | 134.0 [127.0–153.7] | 135.7 [125.0–168.3] | 135.1 [125.7–159.8] | 0.996 | 0.976 | 10/30 | 0.099 |
 | `memory-concurrent-n50-50ms` | 37.6 [27.4–47.9] | 41.4 [30.0–58.0] | 40.3 [27.4–52.1] | 0.974 | 0.960 | 14/30 | 0.86 |
 | `http-sequential-n5-0ms` | 30.6 [23.2–49.7] | 31.0 [23.8–61.9] | 32.7 [22.6–50.2] | 1.057 | 0.948 | 14/30 | 0.86 |
 | `http-concurrent-n5-0ms` | 27.8 [22.5–56.5] | 28.5 [24.2–68.0] | 38.2 [23.0–61.0] | 1.341 | 1.056 | 17/30 | 0.58 |
@@ -325,13 +325,25 @@ per-round 18b7002/c71570c ratios; "slower" is the number of rounds 18b7002 was s
 | `http-sequential-n50-50ms` | 136.2 [128.0–158.1] | 145.0 [131.2–173.3] | 139.6 [127.7–175.1] | 0.963 | 0.976 | 13/30 | 0.58 |
 | `http-concurrent-n50-50ms` | 38.3 [31.1–68.3] | 43.0 [33.2–58.8] | 41.7 [31.4–65.2] | 0.971 | 0.935 | 12/30 | 0.36 |
 
-**Verdict: noise, no slowdown in-process.** No workload has 18b7002 more than 5% slower than
-c71570c with p < 0.05. Every sign test has p ≥ 0.10, and 18b7002 was slower in 10 to 18 of
-30 rounds. The paired ratios run from 0.935 to 1.056. The `http` 0 ms workloads have the
-highest ratios of medians (1.341 and 1.201), but those values sit inside wide bands, and the
-round-by-round pairing (17/30 and 18/30 slower, p 0.58 and 0.36) does not separate them
-from chance. The `memory-concurrent-n5-50ms` workload, the closest in-process analogue of
-the integration test, is 0.90 (medians) and 0.95 (paired).
+**Verdict: no detectable slowdown in the timings; "no slowdown" rests on the code path.**
+Each piece of evidence supports a different claim.
+
+- The timings found no detectable slowdown. No workload has 18b7002 more than 5% slower
+  than c71570c with p < 0.05 and more rounds slower than faster, and no sign test reaches
+  p < 0.05: the smallest p is 0.0987, for `memory-concurrent-n50-0ms` and
+  `memory-sequential-n50-50ms`, where 18b7002 was faster in 20 of 30 rounds; every other
+  p is 0.36 or more. 18b7002 was slower in 10 to 18 of 30 rounds, and the paired ratios
+  run from 0.935 to 1.056. The `http` 0 ms workloads have the highest ratios of medians
+  (1.341 and 1.201), inside wide bands, and the pairing (17/30 and 18/30 slower, p 0.58
+  and 0.36) does not separate them from chance. The closest in-process analogue of the
+  integration test is `http-concurrent-n5-50ms` (5 concurrent calls in one
+  streamable-HTTP session): 0.958 by medians, 0.954 paired, 12/30 slower, p 0.36. But
+  the run was at a host load around 95 on 32 CPUs, and its ratios of medians spread from
+  0.83 to 1.34: these timings cannot resolve a 19% effect, so they neither show nor rule
+  out the integration test's gap.
+- "No slowdown" rests on the structural analysis below: step 16 adds one SDK `Context`
+  per call, microseconds against 22 to 40 ms per call.
+- The director's later A/B at c6360aa, at a lower host load, found +3%, within noise.
 
 **What step 16 adds per call** (measured, too small to see above). A cProfile of
 `memory-sequential-n50-0ms` on c71570c and 18b7002 (`--profile`, 100 calls each) differs
