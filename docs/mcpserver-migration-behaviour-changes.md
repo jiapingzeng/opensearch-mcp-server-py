@@ -257,8 +257,8 @@ the configured id, to the fake and returns the memory instead of the missing-fie
 - `call_tool_memory_skills/GetAgenticMemoryTool/container_id_from_config_file.json`
 
 The comment above `test_agentic_memory_container_id_default_from_config_file` in
-`tests/characterization/test_call_tool_memory_skills.py` still describes the failure; it
-is left as it is for a follow-up.
+`tests/characterization/test_call_tool_memory_skills.py`, which described the failure, was
+corrected in the docs step (21).
 
 **Upstream**: Not opened yet: the user decides.
 

@@ -269,8 +269,13 @@ factory, `src/mcp_server_opensearch/server_factory.py`:
      `CountTool`, `ClusterHealthTool`) to `TOOL_REGISTRY`; if the fetch fails it logs the
      error and the server starts with the static tools;
    - `apply_custom_tool_config()` (`src/tools/config.py`) returns a copy of the registry
-     with the custom names, descriptions and argument descriptions from the config file and
-     the `--tool.*` CLI overrides, and the agentic memory container id as the default;
+     with the custom names, descriptions and argument descriptions, and the agentic memory
+     container id as the default. The custom settings come from one source, not both: when
+     the config file has a non-empty `tools` section, it applies that section and ignores
+     the `--tool.*` CLI overrides; otherwise it applies the CLI overrides. Pinned by the
+     characterization tests (`test_list_tools.py`, cases
+     `custom_tools/cli_ignored_with_config_tools` and
+     `custom_tools/cli_used_with_config_without_tools`);
    - `get_tools()` (`src/tools/tool_filter.py`) returns the enabled tools and adapts their
      schemas to the mode: in single mode the category and tool filters, write protection
      and the OpenSearch version range (the server asks the cluster for its version); in
@@ -463,7 +468,13 @@ In multi-cluster mode, all tools are returned without category filtering.
 
 Add unit tests in `tests/tools/` following existing test patterns.
 
-A new tool shows in `tools/list`, so it changes the `list_tools` characterization goldens that list it (multi mode lists every tool except the memory tools). That is a behaviour change: recreate those goldens and record it as described in [Characterization tests](#characterization-tests).
+A new tool shows in `tools/list`, so it changes every characterization golden that lists the tools, not only the `list_tools` ones (multi mode lists every tool except the memory tools). Others include, in multi mode especially, goldens of `cli_config`, `gaps_duplicate_names`, `gaps_config` and `gaps_transports`; these are examples, not a complete list. To find them all, run the characterization tests and read which fail:
+
+```bash
+uv run --offline python -m pytest tests/characterization -q
+```
+
+That is a behaviour change: recreate every golden it changed and record it in `docs/mcpserver-migration-behaviour-changes.md` (naming every golden it changed) and in `CHANGELOG.md` under `[Unreleased]`, as described in [Characterization tests](#characterization-tests).
 
 ### Reference
 
