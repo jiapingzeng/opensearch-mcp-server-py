@@ -1,0 +1,133 @@
+{
+  "already_exists_warnings": [],
+  "config": "tools:\n  ListIndexTool:\n    display_name: ''\n  IndexMappingTool:\n    display_name: ''\n",
+  "listed_under_shared_name": [
+    {
+      "description": "Lists indices in the OpenSearch cluster. If an index name or pattern is specified, return only information about the provided index or index pattern. The include_detail flag controls output: if False, returns only index name(s); if True (default), returns full metadata.",
+      "inputSchema": {
+        "description": "Arguments for the ListIndicesTool.",
+        "properties": {
+          "include_detail": {
+            "default": true,
+            "description": "Whether to include detailed information. If False, returns only index name(s). If True, returns full metadata.",
+            "title": "Include Detail",
+            "type": "boolean"
+          },
+          "index": {
+            "default": "",
+            "description": "The name of the index or index pattern to get information for.",
+            "title": "Index",
+            "type": "string"
+          },
+          "opensearch_cluster_name": {
+            "description": "The name of the OpenSearch cluster",
+            "title": "Opensearch Cluster Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opensearch_cluster_name"
+        ],
+        "title": "ListIndicesArgs",
+        "type": "object"
+      },
+      "name": ""
+    },
+    {
+      "description": "Retrieves index mapping and setting information for an index in OpenSearch",
+      "inputSchema": {
+        "description": "Arguments for the GetIndexMappingTool.",
+        "properties": {
+          "index": {
+            "description": "The name of the index to get mapping information for",
+            "title": "Index",
+            "type": "string"
+          },
+          "opensearch_cluster_name": {
+            "description": "The name of the OpenSearch cluster",
+            "title": "Opensearch Cluster Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "opensearch_cluster_name"
+        ],
+        "title": "GetIndexMappingArgs",
+        "type": "object"
+      },
+      "name": ""
+    }
+  ],
+  "logs": [
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Total clusters found in config file: 0"
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Loaded clusters: []"
+    },
+    {
+      "level": "INFO",
+      "logger": "root",
+      "message": "Enabled tools: ['DataDistributionTool', 'LogPatternAnalysisTool', 'MetricChangeAnalysisTool', 'CreateAgenticMemorySessionTool', 'AddAgenticMemoriesTool', 'GetAgenticMemoryTool', 'UpdateAgenticMemoryTool', 'DeleteAgenticMemoryByIDTool', 'DeleteAgenticMemoryByQueryTool', 'SearchAgenticMemoryTool', 'ListIndexTool', 'IndexMappingTool', 'SearchIndexTool', 'GetShardsTool', 'GetClusterStateTool', 'GetSegmentsTool', 'CatNodesTool', 'GetIndexInfoTool', 'GetIndexStatsTool', 'GetQueryInsightsTool', 'GetNodesHotThreadsTool', 'GetAllocationTool', 'GetLongRunningTasksTool', 'GetNodesTool', 'GetQuerySetTool', 'CreateQuerySetTool', 'SampleQuerySetTool', 'DeleteQuerySetTool', 'GetExperimentTool', 'CreateExperimentTool', 'DeleteExperimentTool', 'SearchQuerySetsTool', 'SearchSearchConfigurationsTool', 'SearchJudgmentsTool', 'SearchExperimentsTool', 'GenericOpenSearchApiTool', 'CreateSearchConfigurationTool', 'GetSearchConfigurationTool', 'DeleteSearchConfigurationTool', 'GetJudgmentListTool', 'CreateJudgmentListTool', 'CreateUBIJudgmentListTool', 'DeleteJudgmentListTool', 'CreateLLMJudgmentListTool', 'PPLQueryTool', 'ListClustersTool', 'ClusterHealthTool', 'CountTool', 'ExplainTool', 'MsearchTool']"
+    }
+  ],
+  "mode": "multi",
+  "shared_name": "",
+  "tool_names": [
+    "DataDistributionTool",
+    "LogPatternAnalysisTool",
+    "MetricChangeAnalysisTool",
+    "CreateAgenticMemorySessionTool",
+    "AddAgenticMemoriesTool",
+    "GetAgenticMemoryTool",
+    "UpdateAgenticMemoryTool",
+    "DeleteAgenticMemoryByIDTool",
+    "DeleteAgenticMemoryByQueryTool",
+    "SearchAgenticMemoryTool",
+    "",
+    "",
+    "SearchIndexTool",
+    "GetShardsTool",
+    "GetClusterStateTool",
+    "GetSegmentsTool",
+    "CatNodesTool",
+    "GetIndexInfoTool",
+    "GetIndexStatsTool",
+    "GetQueryInsightsTool",
+    "GetNodesHotThreadsTool",
+    "GetAllocationTool",
+    "GetLongRunningTasksTool",
+    "GetNodesTool",
+    "GetQuerySetTool",
+    "CreateQuerySetTool",
+    "SampleQuerySetTool",
+    "DeleteQuerySetTool",
+    "GetExperimentTool",
+    "CreateExperimentTool",
+    "DeleteExperimentTool",
+    "SearchQuerySetsTool",
+    "SearchSearchConfigurationsTool",
+    "SearchJudgmentsTool",
+    "SearchExperimentsTool",
+    "GenericOpenSearchApiTool",
+    "CreateSearchConfigurationTool",
+    "GetSearchConfigurationTool",
+    "DeleteSearchConfigurationTool",
+    "GetJudgmentListTool",
+    "CreateJudgmentListTool",
+    "CreateUBIJudgmentListTool",
+    "DeleteJudgmentListTool",
+    "CreateLLMJudgmentListTool",
+    "PPLQueryTool",
+    "ListClustersTool",
+    "ClusterHealthTool",
+    "CountTool",
+    "ExplainTool",
+    "MsearchTool"
+  ]
+}

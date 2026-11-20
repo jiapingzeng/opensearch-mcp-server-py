@@ -4,6 +4,7 @@
 """OpenSearchMCPServer: tools, call_tool, capabilities and request context as before MCPServer."""
 
 import anyio
+import logging
 import pytest
 from mcp.client import Client
 from mcp.client._memory import InMemoryTransport
@@ -174,7 +175,7 @@ async def test_tool_list_has_no_output_schema_or_extra_fields():
     assert [_dump(t) for t in listed.tools] == [
         {'name': 'T', 'description': 'A test tool', 'inputSchema': schema}
     ]
-    assert all(t.output_schema is None for t in server._tool_manager.list_tools())
+    assert all(t.output_schema is None for t in await server.list_tools())
 
 
 async def test_tool_list_invalid_field_fails_at_tools_list_not_at_startup():
@@ -190,6 +191,84 @@ async def test_tool_list_invalid_field_fails_at_tools_list_not_at_startup():
 async def test_tool_list_empty_when_no_tools_enabled():
     """Tool list: no enabled tools, an empty list."""
     assert await OpenSearchMCPServer({}).list_tools() == []
+
+
+# --- tools with the same listed name (parity with the low-level Server at c71570c) ---
+
+
+def _same_name_tools() -> dict:
+    """Two enabled tools listed as 'Shared', a third in between, each with its own schema."""
+    return {
+        'First': _tool(
+            'Shared',
+            AsyncMock(return_value=[TextContent(type='text', text='first result')]),
+            description='first tool',
+            input_schema={'type': 'object', 'properties': {'a': {'type': 'string'}}},
+        ),
+        'Other': _tool(description='other tool'),
+        'Second': _tool(
+            'Shared',
+            AsyncMock(return_value=[TextContent(type='text', text='second result')]),
+            description='second tool',
+            input_schema={'type': 'object', 'properties': {'b': {'type': 'integer'}}},
+        ),
+    }
+
+
+async def test_duplicate_listed_names_are_all_listed_in_order():
+    """(a) Two enabled tools with the same display_name: both listed, in order, as given."""
+    server = OpenSearchMCPServer(_same_name_tools())
+
+    tools = await server.list_tools()
+    async with Client(server, mode='legacy', cache=None) as client:
+        listed = await client.list_tools()
+
+    assert [t.name for t in tools] == ['Shared', 'Other', 'Shared']
+    assert [_dump(t) for t in listed.tools] == [
+        {
+            'name': 'Shared',
+            'description': 'first tool',
+            'inputSchema': {'type': 'object', 'properties': {'a': {'type': 'string'}}},
+        },
+        {
+            'name': 'Other',
+            'description': 'other tool',
+            'inputSchema': {'type': 'object', 'properties': {}},
+        },
+        {
+            'name': 'Shared',
+            'description': 'second tool',
+            'inputSchema': {'type': 'object', 'properties': {'b': {'type': 'integer'}}},
+        },
+    ]
+
+
+def test_duplicate_listed_names_log_no_warning(caplog):
+    """(b) Building a server with two tools of the same listed name logs no warning."""
+    caplog.set_level(logging.DEBUG)
+
+    OpenSearchMCPServer(_same_name_tools())
+
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
+    assert not any('Tool already exists' in r.getMessage() for r in caplog.records)
+
+
+async def test_duplicate_listed_names_call_tool_is_execute_tool_result():
+    """(c) tools/call on a shared name: the result execute_tool gives for the enabled tools."""
+    enabled = _same_name_tools()
+    expected = await tool_executor.execute_tool('Shared', {}, enabled)
+    server = OpenSearchMCPServer(enabled)
+
+    called = await server.call_tool('Shared', {})
+    answer = await _raw(
+        server, 'tools/call', {'name': 'Shared', 'arguments': {}}, HANDSHAKE_VERSION
+    )
+
+    # execute_tool runs the first enabled tool listed under the name.
+    assert _texts(expected) == ['first result']
+    assert expected.is_error is False
+    assert _dump(called) == _dump(expected)
+    assert answer['result'] == {'content': _dump(expected)['content'], 'isError': False}
 
 
 # --- call_tool ---
