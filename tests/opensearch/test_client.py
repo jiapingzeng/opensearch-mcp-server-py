@@ -1787,3 +1787,222 @@ class TestAmbientAwsFallbackOptIn:
         )
 
         assert mock_opensearch.call_args[1]['http_auth'] == ('caller', 'caller-pass')
+
+
+class TestMissingProfileFailsClosed:
+    """A profile that was asked for but cannot be loaded fails the call.
+
+    Before, the client logged a warning and went on with the default credential chain
+    (``[default]``, ``AWS_PROFILE`` or env keys), so the request was signed with
+    credentials other than the configured ones: an unknown ``--profile`` (auth
+    characterization 11, finding 6) and, in multi mode, a cluster whose ``aws_profile``
+    does not exist (13g).
+    """
+
+    MISSING = 'char-no-such-profile'
+    ENV = [
+        'OPENSEARCH_URL',
+        'OPENSEARCH_USERNAME',
+        'OPENSEARCH_PASSWORD',
+        'OPENSEARCH_NO_AUTH',
+        'OPENSEARCH_HEADER_AUTH',
+        'OPENSEARCH_DYNAMIC_CONNECTION',
+        'OPENSEARCH_ALLOW_AMBIENT_AWS_FALLBACK',
+        'AWS_PROFILE',
+        'AWS_IAM_ARN',
+        'AWS_REGION',
+        'AWS_ACCESS_KEY_ID',
+        'AWS_SECRET_ACCESS_KEY',
+        'AWS_SESSION_TOKEN',
+    ]
+
+    def setup_method(self):
+        from mcp_server_opensearch.global_state import set_mode, set_profile
+
+        self.original_env = {key: os.environ.pop(key) for key in self.ENV if key in os.environ}
+        os.environ['OPENSEARCH_URL'] = 'https://env-cluster.example.com'
+        set_mode('single')
+        set_profile('')
+
+    def teardown_method(self):
+        from mcp_server_opensearch.global_state import set_profile
+
+        set_profile('')
+        for key in self.ENV:
+            os.environ.pop(key, None)
+        os.environ.update(self.original_env)
+
+    @staticmethod
+    def _stub_sessions(mock_boto_session):
+        """Stub boto3: one known profile, the missing one raises, the default chain signs.
+
+        Each identity has its own access key, so a test can tell which one signed.
+        """
+        from botocore.exceptions import ProfileNotFound
+
+        def session(profile_name=None, **kwargs):
+            if profile_name is None:
+                key = 'DEFAULT_CHAIN_KEY'
+            elif profile_name == 'char-a':
+                key = 'PROFILE_A_KEY'
+            else:
+                raise ProfileNotFound(profile=profile_name)
+            return Mock(
+                get_credentials=Mock(
+                    return_value=Mock(access_key=key, secret_key=f'{key}_SECRET', token=None)
+                )
+            )
+
+        mock_boto_session.side_effect = session
+
+    @staticmethod
+    def _signed_by(mock_opensearch):
+        auth = mock_opensearch.call_args[1]['http_auth']
+        assert isinstance(auth, AWSV4SignerAsyncAuth)
+        return auth.signer.credentials.access_key
+
+    @staticmethod
+    def _cluster(**kwargs):
+        from mcp_server_opensearch.clusters_information import ClusterInfo
+
+        return ClusterInfo(opensearch_url='https://cluster.example.com', **kwargs)
+
+    def _assert_failed_closed(self, excinfo, mock_opensearch, caplog):
+        message = str(excinfo.value)
+        # The error names the profile and no credential value.
+        assert f'The config profile ({self.MISSING}) could not be found' in message
+        assert 'KEY' not in message and 'SECRET' not in message
+        # No client was built, so nothing can be sent or signed.
+        mock_opensearch.assert_not_called()
+        # The warning log line is kept.
+        assert f"Failed to create boto3 session with profile '{self.MISSING}'" in caplog.text, (
+            caplog.text
+        )
+
+    # Finding 6 (auth characterization 11): an unknown --profile.
+    @patch('opensearch.client.boto3.Session')
+    @patch('opensearch.client.AsyncOpenSearch')
+    @patch('opensearch.client.get_aws_region_single_mode', return_value='us-east-1')
+    def test_unknown_cli_profile_fails_instead_of_default_chain(
+        self, mock_region, mock_opensearch, mock_boto_session, caplog
+    ):
+        from mcp_server_opensearch.global_state import set_profile
+
+        self._stub_sessions(mock_boto_session)
+        set_profile(self.MISSING)
+
+        with pytest.raises(ConfigurationError) as excinfo:
+            initialize_client(baseToolArgs(opensearch_cluster_name=''))
+
+        self._assert_failed_closed(excinfo, mock_opensearch, caplog)
+        assert mock_boto_session.call_args_list == [((), {'profile_name': self.MISSING})]
+
+    # The same path: a per-call aws_profile against the operator's own URL.
+    @patch('opensearch.client.boto3.Session')
+    @patch('opensearch.client.AsyncOpenSearch')
+    @patch('opensearch.client.get_aws_region_single_mode', return_value='us-east-1')
+    def test_unknown_per_call_profile_fails_instead_of_default_chain(
+        self, mock_region, mock_opensearch, mock_boto_session, caplog
+    ):
+        self._stub_sessions(mock_boto_session)
+        os.environ['OPENSEARCH_DYNAMIC_CONNECTION'] = 'true'
+
+        with pytest.raises(ConfigurationError) as excinfo:
+            initialize_client(baseToolArgs(opensearch_cluster_name='', aws_profile=self.MISSING))
+
+        self._assert_failed_closed(excinfo, mock_opensearch, caplog)
+
+    # 13g: a multi-mode cluster whose aws_profile does not exist.
+    @patch('opensearch.client.boto3.Session')
+    @patch('opensearch.client.AsyncOpenSearch')
+    @patch('opensearch.client.get_aws_region_multi_mode', return_value='us-east-1')
+    def test_missing_cluster_profile_fails_instead_of_default_chain(
+        self, mock_region, mock_opensearch, mock_boto_session, caplog
+    ):
+        from opensearch.client import _initialize_client_multi_mode
+
+        self._stub_sessions(mock_boto_session)
+
+        with pytest.raises(ConfigurationError) as excinfo:
+            _initialize_client_multi_mode(self._cluster(profile=self.MISSING))
+
+        self._assert_failed_closed(excinfo, mock_opensearch, caplog)
+        assert 'cluster.example.com' in str(excinfo.value)
+        assert mock_boto_session.call_args_list == [((), {'profile_name': self.MISSING})]
+
+    # 13g: the same when AWS_PROFILE names a profile that does exist; it is not used either.
+    @patch('opensearch.client.boto3.Session')
+    @patch('opensearch.client.AsyncOpenSearch')
+    @patch('opensearch.client.get_aws_region_multi_mode', return_value='us-east-1')
+    def test_missing_cluster_profile_does_not_fall_back_to_aws_profile(
+        self, mock_region, mock_opensearch, mock_boto_session, caplog
+    ):
+        from opensearch.client import _initialize_client_multi_mode
+
+        self._stub_sessions(mock_boto_session)
+        os.environ['AWS_PROFILE'] = 'char-a'
+
+        with pytest.raises(ConfigurationError) as excinfo:
+            _initialize_client_multi_mode(self._cluster(profile=self.MISSING))
+
+        self._assert_failed_closed(excinfo, mock_opensearch, caplog)
+
+    # Unchanged: a valid --profile signs with that profile.
+    @patch('opensearch.client.boto3.Session')
+    @patch('opensearch.client.AsyncOpenSearch')
+    @patch('opensearch.client.get_aws_region_single_mode', return_value='us-east-1')
+    def test_valid_cli_profile_signs_with_it(
+        self, mock_region, mock_opensearch, mock_boto_session
+    ):
+        from mcp_server_opensearch.global_state import set_profile
+
+        self._stub_sessions(mock_boto_session)
+        set_profile('char-a')
+
+        initialize_client(baseToolArgs(opensearch_cluster_name=''))
+
+        assert self._signed_by(mock_opensearch) == 'PROFILE_A_KEY'
+
+    # Unchanged: a valid cluster profile signs with that profile.
+    @patch('opensearch.client.boto3.Session')
+    @patch('opensearch.client.AsyncOpenSearch')
+    @patch('opensearch.client.get_aws_region_multi_mode', return_value='us-east-1')
+    def test_valid_cluster_profile_signs_with_it(
+        self, mock_region, mock_opensearch, mock_boto_session
+    ):
+        from opensearch.client import _initialize_client_multi_mode
+
+        self._stub_sessions(mock_boto_session)
+
+        _initialize_client_multi_mode(self._cluster(profile='char-a'))
+
+        assert self._signed_by(mock_opensearch) == 'PROFILE_A_KEY'
+
+    # Unchanged: with no profile asked for, the default credential chain signs.
+    @patch('opensearch.client.boto3.Session')
+    @patch('opensearch.client.AsyncOpenSearch')
+    @patch('opensearch.client.get_aws_region_single_mode', return_value='us-east-1')
+    def test_no_profile_single_mode_keeps_default_chain(
+        self, mock_region, mock_opensearch, mock_boto_session
+    ):
+        self._stub_sessions(mock_boto_session)
+
+        initialize_client(baseToolArgs(opensearch_cluster_name=''))
+
+        assert self._signed_by(mock_opensearch) == 'DEFAULT_CHAIN_KEY'
+        assert mock_boto_session.call_args_list == [((), {})]
+
+    @patch('opensearch.client.boto3.Session')
+    @patch('opensearch.client.AsyncOpenSearch')
+    @patch('opensearch.client.get_aws_region_multi_mode', return_value='us-east-1')
+    def test_no_profile_multi_mode_keeps_default_chain(
+        self, mock_region, mock_opensearch, mock_boto_session
+    ):
+        from opensearch.client import _initialize_client_multi_mode
+
+        self._stub_sessions(mock_boto_session)
+
+        _initialize_client_multi_mode(self._cluster())
+
+        assert self._signed_by(mock_opensearch) == 'DEFAULT_CHAIN_KEY'
+        assert mock_boto_session.call_args_list == [((), {})]

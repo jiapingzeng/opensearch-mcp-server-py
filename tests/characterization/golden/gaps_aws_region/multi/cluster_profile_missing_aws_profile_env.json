@@ -35,46 +35,15 @@
       "message": "Using region from AWS_PROFILE 'char-west': eu-west-1"
     }
   ],
-  "requests": [
-    {
-      "auth": {
-        "kind": "sigv4",
-        "region": "eu-west-1",
-        "service": "es"
-      },
-      "body": null,
-      "body_format": "none",
-      "host": "http://missing-profile-cluster.invalid:9200",
-      "method": "GET",
-      "params": {},
-      "path": "/",
-      "signed_by": "profile:char-west"
-    },
-    {
-      "auth": {
-        "kind": "sigv4",
-        "region": "eu-west-1",
-        "service": "es"
-      },
-      "body": null,
-      "body_format": "none",
-      "host": "http://missing-profile-cluster.invalid:9200",
-      "method": "GET",
-      "params": {
-        "format": "json"
-      },
-      "path": "/_cat/indices",
-      "signed_by": "profile:char-west"
-    }
-  ],
+  "requests": [],
   "result": {
     "content": [
       {
-        "text": "Indices:\n[\"logs-2020.01.01\"]",
+        "text": "Error listing indices: Failed to initialize multi mode client for cluster \"http://missing-profile-cluster.invalid:9200\": The config profile (char-no-such-profile) could not be found",
         "type": "text"
       }
     ],
-    "isError": false,
+    "isError": true,
     "resultType": "complete"
   },
   "setup": {

@@ -478,13 +478,13 @@ SINGLE_CASES = [
         env={**AWS_PROFILES, 'AWS_PROFILE': 'char-a'},
         profile='char-b',
     ),
-    # characterization: current behaviour. --profile wins over AWS_PROFILE for the credentials
-    # and the region, but a profile that does not exist only logs a warning and the client
-    # falls back to the default session.
+    # A --profile that does not exist fails the call with the profile named (the warning is
+    # still logged); nothing is sent and the env keys are not used (finding 6, fixed).
     Case(
-        'single/sigv4_profile_cli_unknown_falls_back',
+        'single/sigv4_profile_cli_unknown_fails',
         env={**AWS_PROFILES, **AWS_ENV},
         profile='no-such-profile',
+        is_error=True,
     ),
     Case(
         'single/iam_role_assumption',
