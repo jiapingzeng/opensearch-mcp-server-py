@@ -4,12 +4,9 @@
 """The startup pipeline and the MCP server construction shared by stdio and streaming HTTP."""
 
 import logging
-from mcp.server import Server
-from mcp.shared.exceptions import MCPError
-from mcp.types import CallToolRequestParams, CallToolResult, ListToolsResult, TextContent, Tool
 from mcp_server_opensearch.clusters_information import load_clusters_from_yaml
 from mcp_server_opensearch.global_state import set_config_file_path, set_mode, set_profile
-from mcp_server_opensearch.server_instructions import get_server_instructions
+from mcp_server_opensearch.mcp_server import OpenSearchMCPServer
 from tools.config import apply_custom_tool_config
 from tools.tool_filter import get_tools
 from tools.tool_generator import generate_tools_from_openapi
@@ -52,47 +49,6 @@ async def prepare_enabled_tools(
     return enabled_tools
 
 
-def build_server(enabled_tools: dict) -> Server:
+def build_server(enabled_tools: dict) -> OpenSearchMCPServer:
     """Create the MCP server that lists and calls the enabled tools."""
-
-    async def _list_tools(ctx, params) -> ListToolsResult:
-        tools = []
-        for tool_name, tool_info in enabled_tools.items():
-            tools.append(
-                Tool(
-                    name=tool_info.get('display_name', tool_name),
-                    description=tool_info['description'],
-                    input_schema=tool_info['input_schema'],
-                )
-            )
-        return ListToolsResult(tools=tools)
-
-    async def _call_tool(ctx, params: CallToolRequestParams) -> CallToolResult:
-        from mcp_server_opensearch.client_context import request_context_var
-        from mcp_server_opensearch.tool_executor import _build_call_tool_result, execute_tool
-
-        token = request_context_var.set(ctx.request)
-        try:
-            return await execute_tool(params.name, params.arguments or {}, enabled_tools)
-        except MCPError:
-            raise
-        except Exception as e:
-            return _build_call_tool_result(
-                [
-                    TextContent(
-                        type='text',
-                        text=str(e),
-                    )
-                ],
-                is_error=True,
-            )
-        finally:
-            request_context_var.reset(token)
-
-    # Server instructions guide the LLM on dynamic connection params (single mode only)
-    return Server(
-        'opensearch-mcp-server',
-        instructions=get_server_instructions(),
-        on_list_tools=_list_tools,
-        on_call_tool=_call_tool,
-    )
+    return OpenSearchMCPServer(enabled_tools)

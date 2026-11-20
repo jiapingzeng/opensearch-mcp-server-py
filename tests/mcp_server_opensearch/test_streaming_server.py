@@ -67,6 +67,10 @@ class TestMCPServer:
             mode='single', config_file_path='some/path', cli_tool_overrides={'key': 'val'}
         )
 
+        from mcp_server_opensearch.mcp_server import OpenSearchMCPServer
+
+        assert isinstance(server, OpenSearchMCPServer)
+        assert server.enabled_tools is mock_tool_registry
         assert server.name == 'opensearch-mcp-server'
         mock_generate_tools.assert_called_once()
         mock_apply_config.assert_called_once_with(ANY, 'some/path', {'key': 'val'})
@@ -89,21 +93,12 @@ class TestMCPServer:
         mock_load_clusters.return_value = None
 
         # Create server
-        from mcp.types import Tool
         from mcp_server_opensearch.streaming_server import create_mcp_server
 
-        await create_mcp_server()
+        server = await create_mcp_server()
 
-        # Get the tools by calling the decorated function
-        tools = []
-        for tool_name, tool_info in mock_get_tools.return_value.items():
-            tools.append(
-                Tool(
-                    name=tool_name,
-                    description=tool_info['description'],
-                    input_schema=tool_info['input_schema'],
-                )
-            )
+        # Get the tools the server lists
+        tools = await server.list_tools()
 
         assert len(tools) == 1
         assert tools[0].name == 'test-tool'
@@ -126,16 +121,19 @@ class TestMCPServer:
             TextContent(type='text', text='result')
         ]
 
-        # Create server and mock the call_tool decorator
-        mock_call_tool = AsyncMock()
-        mock_call_tool.return_value = [TextContent(type='text', text='result')]
+        # Create server
+        from mcp_server_opensearch.streaming_server import create_mcp_server
 
-        # Test the decorated function
-        result = await mock_call_tool('test-tool', {'param': 'value'})
+        server = await create_mcp_server()
 
-        assert len(result) == 1
-        assert isinstance(result[0], TextContent)
-        assert result[0].text == 'result'
+        # Test the server's call_tool
+        result = await server.call_tool('test-tool', {'param': 'value'})
+
+        assert result.is_error is False
+        assert len(result.content) == 1
+        assert isinstance(result.content[0], TextContent)
+        assert result.content[0].text == 'result'
+        mock_tool_registry['test-tool']['function'].assert_awaited_once()
 
 
 class TestMCPStarletteApp:
@@ -164,6 +162,12 @@ class TestMCPStarletteApp:
         ):
             server = await create_mcp_server()
             return MCPStarletteApp(server)
+
+    def test_transports_run_the_lowlevel_server(self, app_handler):
+        """Until 20-remove-lowlevel-server-path, SSE and streamable HTTP run the low-level server."""
+        assert app_handler.lowlevel_server is app_handler.mcp_server._lowlevel_server
+        assert app_handler.session_manager.app is app_handler.lowlevel_server
+        assert app_handler.session_manager.stateless is True
 
     def test_create_app(self, app_handler):
         """Test Starlette application creation and configuration."""
@@ -216,12 +220,12 @@ class TestMCPStarletteApp:
         # Set up the connect_sse mock to return our context manager
         app_handler.sse.connect_sse = Mock(return_value=mock_context)
 
-        # Mock the server run method to return immediately
-        app_handler.mcp_server.run = AsyncMock()
-        app_handler.mcp_server.create_initialization_options = Mock(return_value={})
+        # Mock the low-level server run method to return immediately
+        app_handler.lowlevel_server.run = AsyncMock()
+        app_handler.lowlevel_server.create_initialization_options = Mock(return_value={})
 
         # Add a side effect to make run return immediately
-        app_handler.mcp_server.run.return_value = None
+        app_handler.lowlevel_server.run.return_value = None
 
         await app_handler.handle_sse(mock_request)
 
@@ -235,7 +239,9 @@ class TestMCPStarletteApp:
         mock_context.__aexit__.assert_called_once()
 
         # Verify server.run was called with correct arguments
-        app_handler.mcp_server.run.assert_called_once_with(mock_read_stream, mock_write_stream, {})
+        app_handler.lowlevel_server.run.assert_called_once_with(
+            mock_read_stream, mock_write_stream, {}
+        )
 
 
 @pytest.mark.asyncio

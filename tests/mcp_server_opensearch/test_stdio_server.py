@@ -5,7 +5,7 @@ import asyncio
 import os
 import pytest
 from contextlib import asynccontextmanager
-from mcp.types import TextContent, Tool
+from mcp.types import TextContent
 from unittest.mock import AsyncMock, Mock, patch
 
 
@@ -62,22 +62,32 @@ def mock_generate_tools():
 
 @pytest.fixture
 def mock_server():
-    """Create a mock Server instance."""
+    """Replace OpenSearchMCPServer in the factory; the transport runs its low-level server."""
     # Create mock class and instance
     mock = Mock()
     mock_instance = Mock()
+    lowlevel = mock_instance._lowlevel_server
 
-    # Set up the instance's create_initialization_options
-    mock_instance.create_initialization_options.return_value = {
+    # Set up the low-level server's create_initialization_options and run
+    lowlevel.create_initialization_options.return_value = {
         'protocolVersion': '1.0',
         'serverInfo': {'name': 'test-server', 'version': '1.0'},
     }
+    lowlevel.run = AsyncMock()
 
     # Make the mock class return our mock instance
     mock.return_value = mock_instance
 
-    with patch('mcp_server_opensearch.server_factory.Server', mock):
+    with patch('mcp_server_opensearch.server_factory.OpenSearchMCPServer', mock):
         yield mock  # Return the mock class
+
+
+def _real_server(mock_server):
+    """A real OpenSearchMCPServer built from the enabled tools serve() passed to the class."""
+    from mcp_server_opensearch.mcp_server import OpenSearchMCPServer
+
+    (enabled_tools,) = mock_server.call_args.args
+    return OpenSearchMCPServer(enabled_tools)
 
 
 @pytest.fixture
@@ -123,9 +133,16 @@ async def test_serve_initialization(
     # Wait for the server to start
     await asyncio.sleep(0.1)
 
-    # Verify server was initialized correctly
-    mock_server.assert_called_once()
-    mock_server.return_value.create_initialization_options.assert_called_once()
+    # Verify server was initialized correctly, from the enabled tools
+    mock_server.assert_called_once_with(MOCK_TOOL_REGISTRY)
+    lowlevel = mock_server.return_value._lowlevel_server
+    lowlevel.create_initialization_options.assert_called_once()
+    lowlevel.run.assert_awaited_once_with(
+        reader,
+        writer,
+        lowlevel.create_initialization_options.return_value,
+        raise_exceptions=True,
+    )
 
 
 @pytest.mark.asyncio
@@ -139,30 +156,12 @@ async def test_list_tools(mock_server, mock_stdio, mock_tool_registry, mock_gene
     asyncio.create_task(serve())
     await asyncio.sleep(0.1)
 
-    # Get the list_tools handler
-    list_tools_handler = None
-    for call in mock_server.mock_calls:
-        if 'list_tools' in str(call):
-            # Create an async function to return as the handler
-            async def mock_list_tools():
-                return [
-                    Tool(
-                        name='test_tool',
-                        description='Test tool',
-                        input_schema={'type': 'object', 'properties': {}},
-                    )
-                ]
-
-            list_tools_handler = mock_list_tools
-            break
-
-    assert list_tools_handler is not None
-
-    # Test the list_tools handler
-    tools = await list_tools_handler()
+    # The server serve() built lists the enabled tools
+    tools = await _real_server(mock_server).list_tools()
     assert len(tools) == 1
     assert tools[0].name == 'test_tool'
     assert tools[0].description == 'Test tool'
+    assert tools[0].input_schema == {'type': 'object', 'properties': {}}
 
 
 @pytest.mark.asyncio
@@ -176,28 +175,11 @@ async def test_call_tool(mock_server, mock_stdio, mock_tool_registry, mock_gener
     asyncio.create_task(serve())
     await asyncio.sleep(0.1)
 
-    # Get the call_tool handler
-    call_tool_handler = None
-    for call in mock_server.mock_calls:
-        if 'call_tool' in str(call):
-            # Create an async function to return as the handler
-            async def mock_call_tool(tool_name: str, arguments: dict):
-                if tool_name not in mock_tool_registry:
-                    raise ValueError(f'Unknown tool: {tool_name}')
-
-                mock_tool_registry[tool_name]
-                # Simulate the tool execution
-                return [TextContent(type='text', text='test result')]
-
-            call_tool_handler = mock_call_tool
-            break
-
-    assert call_tool_handler is not None
-
-    # Test the call_tool handler
-    result = await call_tool_handler('test_tool', {})
-    assert len(result) == 1
-    assert result[0].text == 'test result'
+    # Test the call_tool of the server serve() built
+    result = await _real_server(mock_server).call_tool('test_tool', {})
+    assert result.is_error is False
+    assert len(result.content) == 1
+    assert result.content[0].text == 'test result'
 
 
 @pytest.mark.asyncio
@@ -206,7 +188,7 @@ async def test_server_error_handling(mock_server, mock_stdio, mock_tool_registry
     reader, writer = mock_stdio
 
     # Simulate an error in the server
-    mock_server.return_value.run.side_effect = Exception('Test error')
+    mock_server.return_value._lowlevel_server.run.side_effect = Exception('Test error')
 
     # Start the server
     from mcp_server_opensearch.stdio_server import serve
@@ -231,25 +213,10 @@ async def test_tool_execution_error(
     asyncio.create_task(serve())
     await asyncio.sleep(0.1)
 
-    # Get the call_tool handler
-    call_tool_handler = None
-    for call in mock_server.mock_calls:
-        if 'call_tool' in str(call):
-            # Create an async function to return as the handler
-            async def mock_call_tool(tool_name: str, arguments: dict):
-                if tool_name not in mock_tool_registry:
-                    raise ValueError(f'Unknown tool: {tool_name}')
-
-                tool = mock_tool_registry[tool_name]
-                # Execute the tool function which should raise the error
-                parsed = tool['args_model'](**arguments)
-                return await tool['function'](parsed)
-
-            call_tool_handler = mock_call_tool
-            break
-
-    assert call_tool_handler is not None
-
-    # Test tool execution error
-    with pytest.raises(Exception, match='Tool error'):
-        await call_tool_handler('test_tool', {})
+    # Test tool execution error: the error text comes back as an isError result
+    try:
+        result = await _real_server(mock_server).call_tool('test_tool', {})
+    finally:
+        mock_tool_registry['test_tool']['function'].side_effect = None
+    assert result.is_error is True
+    assert [c.text for c in result.content] == ['Tool error']
