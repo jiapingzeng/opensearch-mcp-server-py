@@ -47,6 +47,14 @@ class _ASGIApp:
 _NO_DNS_REBINDING_PROTECTION = TransportSecuritySettings(enable_dns_rebinding_protection=False)
 
 
+def _route_at(routes: list, kind: type, path: str):
+    """The one route of type ``kind`` at ``path`` in ``routes``."""
+    matches = [r for r in routes if isinstance(r, kind) and r.path == path]
+    if len(matches) != 1:
+        raise RuntimeError(f'expected one {kind.__name__} at {path!r}, found {len(matches)}')
+    return matches[0]
+
+
 class MCPStarletteApp:
     """Starlette application wrapper for the MCP server."""
 
@@ -61,11 +69,15 @@ class MCPStarletteApp:
             transport_security=_NO_DNS_REBINDING_PROTECTION,
         )
         self.session_manager = mcp_server.session_manager
-        # GET '/sse' (runs the server over the event stream) and the '/messages/' Mount.
-        self.sse_route, self.messages_mount = mcp_server.sse_app(
+        # GET '/sse' (runs the server over the event stream) and the '/messages/' Mount, picked
+        # by path so any other route sse_app adds is left out.
+        sse_routes = mcp_server.sse_app(
             message_path='/messages/',
             transport_security=_NO_DNS_REBINDING_PROTECTION,
         ).routes
+        self.sse_route = _route_at(sse_routes, Route, '/sse')
+        # A Mount keeps its path without the trailing slash.
+        self.messages_mount = _route_at(sse_routes, Mount, '/messages')
 
     async def handle_health(self, request: Request) -> Response:
         """Handle health check requests."""

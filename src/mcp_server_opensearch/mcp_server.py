@@ -1,7 +1,13 @@
 # Copyright OpenSearch Contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""The OpenSearch MCP server: a thin subclass of the MCP SDK's MCPServer."""
+"""The OpenSearch MCP server: a thin subclass of the MCP SDK's MCPServer.
+
+This module is the only place that reaches MCPServer's low-level server, for two permanent
+uses, each commented where it is made: taking out the handlers this server does not serve
+(the SDK has no public unregister API), and run_streams' run with raise_exceptions=True
+(exact stdio parity).
+"""
 
 from mcp.server.mcpserver import Context, MCPServer, RequestStateBoundary
 from mcp.shared.exceptions import MCPError

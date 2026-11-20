@@ -37,6 +37,7 @@ from mcp.shared.message import SessionMessage
 from mcp.types import TextContent
 from mcp_server_opensearch import global_state, stdio_server, streaming_server
 from mcp_server_opensearch.client_context import client_name_var, request_context_var
+from mcp_server_opensearch.server_factory import build_server
 from mcp_types import JSONRPCError, JSONRPCNotification, JSONRPCRequest, JSONRPCResponse
 from opensearch import client as opensearch_client
 from opensearch.client import get_opensearch_client
@@ -397,10 +398,10 @@ async def test_stdio_tool_sees_no_request_and_is_reset_after_every_call(monkeypa
     monkeypatch.setattr(
         stdio_server, 'prepare_enabled_tools', AsyncMock(return_value=enabled_tools)
     )
-    build_server = stdio_server.build_server
+    stdio_build_server = stdio_server.build_server
 
     def observed_build_server(tools):
-        server = build_server(tools)
+        server = stdio_build_server(tools)
         _observe_call_tool(server, after)
         return server
 
@@ -453,8 +454,6 @@ async def test_stdio_tool_sees_no_request_and_is_reset_after_every_call(monkeypa
 
 async def test_in_memory_tool_sees_no_request_and_is_reset_after_every_call():
     """In-memory (mcp.client.Client): request_context_var is None in every call, reset after."""
-    from mcp_server_opensearch.server_factory import build_server
-
     seen: list[Seen] = []
     after: list = []
     server = build_server(_recorder_tools(seen))
@@ -619,6 +618,38 @@ async def test_header_auth_headers_reach_the_opensearch_client(
     _assert_reset_after_every_call(after, 1)
 
 
+async def test_header_auth_over_sse_the_post_messages_headers_reach_the_opensearch_client(
+    monkeypatch, opensearch_env
+):
+    """OPENSEARCH_HEADER_AUTH=true over SSE: the POST /messages/ request's auth headers build the client.
+
+    The headers of the GET /sse connection are not the ones read.
+    """
+    monkeypatch.setenv('OPENSEARCH_HEADER_AUTH', 'true')
+    seen: list[Seen] = []
+    after: list = []
+    get_headers = {'opensearch-url': ENV_URL, 'authorization': _basic('get-user:get-password')}
+    post_headers = {
+        'opensearch-url': HEADER_URL,
+        'authorization': _basic('hdr-user:hdr-password'),
+        'x-mcp-client-name': 'sse-hdr-agent',
+    }
+    async with _http_app(monkeypatch, _connect_tools(seen), after) as (app, client):
+        async with _sse_session(app, client, get_headers) as session:
+            answer = await session.call_tool(1, 'Connect', post_headers)
+
+    assert answer['result'] == {
+        'content': [{'type': 'text', 'text': 'connected'}],
+        'isError': False,
+    }
+    assert len(opensearch_env) == 1
+    assert opensearch_env[0]['hosts'] == [HEADER_URL]
+    assert opensearch_env[0]['http_auth'] == ('hdr-user', 'hdr-password')
+    assert [s.request.url.path for s in seen] == ['/messages/']
+    assert [s.client_name for s in seen] == ['sse-hdr-agent']
+    _assert_reset_after_every_call(after, 1)
+
+
 async def test_header_auth_off_ignores_the_request_headers(monkeypatch, opensearch_env):
     """Without OPENSEARCH_HEADER_AUTH the auth headers are ignored: the server's own settings."""
     seen: list[Seen] = []
@@ -635,10 +666,8 @@ async def test_header_auth_off_ignores_the_request_headers(monkeypatch, opensear
     assert isinstance(seen[0].request, Request)
 
 
-async def test_header_auth_over_stdio_has_no_headers_to_read(monkeypatch, opensearch_env):
+async def test_header_auth_in_memory_has_no_headers_to_read(monkeypatch, opensearch_env):
     """OPENSEARCH_HEADER_AUTH=true in memory (as on stdio): no request, the server's own settings."""
-    from mcp_server_opensearch.server_factory import build_server
-
     monkeypatch.setenv('OPENSEARCH_HEADER_AUTH', 'true')
     seen: list[Seen] = []
     server = build_server(_connect_tools(seen))
