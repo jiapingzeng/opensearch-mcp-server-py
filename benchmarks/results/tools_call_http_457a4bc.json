@@ -1,0 +1,5594 @@
+{
+ "meta": {
+  "command": [
+   "scripts/bench_tools_call.py",
+   "--only-revs",
+   "--rev",
+   "508e806",
+   "--rev",
+   "18b7002",
+   "--rev",
+   "457a4bc",
+   "--candidate",
+   "457a4bc",
+   "--reference",
+   "18b7002",
+   "--transport",
+   "http",
+   "--rounds",
+   "10",
+   "--out",
+   "benchmarks/results/tools_call_http_457a4bc.json"
+  ],
+  "quick": false,
+  "rounds": 10,
+  "warmup": 2,
+  "batches": 1,
+  "trees": [
+   {
+    "rev": "508e806",
+    "sha": "508e80636de864280a57c31ca34ca9ecb93ccfff"
+   },
+   {
+    "rev": "18b7002",
+    "sha": "18b7002ccc61fcf4478c759a14cfa774609a25e4"
+   },
+   {
+    "rev": "457a4bc",
+    "sha": "457a4bccbdd47a7ec3405ff325d9779c3f241fab"
+   }
+  ],
+  "candidate": "457a4bc",
+  "reference": "18b7002",
+  "workloads": [
+   "http-sequential-n5-0ms",
+   "http-concurrent-n5-0ms",
+   "http-sequential-n50-0ms",
+   "http-concurrent-n50-0ms",
+   "http-sequential-n5-50ms",
+   "http-concurrent-n5-50ms",
+   "http-sequential-n50-50ms",
+   "http-concurrent-n50-50ms"
+  ],
+  "run_timeout_s": 592,
+  "python": "3.10.20 (main, May 10 2026, 19:27:29) [Clang 22.1.3 ]",
+  "mcp": "2.0.0",
+  "platform": "Linux-6.12.115-140.210.amzn2023.x86_64-x86_64-with-glibc2.34",
+  "cpu_count": 32,
+  "started": "2026-11-20T05:26:23+00:00",
+  "loadavg_start": [
+   33.05,
+   35.84,
+   48.69
+  ],
+  "rounds_done": 10,
+  "complete": true,
+  "loadavg_end": [
+   59.62,
+   71.05,
+   60.45
+  ],
+  "finished": "2026-11-20T05:37:18+00:00"
+ },
+ "summary": {
+  "http-sequential-n5-0ms": {
+   "workload": {
+    "transport": "http",
+    "mode": "sequential",
+    "n": 5,
+    "latency_ms": 0
+   },
+   "trees": {
+    "508e806": {
+     "median_s": 0.02637067009927705,
+     "p10_s": 0.021604378561023624,
+     "p90_s": 0.03336238988209515,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_18b7002": 1.0415153586474597
+    },
+    "18b7002": {
+     "median_s": 0.025319521100027487,
+     "p10_s": 0.02090299532748759,
+     "p90_s": 0.030342725620139392,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 0.960139465728693
+    },
+    "457a4bc": {
+     "median_s": 0.028160835505696015,
+     "p10_s": 0.02154969519819133,
+     "p90_s": 0.051197224076604465,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 1.067884714331474,
+     "ratio_vs_18b7002": 1.1122183312410852
+    }
+   },
+   "comparisons": {
+    "508e806_vs_18b7002": {
+     "ratio_of_medians": 1.0415153586474597,
+     "median_paired_ratio": 1.0482111043636042,
+     "rounds_slower": 9,
+     "rounds_faster": 1,
+     "rounds_tied": 0,
+     "sign_test_p": 0.021484375
+    },
+    "18b7002_vs_508e806": {
+     "ratio_of_medians": 0.960139465728693,
+     "median_paired_ratio": 0.9540675870028663,
+     "rounds_slower": 1,
+     "rounds_faster": 9,
+     "rounds_tied": 0,
+     "sign_test_p": 0.021484375
+    },
+    "457a4bc_vs_508e806": {
+     "ratio_of_medians": 1.067884714331474,
+     "median_paired_ratio": 0.9962416984489094,
+     "rounds_slower": 4,
+     "rounds_faster": 6,
+     "rounds_tied": 0,
+     "sign_test_p": 0.75390625
+    },
+    "457a4bc_vs_18b7002": {
+     "ratio_of_medians": 1.1122183312410852,
+     "median_paired_ratio": 1.0871122547006125,
+     "rounds_slower": 7,
+     "rounds_faster": 3,
+     "rounds_tied": 0,
+     "sign_test_p": 0.34375
+    }
+   }
+  },
+  "http-concurrent-n5-0ms": {
+   "workload": {
+    "transport": "http",
+    "mode": "concurrent",
+    "n": 5,
+    "latency_ms": 0
+   },
+   "trees": {
+    "508e806": {
+     "median_s": 0.03217851429944858,
+     "p10_s": 0.02332001547678374,
+     "p90_s": 0.03584589221980423,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_18b7002": 1.222810897155335
+    },
+    "18b7002": {
+     "median_s": 0.026315200800308955,
+     "p10_s": 0.022568428619997576,
+     "p90_s": 0.032210454973392186,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 0.8177879362429078
+    },
+    "457a4bc": {
+     "median_s": 0.028696246701292692,
+     "p10_s": 0.02322873010067269,
+     "p90_s": 0.053027878818102184,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 0.8917828347899964,
+     "ratio_vs_18b7002": 1.0904817682772834
+    }
+   },
+   "comparisons": {
+    "508e806_vs_18b7002": {
+     "ratio_of_medians": 1.222810897155335,
+     "median_paired_ratio": 1.1825951462661068,
+     "rounds_slower": 8,
+     "rounds_faster": 2,
+     "rounds_tied": 0,
+     "sign_test_p": 0.109375
+    },
+    "18b7002_vs_508e806": {
+     "ratio_of_medians": 0.8177879362429078,
+     "median_paired_ratio": 0.8461084134580348,
+     "rounds_slower": 2,
+     "rounds_faster": 8,
+     "rounds_tied": 0,
+     "sign_test_p": 0.109375
+    },
+    "457a4bc_vs_508e806": {
+     "ratio_of_medians": 0.8917828347899964,
+     "median_paired_ratio": 0.9805839393500241,
+     "rounds_slower": 4,
+     "rounds_faster": 6,
+     "rounds_tied": 0,
+     "sign_test_p": 0.75390625
+    },
+    "457a4bc_vs_18b7002": {
+     "ratio_of_medians": 1.0904817682772834,
+     "median_paired_ratio": 1.143771128621168,
+     "rounds_slower": 6,
+     "rounds_faster": 4,
+     "rounds_tied": 0,
+     "sign_test_p": 0.75390625
+    }
+   }
+  },
+  "http-sequential-n50-0ms": {
+   "workload": {
+    "transport": "http",
+    "mode": "sequential",
+    "n": 50,
+    "latency_ms": 0
+   },
+   "trees": {
+    "508e806": {
+     "median_s": 0.03299651987967081,
+     "p10_s": 0.028172185268718748,
+     "p90_s": 0.04108029310335405,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_18b7002": 1.1341473967461462
+    },
+    "18b7002": {
+     "median_s": 0.02909367862972431,
+     "p10_s": 0.026451190347666853,
+     "p90_s": 0.03578747387416661,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 0.8817196096988686
+    },
+    "457a4bc": {
+     "median_s": 0.032676751840044746,
+     "p10_s": 0.025689307003980498,
+     "p90_s": 0.05513110849191435,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 0.9903090374138797,
+     "ratio_vs_18b7002": 1.1231564167571335
+    }
+   },
+   "comparisons": {
+    "508e806_vs_18b7002": {
+     "ratio_of_medians": 1.1341473967461462,
+     "median_paired_ratio": 1.0900901540985641,
+     "rounds_slower": 9,
+     "rounds_faster": 1,
+     "rounds_tied": 0,
+     "sign_test_p": 0.021484375
+    },
+    "18b7002_vs_508e806": {
+     "ratio_of_medians": 0.8817196096988686,
+     "median_paired_ratio": 0.9177561246339947,
+     "rounds_slower": 1,
+     "rounds_faster": 9,
+     "rounds_tied": 0,
+     "sign_test_p": 0.021484375
+    },
+    "457a4bc_vs_508e806": {
+     "ratio_of_medians": 0.9903090374138797,
+     "median_paired_ratio": 0.949947521492193,
+     "rounds_slower": 4,
+     "rounds_faster": 6,
+     "rounds_tied": 0,
+     "sign_test_p": 0.75390625
+    },
+    "457a4bc_vs_18b7002": {
+     "ratio_of_medians": 1.1231564167571335,
+     "median_paired_ratio": 1.1083813343398548,
+     "rounds_slower": 5,
+     "rounds_faster": 5,
+     "rounds_tied": 0,
+     "sign_test_p": 1.0
+    }
+   }
+  },
+  "http-concurrent-n50-0ms": {
+   "workload": {
+    "transport": "http",
+    "mode": "concurrent",
+    "n": 50,
+    "latency_ms": 0
+   },
+   "trees": {
+    "508e806": {
+     "median_s": 0.04819972224941012,
+     "p10_s": 0.03367508716927841,
+     "p90_s": 0.06268999054306187,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_18b7002": 1.2933123973024698
+    },
+    "18b7002": {
+     "median_s": 0.03726842976990156,
+     "p10_s": 0.03374284121568781,
+     "p90_s": 0.04669304766203276,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 0.7732083927176087
+    },
+    "457a4bc": {
+     "median_s": 0.04041058820963372,
+     "p10_s": 0.03234126559807919,
+     "p90_s": 0.06065834590408485,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 0.8383987774976913,
+     "ratio_vs_18b7002": 1.0843115328209991
+    }
+   },
+   "comparisons": {
+    "508e806_vs_18b7002": {
+     "ratio_of_medians": 1.2933123973024698,
+     "median_paired_ratio": 1.1805914403467683,
+     "rounds_slower": 7,
+     "rounds_faster": 3,
+     "rounds_tied": 0,
+     "sign_test_p": 0.34375
+    },
+    "18b7002_vs_508e806": {
+     "ratio_of_medians": 0.7732083927176087,
+     "median_paired_ratio": 0.8561415657919025,
+     "rounds_slower": 3,
+     "rounds_faster": 7,
+     "rounds_tied": 0,
+     "sign_test_p": 0.34375
+    },
+    "457a4bc_vs_508e806": {
+     "ratio_of_medians": 0.8383987774976913,
+     "median_paired_ratio": 0.9351756249415737,
+     "rounds_slower": 3,
+     "rounds_faster": 7,
+     "rounds_tied": 0,
+     "sign_test_p": 0.34375
+    },
+    "457a4bc_vs_18b7002": {
+     "ratio_of_medians": 1.0843115328209991,
+     "median_paired_ratio": 0.9731930282340413,
+     "rounds_slower": 4,
+     "rounds_faster": 6,
+     "rounds_tied": 0,
+     "sign_test_p": 0.75390625
+    }
+   }
+  },
+  "http-sequential-n5-50ms": {
+   "workload": {
+    "transport": "http",
+    "mode": "sequential",
+    "n": 5,
+    "latency_ms": 50
+   },
+   "trees": {
+    "508e806": {
+     "median_s": 0.15362302950234152,
+     "p10_s": 0.12593320989282802,
+     "p90_s": 0.19520341432071292,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_18b7002": 1.1753540179201671
+    },
+    "18b7002": {
+     "median_s": 0.1307036238955334,
+     "p10_s": 0.12656207210267895,
+     "p90_s": 0.15512933598132803,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 0.8508074884276462
+    },
+    "457a4bc": {
+     "median_s": 0.1342829361965414,
+     "p10_s": 0.12571936820517293,
+     "p90_s": 0.17008014022838325,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 0.8741068095815326,
+     "ratio_vs_18b7002": 1.0273849507330328
+    }
+   },
+   "comparisons": {
+    "508e806_vs_18b7002": {
+     "ratio_of_medians": 1.1753540179201671,
+     "median_paired_ratio": 1.1351897081363462,
+     "rounds_slower": 6,
+     "rounds_faster": 4,
+     "rounds_tied": 0,
+     "sign_test_p": 0.75390625
+    },
+    "18b7002_vs_508e806": {
+     "ratio_of_medians": 0.8508074884276462,
+     "median_paired_ratio": 0.8931743708979959,
+     "rounds_slower": 4,
+     "rounds_faster": 6,
+     "rounds_tied": 0,
+     "sign_test_p": 0.75390625
+    },
+    "457a4bc_vs_508e806": {
+     "ratio_of_medians": 0.8741068095815326,
+     "median_paired_ratio": 0.9664610216013302,
+     "rounds_slower": 4,
+     "rounds_faster": 6,
+     "rounds_tied": 0,
+     "sign_test_p": 0.75390625
+    },
+    "457a4bc_vs_18b7002": {
+     "ratio_of_medians": 1.0273849507330328,
+     "median_paired_ratio": 1.0054317199841878,
+     "rounds_slower": 5,
+     "rounds_faster": 5,
+     "rounds_tied": 0,
+     "sign_test_p": 1.0
+    }
+   }
+  },
+  "http-concurrent-n5-50ms": {
+   "workload": {
+    "transport": "http",
+    "mode": "concurrent",
+    "n": 5,
+    "latency_ms": 50
+   },
+   "trees": {
+    "508e806": {
+     "median_s": 0.0765050380025059,
+     "p10_s": 0.04038366215885617,
+     "p90_s": 0.21711974373669363,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_18b7002": 1.6505852824024747
+    },
+    "18b7002": {
+     "median_s": 0.04635024849558249,
+     "p10_s": 0.04030188077944331,
+     "p90_s": 0.07569419787963852,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 0.6058457025283002
+    },
+    "457a4bc": {
+     "median_s": 0.04343664729967714,
+     "p10_s": 0.040485834785504264,
+     "p90_s": 0.06570362887927331,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 0.5677619204405125,
+     "ratio_vs_18b7002": 0.9371394697876747
+    }
+   },
+   "comparisons": {
+    "508e806_vs_18b7002": {
+     "ratio_of_medians": 1.6505852824024747,
+     "median_paired_ratio": 1.6799108602040271,
+     "rounds_slower": 7,
+     "rounds_faster": 3,
+     "rounds_tied": 0,
+     "sign_test_p": 0.34375
+    },
+    "18b7002_vs_508e806": {
+     "ratio_of_medians": 0.6058457025283002,
+     "median_paired_ratio": 0.6462729555706352,
+     "rounds_slower": 3,
+     "rounds_faster": 7,
+     "rounds_tied": 0,
+     "sign_test_p": 0.34375
+    },
+    "457a4bc_vs_508e806": {
+     "ratio_of_medians": 0.5677619204405125,
+     "median_paired_ratio": 0.7718230701941681,
+     "rounds_slower": 3,
+     "rounds_faster": 7,
+     "rounds_tied": 0,
+     "sign_test_p": 0.34375
+    },
+    "457a4bc_vs_18b7002": {
+     "ratio_of_medians": 0.9371394697876747,
+     "median_paired_ratio": 1.0102881208737977,
+     "rounds_slower": 5,
+     "rounds_faster": 5,
+     "rounds_tied": 0,
+     "sign_test_p": 1.0
+    }
+   }
+  },
+  "http-sequential-n50-50ms": {
+   "workload": {
+    "transport": "http",
+    "mode": "sequential",
+    "n": 50,
+    "latency_ms": 50
+   },
+   "trees": {
+    "508e806": {
+     "median_s": 0.14525401159015017,
+     "p10_s": 0.13091388083575292,
+     "p90_s": 0.15979997344024013,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_18b7002": 1.0572363279129413
+    },
+    "18b7002": {
+     "median_s": 0.13739029558026233,
+     "p10_s": 0.13186511262180284,
+     "p90_s": 0.14932638700224926,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 0.9458623144118308
+    },
+    "457a4bc": {
+     "median_s": 0.14103436737030278,
+     "p10_s": 0.13510657533409537,
+     "p90_s": 0.16999006641609593,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 0.9709498954717095,
+     "ratio_vs_18b7002": 1.0265235020759644
+    }
+   },
+   "comparisons": {
+    "508e806_vs_18b7002": {
+     "ratio_of_medians": 1.0572363279129413,
+     "median_paired_ratio": 1.0421689916672092,
+     "rounds_slower": 7,
+     "rounds_faster": 3,
+     "rounds_tied": 0,
+     "sign_test_p": 0.34375
+    },
+    "18b7002_vs_508e806": {
+     "ratio_of_medians": 0.9458623144118308,
+     "median_paired_ratio": 0.9596387936612546,
+     "rounds_slower": 3,
+     "rounds_faster": 7,
+     "rounds_tied": 0,
+     "sign_test_p": 0.34375
+    },
+    "457a4bc_vs_508e806": {
+     "ratio_of_medians": 0.9709498954717095,
+     "median_paired_ratio": 1.0362282516081347,
+     "rounds_slower": 6,
+     "rounds_faster": 4,
+     "rounds_tied": 0,
+     "sign_test_p": 0.75390625
+    },
+    "457a4bc_vs_18b7002": {
+     "ratio_of_medians": 1.0265235020759644,
+     "median_paired_ratio": 1.0695987294830231,
+     "rounds_slower": 7,
+     "rounds_faster": 3,
+     "rounds_tied": 0,
+     "sign_test_p": 0.34375
+    }
+   }
+  },
+  "http-concurrent-n50-50ms": {
+   "workload": {
+    "transport": "http",
+    "mode": "concurrent",
+    "n": 50,
+    "latency_ms": 50
+   },
+   "trees": {
+    "508e806": {
+     "median_s": 0.04135436107928399,
+     "p10_s": 0.03404720680078026,
+     "p90_s": 0.05517578439007047,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_18b7002": 0.9894663370222477
+    },
+    "18b7002": {
+     "median_s": 0.0417946114303777,
+     "p10_s": 0.031011811455711726,
+     "p90_s": 0.06542828357359394,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 1.0106458022710028
+    },
+    "457a4bc": {
+     "median_s": 0.0508825083397096,
+     "p10_s": 0.03734911835566163,
+     "p90_s": 0.05867723066417966,
+     "rounds": 10,
+     "fake_replies_per_call": 2.0,
+     "ratio_vs_508e806": 1.2304024777981308,
+     "ratio_vs_18b7002": 1.2174418327700138
+    }
+   },
+   "comparisons": {
+    "508e806_vs_18b7002": {
+     "ratio_of_medians": 0.9894663370222477,
+     "median_paired_ratio": 1.0455440576096984,
+     "rounds_slower": 7,
+     "rounds_faster": 3,
+     "rounds_tied": 0,
+     "sign_test_p": 0.34375
+    },
+    "18b7002_vs_508e806": {
+     "ratio_of_medians": 1.0106458022710028,
+     "median_paired_ratio": 0.9564624832002782,
+     "rounds_slower": 3,
+     "rounds_faster": 7,
+     "rounds_tied": 0,
+     "sign_test_p": 0.34375
+    },
+    "457a4bc_vs_508e806": {
+     "ratio_of_medians": 1.2304024777981308,
+     "median_paired_ratio": 1.1079174372623872,
+     "rounds_slower": 8,
+     "rounds_faster": 2,
+     "rounds_tied": 0,
+     "sign_test_p": 0.109375
+    },
+    "457a4bc_vs_18b7002": {
+     "ratio_of_medians": 1.2174418327700138,
+     "median_paired_ratio": 1.1548901393212843,
+     "rounds_slower": 7,
+     "rounds_faster": 3,
+     "rounds_tied": 0,
+     "sign_test_p": 0.34375
+    }
+   }
+  }
+ },
+ "overlap_50ms": {
+  "rev": "508e806",
+  "checks": {
+   "http-n5": {
+    "concurrent_over_sequential": 0.4980050077800334,
+    "overlaps": true
+   },
+   "http-n50": {
+    "concurrent_over_sequential": 0.28470374502268325,
+    "overlaps": true
+   }
+  }
+ },
+ "slower_than_reference": [],
+ "table": "| workload | 508e806 median [p10-p90] ms | 18b7002 median [p10-p90] ms | 457a4bc median [p10-p90] ms | 18b7002/508e806 (slower rounds, p) | 457a4bc/508e806 (slower rounds, p) | 457a4bc/18b7002 (slower rounds, p) |\n|---|---|---|---|---|---|---|\n| http-sequential-n5-0ms | 26.371 [21.604-33.362] | 25.320 [20.903-30.343] | 28.161 [21.550-51.197] | 0.960 (1/10, p=0.021) | 1.068 (4/10, p=0.75) | 1.112 (7/10, p=0.34) |\n| http-concurrent-n5-0ms | 32.179 [23.320-35.846] | 26.315 [22.568-32.210] | 28.696 [23.229-53.028] | 0.818 (2/10, p=0.11) | 0.892 (4/10, p=0.75) | 1.090 (6/10, p=0.75) |\n| http-sequential-n50-0ms | 32.997 [28.172-41.080] | 29.094 [26.451-35.787] | 32.677 [25.689-55.131] | 0.882 (1/10, p=0.021) | 0.990 (4/10, p=0.75) | 1.123 (5/10, p=1) |\n| http-concurrent-n50-0ms | 48.200 [33.675-62.690] | 37.268 [33.743-46.693] | 40.411 [32.341-60.658] | 0.773 (3/10, p=0.34) | 0.838 (3/10, p=0.34) | 1.084 (4/10, p=0.75) |\n| http-sequential-n5-50ms | 153.623 [125.933-195.203] | 130.704 [126.562-155.129] | 134.283 [125.719-170.080] | 0.851 (4/10, p=0.75) | 0.874 (4/10, p=0.75) | 1.027 (5/10, p=1) |\n| http-concurrent-n5-50ms | 76.505 [40.384-217.120] | 46.350 [40.302-75.694] | 43.437 [40.486-65.704] | 0.606 (3/10, p=0.34) | 0.568 (3/10, p=0.34) | 0.937 (5/10, p=1) |\n| http-sequential-n50-50ms | 145.254 [130.914-159.800] | 137.390 [131.865-149.326] | 141.034 [135.107-169.990] | 0.946 (3/10, p=0.34) | 0.971 (6/10, p=0.75) | 1.027 (7/10, p=0.34) |\n| http-concurrent-n50-50ms | 41.354 [34.047-55.176] | 41.795 [31.012-65.428] | 50.883 [37.349-58.677] | 1.011 (3/10, p=0.34) | 1.230 (8/10, p=0.11) | 1.217 (7/10, p=0.34) |",
+ "rounds": [
+  {
+   "round": 0,
+   "order": [
+    "508e806",
+    "18b7002",
+    "457a4bc"
+   ],
+   "runs": {
+    "508e806": {
+     "elapsed_s": 25.34844906703802,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.16588563501136377,
+         "per_call_s": 0.03317712700227275,
+         "min_s": 0.029279034992214292,
+         "median_s": 0.03152022400172427,
+         "max_s": 0.04322052595671266
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.17323482496431097,
+         "per_call_s": 0.0346469649928622,
+         "min_s": 0.14275636000093073,
+         "median_s": 0.15735420596320182,
+         "max_s": 0.17155546305002645
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.84512618399458,
+         "per_call_s": 0.0369025236798916,
+         "min_s": 0.023181226977612823,
+         "median_s": 0.030073373985942453,
+         "max_s": 0.3550267679966055
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 3.062206696951762,
+         "per_call_s": 0.06124413393903524,
+         "min_s": 0.7456522459979169,
+         "median_s": 1.7668841580161825,
+         "max_s": 3.0576667419518344
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.1449645729735494,
+         "per_call_s": 0.22899291459470988,
+         "min_s": 0.20144898595754057,
+         "median_s": 0.2316953000263311,
+         "max_s": 0.2519042629864998
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.3911947780288756,
+         "per_call_s": 0.2782389556057751,
+         "min_s": 1.3318168600089848,
+         "median_s": 1.3693086099810898,
+         "max_s": 1.3891703769913875
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 7.937787458009552,
+         "per_call_s": 0.15875574916019106,
+         "min_s": 0.13011207804083824,
+         "median_s": 0.14865764399291947,
+         "max_s": 0.33951862098183483
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.380754984973464,
+         "per_call_s": 0.04761509969946928,
+         "min_s": 0.6005593669833615,
+         "median_s": 1.6481793060083874,
+         "max_s": 2.37743288197089
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/opensearch/__init__.py",
+       "count": 35
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "18b7002": {
+     "elapsed_s": 23.67897853400791,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.1608776090433821,
+         "per_call_s": 0.03217552180867642,
+         "min_s": 0.026354292989708483,
+         "median_s": 0.0352143719792366,
+         "max_s": 0.03728243598015979
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.1633036420098506,
+         "per_call_s": 0.03266072840197012,
+         "min_s": 0.12352875398937613,
+         "median_s": 0.15137062803842127,
+         "max_s": 0.16258406097767875
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.7785230280132964,
+         "per_call_s": 0.03557046056026593,
+         "min_s": 0.023616060963831842,
+         "median_s": 0.03216902900021523,
+         "max_s": 0.2073366380063817
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 2.2148115599993616,
+         "per_call_s": 0.044296231199987234,
+         "min_s": 0.4980487590073608,
+         "median_s": 1.449805590964388,
+         "max_s": 2.2117516750004143
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.7623588370042853,
+         "per_call_s": 0.15247176740085705,
+         "min_s": 0.14155069697881117,
+         "median_s": 0.1426451459992677,
+         "max_s": 0.17016904201591387
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.26258172502275556,
+         "per_call_s": 0.052516345004551115,
+         "min_s": 0.1876091430312954,
+         "median_s": 0.26139772398164496,
+         "max_s": 0.2619671639986336
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 7.276021902973298,
+         "per_call_s": 0.14552043805946596,
+         "min_s": 0.12796449795132503,
+         "median_s": 0.13935245398897678,
+         "max_s": 0.3328759130090475
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 3.727556901052594,
+         "per_call_s": 0.07455113802105189,
+         "min_s": 1.0804132419871166,
+         "median_s": 2.2827998669818044,
+         "max_s": 3.7184449810301885
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "457a4bc": {
+     "elapsed_s": 21.55393016297603,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.1448429999873042,
+         "per_call_s": 0.02896859999746084,
+         "min_s": 0.023158687981776893,
+         "median_s": 0.0293715070001781,
+         "max_s": 0.032544511021114886
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.1396110730129294,
+         "per_call_s": 0.02792221460258588,
+         "min_s": 0.10904259601375088,
+         "median_s": 0.1283668390242383,
+         "max_s": 0.13900346303125843
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.59324697998818,
+         "per_call_s": 0.0318649395997636,
+         "min_s": 0.022291317000053823,
+         "median_s": 0.028526803012937307,
+         "max_s": 0.18445752002298832
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 2.135694255004637,
+         "per_call_s": 0.04271388510009274,
+         "min_s": 0.4169765580445528,
+         "median_s": 1.3815494669834152,
+         "max_s": 2.128101915004663
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6702709929668345,
+         "per_call_s": 0.1340541985933669,
+         "min_s": 0.13043491198914126,
+         "median_s": 0.13388729700818658,
+         "max_s": 0.13776581099955365
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.23666199401486665,
+         "per_call_s": 0.04733239880297333,
+         "min_s": 0.2329360190196894,
+         "median_s": 0.2357021919451654,
+         "max_s": 0.23608373198658228
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 6.785572274005972,
+         "per_call_s": 0.13571144548011943,
+         "min_s": 0.12744711700361222,
+         "median_s": 0.13181724498281255,
+         "max_s": 0.30083184398245066
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.6372995150159113,
+         "per_call_s": 0.05274599030031823,
+         "min_s": 0.6999442389933392,
+         "median_s": 1.6214282020227984,
+         "max_s": 2.633605240029283
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    }
+   },
+   "loadavg": [
+    33.05,
+    35.84,
+    48.69
+   ]
+  },
+  {
+   "round": 1,
+   "order": [
+    "18b7002",
+    "457a4bc",
+    "508e806"
+   ],
+   "runs": {
+    "18b7002": {
+     "elapsed_s": 22.1146677910001,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.15069540799595416,
+         "per_call_s": 0.03013908159919083,
+         "min_s": 0.02530444198055193,
+         "median_s": 0.029430047958157957,
+         "max_s": 0.039232681039720774
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.1457665009656921,
+         "per_call_s": 0.029153300193138422,
+         "min_s": 0.09023447200888768,
+         "median_s": 0.14474720001453534,
+         "max_s": 0.1449900110019371
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.6112610319978558,
+         "per_call_s": 0.032225220639957114,
+         "min_s": 0.02305140095995739,
+         "median_s": 0.028422177012544125,
+         "max_s": 0.19372734101489186
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.989199801988434,
+         "per_call_s": 0.03978399603976868,
+         "min_s": 0.372123672044836,
+         "median_s": 1.272477628022898,
+         "max_s": 1.9859408990014344
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6812367559759878,
+         "per_call_s": 0.13624735119519754,
+         "min_s": 0.1313236990245059,
+         "median_s": 0.13598865503445268,
+         "max_s": 0.14126475097145885
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.23118551296647638,
+         "per_call_s": 0.046237102593295276,
+         "min_s": 0.21147836098680273,
+         "median_s": 0.22432530502555892,
+         "max_s": 0.2306645429925993
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 6.780023369996343,
+         "per_call_s": 0.13560046739992684,
+         "min_s": 0.12610513297840953,
+         "median_s": 0.13104422896867618,
+         "max_s": 0.287337536981795
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 3.2207316539715976,
+         "per_call_s": 0.06441463307943195,
+         "min_s": 0.6076303119771183,
+         "median_s": 1.859406237024814,
+         "max_s": 3.217142870009411
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "457a4bc": {
+     "elapsed_s": 17.88115571398521,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.10796828998718411,
+         "per_call_s": 0.021593657997436823,
+         "min_s": 0.02008777396986261,
+         "median_s": 0.02132274495670572,
+         "max_s": 0.02313354896614328
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.12459972698707134,
+         "per_call_s": 0.024919945397414267,
+         "min_s": 0.06445922597777098,
+         "median_s": 0.12178388400934637,
+         "max_s": 0.12421476701274514
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.2936626569717191,
+         "per_call_s": 0.025873253139434383,
+         "min_s": 0.01996590499766171,
+         "median_s": 0.02256632602075115,
+         "max_s": 0.15810378699097782
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.6766708809882402,
+         "per_call_s": 0.033533417619764805,
+         "min_s": 0.3661969139939174,
+         "median_s": 1.1035061299917288,
+         "max_s": 1.67316975700669
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6321419919840991,
+         "per_call_s": 0.12642839839681982,
+         "min_s": 0.1253569579566829,
+         "median_s": 0.125939950987231,
+         "max_s": 0.12859902199124917
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.18853677297011018,
+         "per_call_s": 0.03770735459402204,
+         "min_s": 0.15411630098242313,
+         "median_s": 0.17267494404222816,
+         "max_s": 0.18802943197079003
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 6.483137200993951,
+         "per_call_s": 0.12966274401987904,
+         "min_s": 0.12338034599088132,
+         "median_s": 0.12633141002152115,
+         "max_s": 0.26813072996446863
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.7249074089922942,
+         "per_call_s": 0.03449814817984589,
+         "min_s": 0.9954201600048691,
+         "median_s": 1.494470764999278,
+         "max_s": 1.7205041340203024
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "508e806": {
+     "elapsed_s": 18.0256023890106,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.10857935203239322,
+         "per_call_s": 0.021715870406478644,
+         "min_s": 0.02094216796103865,
+         "median_s": 0.021645395027007908,
+         "max_s": 0.022479368024505675
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.11678004398709163,
+         "per_call_s": 0.023356008797418327,
+         "min_s": 0.09712044103071094,
+         "median_s": 0.11490361200412735,
+         "max_s": 0.11636784399161115
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.3423243120196275,
+         "per_call_s": 0.026846486240392552,
+         "min_s": 0.02045990398619324,
+         "median_s": 0.023847871052566916,
+         "max_s": 0.17041643999982625
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.4840944479801692,
+         "per_call_s": 0.029681888959603383,
+         "min_s": 0.3070902990293689,
+         "median_s": 1.0377749479957856,
+         "max_s": 1.4810149840195663
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6270264710183255,
+         "per_call_s": 0.1254052942036651,
+         "min_s": 0.12458963401149958,
+         "median_s": 0.12520842300727963,
+         "max_s": 0.12657937599578872
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.20916817599209026,
+         "per_call_s": 0.041833635198418054,
+         "min_s": 0.16795872600050643,
+         "median_s": 0.20239594799932092,
+         "max_s": 0.20866894500795752
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 6.988916975038592,
+         "per_call_s": 0.13977833950077184,
+         "min_s": 0.12369475298328325,
+         "median_s": 0.12791049701627344,
+         "max_s": 0.2672173189930618
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.705575721047353,
+         "per_call_s": 0.03411151442094706,
+         "min_s": 0.7561705369735137,
+         "median_s": 1.1348216499900445,
+         "max_s": 1.703205658996012
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/opensearch/__init__.py",
+       "count": 35
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    }
+   },
+   "loadavg": [
+    60.31,
+    44.25,
+    50.67
+   ]
+  },
+  {
+   "round": 2,
+   "order": [
+    "457a4bc",
+    "508e806",
+    "18b7002"
+   ],
+   "runs": {
+    "457a4bc": {
+     "elapsed_s": 19.520961080037523,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.1462360190344043,
+         "per_call_s": 0.02924720380688086,
+         "min_s": 0.025328203046228737,
+         "median_s": 0.027268624980933964,
+         "max_s": 0.03885584598174319
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.17709153599571437,
+         "per_call_s": 0.03541830719914287,
+         "min_s": 0.12617228203453124,
+         "median_s": 0.17422111198538914,
+         "max_s": 0.17659889499191195
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.6744282040162943,
+         "per_call_s": 0.03348856408032588,
+         "min_s": 0.021621166029945016,
+         "median_s": 0.026302900980226696,
+         "max_s": 0.21028483496047556
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.6557397129945457,
+         "per_call_s": 0.03311479425989092,
+         "min_s": 0.36579261400038376,
+         "median_s": 1.0249768469948322,
+         "max_s": 1.6528510499629192
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6257703010342084,
+         "per_call_s": 0.12515406020684167,
+         "min_s": 0.12389036995591596,
+         "median_s": 0.12532381300115958,
+         "max_s": 0.12650041503366083
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.2115225589950569,
+         "per_call_s": 0.04230451179901138,
+         "min_s": 0.2104096569819376,
+         "median_s": 0.21083002799423411,
+         "max_s": 0.21124290901934728
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 7.0970989799825475,
+         "per_call_s": 0.14194197959965094,
+         "min_s": 0.1229857990401797,
+         "median_s": 0.1333584690000862,
+         "max_s": 0.2702034179819748
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.883294640982058,
+         "per_call_s": 0.03766589281964116,
+         "min_s": 0.5488862650236115,
+         "median_s": 1.2779034129926004,
+         "max_s": 1.878407086012885
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "508e806": {
+     "elapsed_s": 18.57219128595898,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.11220458301249892,
+         "per_call_s": 0.022440916602499784,
+         "min_s": 0.02146461501251906,
+         "median_s": 0.02281709498493001,
+         "max_s": 0.023084233980625868
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.17838045000098646,
+         "per_call_s": 0.035676090000197294,
+         "min_s": 0.14957060903543606,
+         "median_s": 0.16224994300864637,
+         "max_s": 0.1777638189960271
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.5304005779908039,
+         "per_call_s": 0.030608011559816076,
+         "min_s": 0.021780723007395864,
+         "median_s": 0.024846237036399543,
+         "max_s": 0.2151551220449619
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.7059387929621153,
+         "per_call_s": 0.034118775859242306,
+         "min_s": 0.28799206198891625,
+         "median_s": 1.086617077991832,
+         "max_s": 1.7030825690017082
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6600150020094588,
+         "per_call_s": 0.13200300040189178,
+         "min_s": 0.12683583097532392,
+         "median_s": 0.12746404501376674,
+         "max_s": 0.14533694298006594
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.21174963598605245,
+         "per_call_s": 0.042349927197210493,
+         "min_s": 0.21051892399555072,
+         "median_s": 0.21097686496796086,
+         "max_s": 0.21145419595995918
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 6.739724441024009,
+         "per_call_s": 0.13479448882048017,
+         "min_s": 0.12387251999462023,
+         "median_s": 0.1271625139634125,
+         "max_s": 0.2814817449543625
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.7104463440482505,
+         "per_call_s": 0.03420892688096501,
+         "min_s": 0.5736326710321009,
+         "median_s": 1.238228973990772,
+         "max_s": 1.7078571419697255
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/opensearch/__init__.py",
+       "count": 35
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "18b7002": {
+     "elapsed_s": 18.294030652963556,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.10990760399727151,
+         "per_call_s": 0.021981520799454302,
+         "min_s": 0.020378950983285904,
+         "median_s": 0.021164811972994357,
+         "max_s": 0.024569506000261754
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.11307541700080037,
+         "per_call_s": 0.022615083400160073,
+         "min_s": 0.09415461699245498,
+         "median_s": 0.11149466596543789,
+         "max_s": 0.11254825600190088
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.3751826049992815,
+         "per_call_s": 0.02750365209998563,
+         "min_s": 0.020316710986662656,
+         "median_s": 0.02240326500032097,
+         "max_s": 0.14902932400582358
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.8095054689911194,
+         "per_call_s": 0.03619010937982239,
+         "min_s": 0.352183077018708,
+         "median_s": 1.1564261570456438,
+         "max_s": 1.8057330849696882
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.674861223960761,
+         "per_call_s": 0.1349722447921522,
+         "min_s": 0.1267438330105506,
+         "median_s": 0.12903718499001116,
+         "max_s": 0.15050351701211184
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.20174491999205202,
+         "per_call_s": 0.0403489839984104,
+         "min_s": 0.19852534600067884,
+         "median_s": 0.19871074700495228,
+         "max_s": 0.20125323900720105
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 6.894281500019133,
+         "per_call_s": 0.13788563000038268,
+         "min_s": 0.12314590997993946,
+         "median_s": 0.1269465530058369,
+         "max_s": 0.2867778980289586
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.6439362600212917,
+         "per_call_s": 0.03287872520042583,
+         "min_s": 0.6815815559821203,
+         "median_s": 1.2275033059995621,
+         "max_s": 1.6406669560237788
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    }
+   },
+   "loadavg": [
+    42.06,
+    42.28,
+    49.65
+   ]
+  },
+  {
+   "round": 3,
+   "order": [
+    "508e806",
+    "18b7002",
+    "457a4bc"
+   ],
+   "runs": {
+    "508e806": {
+     "elapsed_s": 21.05214960599551,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.10815883200848475,
+         "per_call_s": 0.02163176640169695,
+         "min_s": 0.021390925045125186,
+         "median_s": 0.02153874497162178,
+         "max_s": 0.022108525969088078
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.1149803779553622,
+         "per_call_s": 0.02299607559107244,
+         "min_s": 0.08935599797405303,
+         "median_s": 0.11322216701228172,
+         "max_s": 0.11456668801838532
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.4558083880110644,
+         "per_call_s": 0.029116167760221287,
+         "min_s": 0.01971015299204737,
+         "median_s": 0.023748798004817218,
+         "max_s": 0.16842343501048163
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 2.4228727689478546,
+         "per_call_s": 0.04845745537895709,
+         "min_s": 0.4416456730104983,
+         "median_s": 1.4371829080046155,
+         "max_s": 2.4195230350014754
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.9572451270068996,
+         "per_call_s": 0.19144902540137992,
+         "min_s": 0.15280157298548147,
+         "median_s": 0.19504355697426945,
+         "max_s": 0.21310103801079094
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.7544440809870139,
+         "per_call_s": 0.15088881619740277,
+         "min_s": 0.20089782105060294,
+         "median_s": 0.7522667779703625,
+         "max_s": 0.7538621700368822
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 7.269706106046215,
+         "per_call_s": 0.14539412212092429,
+         "min_s": 0.12325408996548504,
+         "median_s": 0.12981159600894898,
+         "max_s": 0.340976501989644
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.115136096952483,
+         "per_call_s": 0.04230272193904966,
+         "min_s": 0.47567975701531395,
+         "median_s": 1.5412106820149347,
+         "max_s": 2.1106810519704595
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/opensearch/__init__.py",
+       "count": 35
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "18b7002": {
+     "elapsed_s": 17.77330953598721,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.10401787603041157,
+         "per_call_s": 0.020803575206082316,
+         "min_s": 0.019803943985607475,
+         "median_s": 0.020543184014968574,
+         "max_s": 0.022701056965161115
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.16080212296219543,
+         "per_call_s": 0.032160424592439084,
+         "min_s": 0.08666693401755765,
+         "median_s": 0.15892216097563505,
+         "max_s": 0.1603834019624628
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.2855081320158206,
+         "per_call_s": 0.025710162640316413,
+         "min_s": 0.019725352991372347,
+         "median_s": 0.022120785957667977,
+         "max_s": 0.1459128150017932
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.6953890519798733,
+         "per_call_s": 0.03390778103959747,
+         "min_s": 0.2989052759949118,
+         "median_s": 1.1194705130183138,
+         "max_s": 1.6917116880067624
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6521669089561328,
+         "per_call_s": 0.13043338179122657,
+         "min_s": 0.12324786599492654,
+         "median_s": 0.12557593098608777,
+         "max_s": 0.15192462201230228
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.2151012870017439,
+         "per_call_s": 0.04302025740034878,
+         "min_s": 0.21423559600953013,
+         "median_s": 0.2143591659842059,
+         "max_s": 0.21475707599893212
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 6.844748058007099,
+         "per_call_s": 0.13689496116014196,
+         "min_s": 0.1236483360407874,
+         "median_s": 0.12666806898778304,
+         "max_s": 0.28974567604018375
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.4818406960112043,
+         "per_call_s": 0.029636813920224086,
+         "min_s": 0.9754548990167677,
+         "median_s": 1.1608992550172843,
+         "max_s": 1.479500202985946
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "457a4bc": {
+     "elapsed_s": 21.21059236401925,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.10577015002490953,
+         "per_call_s": 0.021154030004981905,
+         "min_s": 0.019963583967182785,
+         "median_s": 0.020426284056156874,
+         "max_s": 0.024525291984900832
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.10531931900186464,
+         "per_call_s": 0.02106386380037293,
+         "min_s": 0.0920469609554857,
+         "median_s": 0.09336019301554188,
+         "max_s": 0.10483392898458987
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.241433948976919,
+         "per_call_s": 0.02482867897953838,
+         "min_s": 0.019536713021807373,
+         "median_s": 0.02153771696612239,
+         "max_s": 0.16846842499217018
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.9053645659587346,
+         "per_call_s": 0.038107291319174695,
+         "min_s": 0.32279804395511746,
+         "median_s": 1.297306676977314,
+         "max_s": 1.9019665520172566
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6685085539938882,
+         "per_call_s": 0.13370171079877763,
+         "min_s": 0.12486992997583002,
+         "median_s": 0.12911004899069667,
+         "max_s": 0.15657397103495896
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.20910230302251875,
+         "per_call_s": 0.04182046060450375,
+         "min_s": 0.16991528699873015,
+         "median_s": 0.20770828099921346,
+         "max_s": 0.20855195197509602
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 7.41096672200365,
+         "per_call_s": 0.148219334440073,
+         "min_s": 0.12395838199881837,
+         "median_s": 0.13584293599706143,
+         "max_s": 0.3248709359904751
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.831252489006147,
+         "per_call_s": 0.056625049780122935,
+         "min_s": 1.209440785984043,
+         "median_s": 1.9600313899572939,
+         "max_s": 2.8239060600171797
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    }
+   },
+   "loadavg": [
+    29.98,
+    39.17,
+    48.18
+   ]
+  },
+  {
+   "round": 4,
+   "order": [
+    "18b7002",
+    "457a4bc",
+    "508e806"
+   ],
+   "runs": {
+    "18b7002": {
+     "elapsed_s": 21.973015027993824,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.1258579620043747,
+         "per_call_s": 0.025171592400874944,
+         "min_s": 0.02388370898552239,
+         "median_s": 0.024569628993049264,
+         "max_s": 0.02800566394580528
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.12033641501329839,
+         "per_call_s": 0.02406728300265968,
+         "min_s": 0.08731090294895694,
+         "median_s": 0.11924912402173504,
+         "max_s": 0.11975357501069084
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.4523839879548177,
+         "per_call_s": 0.029047679759096355,
+         "min_s": 0.02077301498502493,
+         "median_s": 0.025151429988909513,
+         "max_s": 0.1793876059819013
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.9218050119816326,
+         "per_call_s": 0.03843610023963265,
+         "min_s": 0.4502234910032712,
+         "median_s": 1.1981945720035583,
+         "max_s": 1.918442138005048
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6454731880221516,
+         "per_call_s": 0.12909463760443032,
+         "min_s": 0.12480849999701604,
+         "median_s": 0.1271836039959453,
+         "max_s": 0.1342300820397213
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.37813803600147367,
+         "per_call_s": 0.07562760720029474,
+         "min_s": 0.3384216470294632,
+         "median_s": 0.3773103940184228,
+         "max_s": 0.37795375601854175
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 7.740365625009872,
+         "per_call_s": 0.15480731250019744,
+         "min_s": 0.1237552390084602,
+         "median_s": 0.1376433050027117,
+         "max_s": 0.457384088949766
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.857927271979861,
+         "per_call_s": 0.05715854543959722,
+         "min_s": 1.42341456504073,
+         "median_s": 1.8935695069958456,
+         "max_s": 2.8502404339960776
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "457a4bc": {
+     "elapsed_s": 24.859218983969186,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.2314684619777836,
+         "per_call_s": 0.04629369239555672,
+         "min_s": 0.03596049203770235,
+         "median_s": 0.04783255700021982,
+         "max_s": 0.05732634803280234
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.14735139399999753,
+         "per_call_s": 0.029470278799999507,
+         "min_s": 0.08241695800097659,
+         "median_s": 0.1280658509931527,
+         "max_s": 0.14666773297358304
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.9279825250268914,
+         "per_call_s": 0.03855965050053783,
+         "min_s": 0.023487036989536136,
+         "median_s": 0.03204052796354517,
+         "max_s": 0.22867680800845847
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 2.4063134760363027,
+         "per_call_s": 0.04812626952072605,
+         "min_s": 0.39084156905300915,
+         "median_s": 1.6499935279716738,
+         "max_s": 2.4004013589583337
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.7178446520119905,
+         "per_call_s": 0.1435689304023981,
+         "min_s": 0.13368466595420614,
+         "median_s": 0.13906599202891812,
+         "max_s": 0.16053912899224088
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6754513540072367,
+         "per_call_s": 0.13509027080144734,
+         "min_s": 0.6180224359850399,
+         "median_s": 0.6612663770210929,
+         "max_s": 0.6748549829935655
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 8.372974750003777,
+         "per_call_s": 0.16745949500007554,
+         "min_s": 0.12774726701900363,
+         "median_s": 0.15676086500752717,
+         "max_s": 0.5190045789931901
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.567419948987663,
+         "per_call_s": 0.051348398979753254,
+         "min_s": 0.6116194619680755,
+         "median_s": 2.1406148729729466,
+         "max_s": 2.5569467870518565
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "508e806": {
+     "elapsed_s": 25.706073880020995,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.13298305397620425,
+         "per_call_s": 0.02659661079524085,
+         "min_s": 0.02328555699205026,
+         "median_s": 0.02595551998820156,
+         "max_s": 0.029622084985021502
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.1521606559981592,
+         "per_call_s": 0.03043213119963184,
+         "min_s": 0.09721653204178438,
+         "median_s": 0.13176774297608063,
+         "max_s": 0.15153797599487007
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.7692514099762775,
+         "per_call_s": 0.03538502819952555,
+         "min_s": 0.024215159006416798,
+         "median_s": 0.029647635004948825,
+         "max_s": 0.21323887800099328
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 2.5028899729950354,
+         "per_call_s": 0.05005779945990071,
+         "min_s": 0.7339662939775735,
+         "median_s": 1.6192446859786287,
+         "max_s": 2.4980163880391046
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.8393717170110904,
+         "per_call_s": 0.16787434340221807,
+         "min_s": 0.13263583404477686,
+         "median_s": 0.15421784901991487,
+         "max_s": 0.23857388802571222
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.051643600978423,
+         "per_call_s": 0.21032872019568458,
+         "min_s": 1.03269383701263,
+         "median_s": 1.0340555290458724,
+         "max_s": 1.0509955500019714
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 8.459899598034099,
+         "per_call_s": 0.16919799196068197,
+         "min_s": 0.13132047798717394,
+         "median_s": 0.1579707899945788,
+         "max_s": 0.36753960995702073
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.6899730970035307,
+         "per_call_s": 0.05379946194007061,
+         "min_s": 1.2920265200082213,
+         "median_s": 2.0617711929953657,
+         "max_s": 2.687127204029821
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/opensearch/__init__.py",
+       "count": 35
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    }
+   },
+   "loadavg": [
+    41.08,
+    40.48,
+    48.06
+   ]
+  },
+  {
+   "round": 5,
+   "order": [
+    "457a4bc",
+    "508e806",
+    "18b7002"
+   ],
+   "runs": {
+    "457a4bc": {
+     "elapsed_s": 30.783073678961955,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.13820519304135814,
+         "per_call_s": 0.027641038608271627,
+         "min_s": 0.02278058702358976,
+         "median_s": 0.02959464496234432,
+         "max_s": 0.030834697012323886
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.2377770509920083,
+         "per_call_s": 0.04755541019840166,
+         "min_s": 0.1726734139956534,
+         "median_s": 0.18690322997281328,
+         "max_s": 0.2370815399917774
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 3.0902878050110303,
+         "per_call_s": 0.061805756100220606,
+         "min_s": 0.02528691996121779,
+         "median_s": 0.04997919895686209,
+         "max_s": 0.22768722899490967
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 2.9974469550070353,
+         "per_call_s": 0.05994893910014071,
+         "min_s": 0.698828455992043,
+         "median_s": 1.9318721640156582,
+         "max_s": 2.992618649965152
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.846830751048401,
+         "per_call_s": 0.1693661502096802,
+         "min_s": 0.14585478202207014,
+         "median_s": 0.17177454300690442,
+         "max_s": 0.1866267820005305
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.2812411439954303,
+         "per_call_s": 0.056248228799086065,
+         "min_s": 0.21805219899397343,
+         "median_s": 0.279704031010624,
+         "max_s": 0.2800335519714281
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 9.638260458013974,
+         "per_call_s": 0.19276520916027948,
+         "min_s": 0.12908317404799163,
+         "median_s": 0.1766588789760135,
+         "max_s": 0.4523193389759399
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 3.857342931034509,
+         "per_call_s": 0.07714685862069018,
+         "min_s": 1.3342349749873392,
+         "median_s": 2.637001716007944,
+         "max_s": 3.854206607968081
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "508e806": {
+     "elapsed_s": 23.9734380459995,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.17514877900248393,
+         "per_call_s": 0.03502975580049679,
+         "min_s": 0.03013356600422412,
+         "median_s": 0.03560554201249033,
+         "max_s": 0.03909058595309034
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.17805114400107414,
+         "per_call_s": 0.035610228800214826,
+         "min_s": 0.11864471301669255,
+         "median_s": 0.16871534200618044,
+         "max_s": 0.177393261983525
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 2.0250834829639643,
+         "per_call_s": 0.04050166965927929,
+         "min_s": 0.024290628964081407,
+         "median_s": 0.03218691103393212,
+         "max_s": 0.3187473790021613
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 2.508252968022134,
+         "per_call_s": 0.05016505936044268,
+         "min_s": 0.4540914690005593,
+         "median_s": 1.5705878190346994,
+         "max_s": 2.5013200200046413
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.8031310869846493,
+         "per_call_s": 0.16062621739692987,
+         "min_s": 0.1376931460108608,
+         "median_s": 0.15902598097454756,
+         "max_s": 0.2069773570401594
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.24431144900154322,
+         "per_call_s": 0.04886228980030864,
+         "min_s": 0.20501684199552983,
+         "median_s": 0.23679339996306226,
+         "max_s": 0.24368519900599495
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 7.255695052968804,
+         "per_call_s": 0.14511390105937608,
+         "min_s": 0.12626103596994653,
+         "median_s": 0.13816118304384872,
+         "max_s": 0.2991730560315773
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.020300010975916,
+         "per_call_s": 0.04040600021951832,
+         "min_s": 0.7012356749619357,
+         "median_s": 1.3237364509841427,
+         "max_s": 2.015492694976274
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/opensearch/__init__.py",
+       "count": 35
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "18b7002": {
+     "elapsed_s": 18.378454759018496,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.12733724899590015,
+         "per_call_s": 0.02546744979918003,
+         "min_s": 0.022808665002230555,
+         "median_s": 0.024784770037513226,
+         "max_s": 0.029181105026509613
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.12315659498563036,
+         "per_call_s": 0.024631318997126072,
+         "min_s": 0.0934422499849461,
+         "median_s": 0.12153920298442245,
+         "max_s": 0.12255268497392535
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.4569838750176132,
+         "per_call_s": 0.029139677500352262,
+         "min_s": 0.02200289600295946,
+         "median_s": 0.0258731700014323,
+         "max_s": 0.19159646198386326
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.80504219699651,
+         "per_call_s": 0.036100843939930204,
+         "min_s": 0.3361349299666472,
+         "median_s": 1.0974214139860123,
+         "max_s": 1.800829290994443
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6332785650156438,
+         "per_call_s": 0.12665571300312878,
+         "min_s": 0.12411542399786413,
+         "median_s": 0.1273939280072227,
+         "max_s": 0.1275915169971995
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.2022477260325104,
+         "per_call_s": 0.04044954520650208,
+         "min_s": 0.1652163319522515,
+         "median_s": 0.20008280297042802,
+         "max_s": 0.20160533499438316
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 6.6858698860160075,
+         "per_call_s": 0.13371739772032015,
+         "min_s": 0.12457142496714368,
+         "median_s": 0.12718661403050646,
+         "max_s": 0.29486671200720593
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.580081985972356,
+         "per_call_s": 0.03160163971944712,
+         "min_s": 0.7213353900006041,
+         "median_s": 1.2873983239987865,
+         "max_s": 1.5763544919900596
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    }
+   },
+   "loadavg": [
+    80.41,
+    51.73,
+    51.32
+   ]
+  },
+  {
+   "round": 6,
+   "order": [
+    "508e806",
+    "18b7002",
+    "457a4bc"
+   ],
+   "runs": {
+    "508e806": {
+     "elapsed_s": 17.49226482398808,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.10678943997481838,
+         "per_call_s": 0.021357887994963676,
+         "min_s": 0.020411373989190906,
+         "median_s": 0.02161035599419847,
+         "max_s": 0.021933733019977808
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.12222895002923906,
+         "per_call_s": 0.02444579000584781,
+         "min_s": 0.0800798399723135,
+         "median_s": 0.12033849797444418,
+         "max_s": 0.1217847799998708
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.4159742580377497,
+         "per_call_s": 0.028319485160754995,
+         "min_s": 0.020922575029544532,
+         "median_s": 0.025324296962935477,
+         "max_s": 0.18283500795951113
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.707788978004828,
+         "per_call_s": 0.034155779560096564,
+         "min_s": 0.3776065470301546,
+         "median_s": 1.1347707569948398,
+         "max_s": 1.7048596550012007
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6299593359581195,
+         "per_call_s": 0.1259918671916239,
+         "min_s": 0.12386945204343647,
+         "median_s": 0.1260723840096034,
+         "max_s": 0.12767834501573816
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.18720480299089104,
+         "per_call_s": 0.03744096059817821,
+         "min_s": 0.14637211500667036,
+         "median_s": 0.1863619820214808,
+         "max_s": 0.18667962303152308
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 6.4282411690219305,
+         "per_call_s": 0.12856482338043862,
+         "min_s": 0.12282622896600515,
+         "median_s": 0.1260120149818249,
+         "max_s": 0.2676344229839742
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.6734219109639525,
+         "per_call_s": 0.03346843821927905,
+         "min_s": 0.7501623799907975,
+         "median_s": 1.119591897004284,
+         "max_s": 1.6695270460331813
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/opensearch/__init__.py",
+       "count": 35
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "18b7002": {
+     "elapsed_s": 17.38488512096228,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.10457021003821865,
+         "per_call_s": 0.02091404200764373,
+         "min_s": 0.020010131993331015,
+         "median_s": 0.02070057298988104,
+         "max_s": 0.022401846945285797
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.11074267799267545,
+         "per_call_s": 0.02214853559853509,
+         "min_s": 0.09661495097680017,
+         "median_s": 0.10952040599659085,
+         "max_s": 0.1103223169920966
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.326676337979734,
+         "per_call_s": 0.02653352675959468,
+         "min_s": 0.020195764023810625,
+         "median_s": 0.02360096701886505,
+         "max_s": 0.17863654805114493
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.612919140025042,
+         "per_call_s": 0.03225838280050084,
+         "min_s": 0.30185891001019627,
+         "median_s": 0.9887694270000793,
+         "max_s": 1.6095009170239791
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6285965199931525,
+         "per_call_s": 0.1257193039986305,
+         "min_s": 0.12290964199928567,
+         "median_s": 0.12613067601341754,
+         "max_s": 0.12751008698251098
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.19938975904369727,
+         "per_call_s": 0.03987795180873945,
+         "min_s": 0.16790079500060529,
+         "median_s": 0.1955809150240384,
+         "max_s": 0.19907742901705205
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 6.46577678801259,
+         "per_call_s": 0.12931553576025182,
+         "min_s": 0.12327953503699973,
+         "median_s": 0.12578847899567336,
+         "max_s": 0.2815032729995437
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.5582294479827397,
+         "per_call_s": 0.031164588959654793,
+         "min_s": 0.7554038820089772,
+         "median_s": 1.2804135600454174,
+         "max_s": 1.5556297639850527
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "457a4bc": {
+     "elapsed_s": 18.761715804983396,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.11691096797585487,
+         "per_call_s": 0.023382193595170974,
+         "min_s": 0.021790854982100427,
+         "median_s": 0.022783186985179782,
+         "max_s": 0.025805230950936675
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.11772464902605861,
+         "per_call_s": 0.023544929805211723,
+         "min_s": 0.07642697996925563,
+         "median_s": 0.11500240600435063,
+         "max_s": 0.11732956796186045
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.325559813005384,
+         "per_call_s": 0.026511196260107683,
+         "min_s": 0.02179699600674212,
+         "median_s": 0.024229208996985108,
+         "max_s": 0.151884199003689
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.4349495120113716,
+         "per_call_s": 0.028698990240227432,
+         "min_s": 0.284093305002898,
+         "median_s": 1.038074565003626,
+         "max_s": 1.4321758179576136
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.8004097249940969,
+         "per_call_s": 0.1600819449988194,
+         "min_s": 0.12424624199047685,
+         "median_s": 0.1293809280032292,
+         "max_s": 0.2894409030559473
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.22284391400171444,
+         "per_call_s": 0.04456878280034289,
+         "min_s": 0.1833133939653635,
+         "median_s": 0.22139527299441397,
+         "max_s": 0.22266555402893573
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 6.9754302719957195,
+         "per_call_s": 0.1395086054399144,
+         "min_s": 0.1258085379959084,
+         "median_s": 0.13303368003107607,
+         "max_s": 0.2973476889892481
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.1396538260160014,
+         "per_call_s": 0.04279307652032003,
+         "min_s": 0.9802668070187792,
+         "median_s": 1.4594603140139952,
+         "max_s": 2.1365584929590113
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    }
+   },
+   "loadavg": [
+    75.32,
+    58.48,
+    53.83
+   ]
+  },
+  {
+   "round": 7,
+   "order": [
+    "18b7002",
+    "457a4bc",
+    "508e806"
+   ],
+   "runs": {
+    "18b7002": {
+     "elapsed_s": 20.498557660961524,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.13169824500801042,
+         "per_call_s": 0.026339649001602083,
+         "min_s": 0.024733928963541985,
+         "median_s": 0.02652362099615857,
+         "max_s": 0.02748090197565034
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.1399954130174592,
+         "per_call_s": 0.02799908260349184,
+         "min_s": 0.12255497497972101,
+         "median_s": 0.12404695700388402,
+         "max_s": 0.1393301520147361
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.528115320019424,
+         "per_call_s": 0.03056230640038848,
+         "min_s": 0.023302609974052757,
+         "median_s": 0.027315284009091556,
+         "max_s": 0.18360437999945134
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.9173375079990365,
+         "per_call_s": 0.03834675015998073,
+         "min_s": 0.41457416099729016,
+         "median_s": 1.2807154649635777,
+         "max_s": 1.9131114149931818
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.654869329999201,
+         "per_call_s": 0.1309738659998402,
+         "min_s": 0.12822124100057408,
+         "median_s": 0.12952745298389345,
+         "max_s": 0.13787416997365654
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.23231697198934853,
+         "per_call_s": 0.04646339439786971,
+         "min_s": 0.1802679270040244,
+         "median_s": 0.2225506539689377,
+         "max_s": 0.23166955198394135
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 7.43586976401275,
+         "per_call_s": 0.14871739528025502,
+         "min_s": 0.128697092004586,
+         "median_s": 0.1345911670359783,
+         "max_s": 0.36862580198794603
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.4930117719923146,
+         "per_call_s": 0.049860235439846294,
+         "min_s": 0.8164590689702891,
+         "median_s": 1.6549286290537566,
+         "max_s": 2.487460558011662
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "457a4bc": {
+     "elapsed_s": 22.664341251947917,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.143403162015602,
+         "per_call_s": 0.0286806324031204,
+         "min_s": 0.024438159016426653,
+         "median_s": 0.029572455037850887,
+         "max_s": 0.03184329002397135
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.17849737597862259,
+         "per_call_s": 0.035699475195724514,
+         "min_s": 0.16294149798341095,
+         "median_s": 0.17002055601915345,
+         "max_s": 0.17779411497758701
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 2.07894687197404,
+         "per_call_s": 0.041578937439480795,
+         "min_s": 0.024082688963972032,
+         "median_s": 0.03753210400464013,
+         "max_s": 0.2514552529901266
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 2.2576437469688244,
+         "per_call_s": 0.04515287493937649,
+         "min_s": 0.433180863969028,
+         "median_s": 1.4037805310217664,
+         "max_s": 2.254556812986266
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6725583689985797,
+         "per_call_s": 0.13451167379971593,
+         "min_s": 0.13120653800433502,
+         "median_s": 0.135297572996933,
+         "max_s": 0.13735103502403945
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.210986164980568,
+         "per_call_s": 0.042197232996113596,
+         "min_s": 0.18063717801123857,
+         "median_s": 0.19929141097236425,
+         "max_s": 0.21041601500473917
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 6.861829734989442,
+         "per_call_s": 0.13723659469978883,
+         "min_s": 0.1270597229595296,
+         "median_s": 0.13365788100054488,
+         "max_s": 0.2907270530122332
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.5208308849832974,
+         "per_call_s": 0.05041661769966595,
+         "min_s": 0.9813936119899154,
+         "median_s": 1.7240560270147398,
+         "max_s": 2.5159711489686742
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "508e806": {
+     "elapsed_s": 28.618478459015023,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.14367453602608293,
+         "per_call_s": 0.028734907205216587,
+         "min_s": 0.024472079006955028,
+         "median_s": 0.029955054982565343,
+         "max_s": 0.03334138297941536
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.1696244869963266,
+         "per_call_s": 0.03392489739926532,
+         "min_s": 0.14367428404511884,
+         "median_s": 0.1668391029816121,
+         "max_s": 0.16895505599677563
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 2.3143952050013468,
+         "per_call_s": 0.046287904100026936,
+         "min_s": 0.023227878962643445,
+         "median_s": 0.03177789703477174,
+         "max_s": 0.2030664890189655
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 3.785134998965077,
+         "per_call_s": 0.07570269997930154,
+         "min_s": 0.4374036120134406,
+         "median_s": 2.669954693992622,
+         "max_s": 3.7809674330055714
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.9251108579919674,
+         "per_call_s": 0.18502217159839346,
+         "min_s": 0.12967184698209167,
+         "median_s": 0.19418878300348297,
+         "max_s": 0.2305278320563957
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.0390451090061106,
+         "per_call_s": 0.20780902180122213,
+         "min_s": 0.9484278550371528,
+         "median_s": 0.9999172030366026,
+         "max_s": 1.0388604879844934
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 7.829136391053908,
+         "per_call_s": 0.15658272782107815,
+         "min_s": 0.1253455609548837,
+         "median_s": 0.14281847199890763,
+         "max_s": 0.33461585198529065
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 3.3781343220034614,
+         "per_call_s": 0.06756268644006923,
+         "min_s": 0.8368901369976811,
+         "median_s": 2.1086206209729426,
+         "max_s": 3.3749286189558916
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/opensearch/__init__.py",
+       "count": 35
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    }
+   },
+   "loadavg": [
+    47.1,
+    52.87,
+    52.15
+   ]
+  },
+  {
+   "round": 8,
+   "order": [
+    "457a4bc",
+    "508e806",
+    "18b7002"
+   ],
+   "runs": {
+    "457a4bc": {
+     "elapsed_s": 35.15849899104796,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.4766450460301712,
+         "per_call_s": 0.09532900920603424,
+         "min_s": 0.06603313295636326,
+         "median_s": 0.07090905896620825,
+         "max_s": 0.18047684896737337
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.5114004819770344,
+         "per_call_s": 0.10228009639540687,
+         "min_s": 0.39891332399565727,
+         "median_s": 0.49931818700861186,
+         "max_s": 0.5107463409658521
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 2.719474048994016,
+         "per_call_s": 0.05438948097988032,
+         "min_s": 0.024881935969460756,
+         "median_s": 0.04261867899913341,
+         "max_s": 0.2929282539989799
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 3.3521503569791093,
+         "per_call_s": 0.06704300713958218,
+         "min_s": 0.5381740609882399,
+         "median_s": 2.6513879310223274,
+         "max_s": 3.337700351024978
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.8825302519835532,
+         "per_call_s": 0.17650605039671063,
+         "min_s": 0.16425713803619146,
+         "median_s": 0.1757031410234049,
+         "max_s": 0.19963346695294604
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.28997000999515876,
+         "per_call_s": 0.05799400199903175,
+         "min_s": 0.2644282999681309,
+         "median_s": 0.2650364409782924,
+         "max_s": 0.28931944898795336
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 8.186302917951252,
+         "per_call_s": 0.16372605835902504,
+         "min_s": 0.12867296702461317,
+         "median_s": 0.15657830599229783,
+         "max_s": 0.4735064979759045
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.6665703969774768,
+         "per_call_s": 0.05333140793954953,
+         "min_s": 0.5661071219947189,
+         "median_s": 2.174585384025704,
+         "max_s": 2.662498822028283
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "508e806": {
+     "elapsed_s": 23.507391999009997,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.16492100799223408,
+         "per_call_s": 0.03298420159844682,
+         "min_s": 0.025125237996689975,
+         "median_s": 0.02911428303923458,
+         "max_s": 0.0440136170363985
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.18687056098133326,
+         "per_call_s": 0.03737411219626665,
+         "min_s": 0.13542459602467716,
+         "median_s": 0.16052659403067082,
+         "max_s": 0.18622239999240264
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.8877726449863985,
+         "per_call_s": 0.03775545289972797,
+         "min_s": 0.024576375959441066,
+         "median_s": 0.0311604060116224,
+         "max_s": 0.28320033295312896
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 2.397099455993157,
+         "per_call_s": 0.04794198911986314,
+         "min_s": 0.5759983509778976,
+         "median_s": 1.6742977349786088,
+         "max_s": 2.392556140956003
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.7330992080387659,
+         "per_call_s": 0.14661984160775318,
+         "min_s": 0.12944005202734843,
+         "median_s": 0.14766521903220564,
+         "max_s": 0.1660172290285118
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.5207389310235158,
+         "per_call_s": 0.10414778620470315,
+         "min_s": 0.37286737002432346,
+         "median_s": 0.4667938459897414,
+         "max_s": 0.5201124100130983
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 7.667124119005166,
+         "per_call_s": 0.1533424823801033,
+         "min_s": 0.1334452769951895,
+         "median_s": 0.14596838597208261,
+         "max_s": 0.374786694010254
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.4064842280349694,
+         "per_call_s": 0.04812968456069939,
+         "min_s": 0.6446044960175641,
+         "median_s": 1.5741742830141447,
+         "max_s": 2.4023394340183586
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/opensearch/__init__.py",
+       "count": 35
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "18b7002": {
+     "elapsed_s": 23.496968516963534,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.13698207400739193,
+         "per_call_s": 0.027396414801478385,
+         "min_s": 0.024837347969878465,
+         "median_s": 0.02625778701622039,
+         "max_s": 0.03200035501504317
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.151602997968439,
+         "per_call_s": 0.030320599593687804,
+         "min_s": 0.10720703896367922,
+         "median_s": 0.15059931599535048,
+         "max_s": 0.15141751803457737
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.887029684963636,
+         "per_call_s": 0.03774059369927272,
+         "min_s": 0.02526272600516677,
+         "median_s": 0.0336262279888615,
+         "max_s": 0.23114439699565992
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 3.4132197910221294,
+         "per_call_s": 0.06826439582044258,
+         "min_s": 0.39588665997143835,
+         "median_s": 2.0378968349541537,
+         "max_s": 3.4099649870186113
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.8952372660278343,
+         "per_call_s": 0.17904745320556686,
+         "min_s": 0.15942864696262404,
+         "median_s": 0.17450751503929496,
+         "max_s": 0.20349680702202022
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.24199698999291286,
+         "per_call_s": 0.048399397998582575,
+         "min_s": 0.22171572700608522,
+         "median_s": 0.24017777800327167,
+         "max_s": 0.24133106000954285
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 7.433343923999928,
+         "per_call_s": 0.14866687847999857,
+         "min_s": 0.12760367197915912,
+         "median_s": 0.14046896697254851,
+         "max_s": 0.34536434401525185
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.2905147970304824,
+         "per_call_s": 0.04581029594060965,
+         "min_s": 0.6010918320389464,
+         "median_s": 1.7238404210074805,
+         "max_s": 2.2873308840207756
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    }
+   },
+   "loadavg": [
+    105.06,
+    65.87,
+    56.53
+   ]
+  },
+  {
+   "round": 9,
+   "order": [
+    "508e806",
+    "18b7002",
+    "457a4bc"
+   ],
+   "runs": {
+    "508e806": {
+     "elapsed_s": 18.71674940898083,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.13072364701656625,
+         "per_call_s": 0.02614472940331325,
+         "min_s": 0.02448257600190118,
+         "median_s": 0.025236615969333798,
+         "max_s": 0.028772660007234663
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.13718459295341745,
+         "per_call_s": 0.02743691859068349,
+         "min_s": 0.0748302570427768,
+         "median_s": 0.1270952630438842,
+         "max_s": 0.13661574298748747
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.4576941619743593,
+         "per_call_s": 0.029153883239487186,
+         "min_s": 0.021950412017758936,
+         "median_s": 0.025932237040251493,
+         "max_s": 0.18980784103041515
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.8013324400526471,
+         "per_call_s": 0.03602664880105294,
+         "min_s": 0.345004910021089,
+         "median_s": 1.1452471819939092,
+         "max_s": 1.7973938359646127
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6386134999920614,
+         "per_call_s": 0.1277226999984123,
+         "min_s": 0.1253900420269929,
+         "median_s": 0.12774464400717989,
+         "max_s": 0.12993717601057142
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.2035531449946575,
+         "per_call_s": 0.0407106289989315,
+         "min_s": 0.16195656300988048,
+         "median_s": 0.20269831403857097,
+         "max_s": 0.20299615402473137
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 6.558744360983837,
+         "per_call_s": 0.13117488721967674,
+         "min_s": 0.12468031095340848,
+         "median_s": 0.12837657501222566,
+         "max_s": 0.27776886097854003
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.9245187800261192,
+         "per_call_s": 0.03849037560052238,
+         "min_s": 0.8611620419542305,
+         "median_s": 1.4488026830367744,
+         "max_s": 1.9216551970457658
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/508e806/src/opensearch/__init__.py",
+       "count": 35
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "18b7002": {
+     "elapsed_s": 18.440431994968094,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.12034637696342543,
+         "per_call_s": 0.024069275392685087,
+         "min_s": 0.022651304956525564,
+         "median_s": 0.024080325034447014,
+         "max_s": 0.02565993700409308
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.11892413505120203,
+         "per_call_s": 0.023784827010240407,
+         "min_s": 0.05128331598825753,
+         "median_s": 0.09560050099389628,
+         "max_s": 0.11854164500255138
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.3713965229690075,
+         "per_call_s": 0.027427930459380148,
+         "min_s": 0.021035691956058145,
+         "median_s": 0.024487675982527435,
+         "max_s": 0.16767711500870064
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.7987558480235748,
+         "per_call_s": 0.035975116960471495,
+         "min_s": 0.3427468870067969,
+         "median_s": 1.1038302030065097,
+         "max_s": 1.7947725839912891
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.639762178005185,
+         "per_call_s": 0.127952435601037,
+         "min_s": 0.12544293800601736,
+         "median_s": 0.1284603250096552,
+         "max_s": 0.12935997598106042
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.38146756996866316,
+         "per_call_s": 0.07629351399373263,
+         "min_s": 0.3441818020073697,
+         "median_s": 0.3801541790016927,
+         "max_s": 0.38071178004611284
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 6.607419946987648,
+         "per_call_s": 0.13214839893975294,
+         "min_s": 0.12535165203735232,
+         "median_s": 0.1281517639872618,
+         "max_s": 0.29718604998197407
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 1.8889463460072875,
+         "per_call_s": 0.03777892692014575,
+         "min_s": 0.6933138759923168,
+         "median_s": 1.3129832840058953,
+         "max_s": 1.8861276640091091
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/18b7002/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    },
+    "457a4bc": {
+     "elapsed_s": 18.99715691700112,
+     "workloads": {
+      "http-sequential-n5-0ms": {
+       "workload": "http-sequential-n5-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.10881360300118104,
+         "per_call_s": 0.021762720600236207,
+         "min_s": 0.02109766297508031,
+         "median_s": 0.021608502021990716,
+         "max_s": 0.0227479130262509
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-0ms": {
+       "workload": "http-concurrent-n5-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 0.11734635400353,
+         "per_call_s": 0.023469270800706,
+         "min_s": 0.07061436196090654,
+         "median_s": 0.11596560198813677,
+         "max_s": 0.11698167299618945
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-0ms": {
+       "workload": "http-sequential-n50-0ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.2892466170014814,
+         "per_call_s": 0.025784932340029626,
+         "min_s": 0.019911120005417615,
+         "median_s": 0.022982113005127758,
+         "max_s": 0.15931990696117282
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-0ms": {
+       "workload": "http-concurrent-n50-0ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 0,
+       "batches": [
+        {
+         "wall_s": 1.637298143003136,
+         "per_call_s": 0.03274596286006272,
+         "min_s": 0.3194929340388626,
+         "median_s": 1.0176914950134233,
+         "max_s": 1.633484399993904
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n5-50ms": {
+       "workload": "http-sequential-n5-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.6289109010249376,
+         "per_call_s": 0.12578218020498752,
+         "min_s": 0.1239735769922845,
+         "median_s": 0.1251583579578437,
+         "max_s": 0.12822656001662835
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n5-50ms": {
+       "workload": "http-concurrent-n5-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 5,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 0.20397277403390035,
+         "per_call_s": 0.04079455480678007,
+         "min_s": 0.20059884001966566,
+         "median_s": 0.20107450999785215,
+         "max_s": 0.20360046299174428
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-sequential-n50-50ms": {
+       "workload": "http-sequential-n50-50ms",
+       "transport": "http",
+       "mode": "sequential",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 7.006337757047731,
+         "per_call_s": 0.14012675514095463,
+         "min_s": 0.12351590598700568,
+         "median_s": 0.13224089500727132,
+         "max_s": 0.2604649450513534
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      },
+      "http-concurrent-n50-50ms": {
+       "workload": "http-concurrent-n50-50ms",
+       "transport": "http",
+       "mode": "concurrent",
+       "n": 50,
+       "latency_ms": 50,
+       "batches": [
+        {
+         "wall_s": 2.2827103580348194,
+         "per_call_s": 0.04565420716069639,
+         "min_s": 1.050713156000711,
+         "median_s": 1.739531792991329,
+         "max_s": 2.2717850959743373
+        }
+       ],
+       "fake_replies_per_call": 2.0
+      }
+     },
+     "modules": {
+      "http": {
+       "mcp_server_opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/mcp_server_opensearch/__init__.py",
+       "tools": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/tools/__init__.py",
+       "opensearch": "/tmp/bench_tools_call_fdutzfd_/trees/457a4bc/src/opensearch/__init__.py",
+       "count": 37
+      }
+     },
+     "logging": {
+      "http": {
+       "level": "WARNING",
+       "handlers": [
+        "_pytest.logging._LiveLoggingNullHandler",
+        "_pytest.logging._FileHandler",
+        "_pytest.logging.LogCaptureHandler",
+        "_pytest.logging.LogCaptureHandler"
+       ]
+      }
+     }
+    }
+   },
+   "loadavg": [
+    107.19,
+    79.55,
+    62.36
+   ]
+  }
+ ]
+}
