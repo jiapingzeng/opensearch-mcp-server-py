@@ -33,8 +33,11 @@ class OpenSearchMCPServer(MCPServer):
         # No tools go to the SDK's ToolManager: it keys them by name, so of two enabled tools
         # with the same listed name it would keep one and log "Tool already exists", where
         # the low-level Server listed both. list_tools and call_tool are overridden instead.
-        # Server instructions guide the LLM on dynamic connection params (single mode only)
-        super().__init__(SERVER_NAME, instructions=get_server_instructions())
+        super().__init__(
+            SERVER_NAME,
+            # Server instructions guide the LLM on dynamic connection params (single mode only)
+            instructions=get_server_instructions(),
+        )
         # Permanent: the SDK has no public way to unregister a handler, so the ones this
         # server does not serve are taken out of the low-level server's table directly.
         for method in _UNSERVED_METHODS:
@@ -47,6 +50,20 @@ class OpenSearchMCPServer(MCPServer):
             m for m in self.middleware if not isinstance(m, RequestStateBoundary)
         ]
         self.enabled_tools = enabled_tools
+
+    async def run_streams(self, read_stream: Any, write_stream: Any) -> None:
+        """Serve one connection over the given streams (stdio) until the read side closes."""
+        # Permanent, on purpose: the one low-level run call, kept for exact stdio parity. The
+        # public run_stdio_async() runs the low-level server without raise_exceptions=True, so
+        # a non-MCP exception inside an SDK handler would become a JSON-RPC error instead of
+        # ending the process as it does today. Replacing this call is a separate, visible
+        # behaviour change.
+        await self._lowlevel_server.run(
+            read_stream,
+            write_stream,
+            self._lowlevel_server.create_initialization_options(),
+            raise_exceptions=True,
+        )
 
     async def list_tools(self) -> list[Tool]:
         """One Tool per enabled tool, in the dict's order, duplicate listed names included.
