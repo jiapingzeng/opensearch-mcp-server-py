@@ -1,16 +1,16 @@
 # Characterization tests
 
 Characterization (golden) tests pin what the server does today, as a client sees it, so
-that a refactor (such as moving the server to the SDK's `MCPServer`) can prove it changed
-nothing. They do not say the behaviour is right: they record it. A test drives the server
-through its public entry point (`create_mcp_server`) and the MCP protocol, then compares
-the result with a committed JSON file in `golden/`.
+that a refactor (such as the move of the server to the SDK's `MCPServer`, issue #34) can
+prove it changed nothing. They do not say the behaviour is right: they record it. A test
+drives the server through its public entry point (`create_mcp_server`) and the MCP
+protocol, then compares the result with a committed JSON file in `golden/`.
 
 Tests never reach into internals a migration would replace. The server is built with
 `create_mcp_server(...)` and driven with the installed SDK's in-process `Client` and
-in-memory transport, which accept both the low-level `Server` and `MCPServer`; through the
-Starlette app `streaming_server.serve` runs (`http_app`); or as the real entry point
-`main()` in a subprocess over stdio (`stdio_launcher`). The exception is
+in-memory transport, which connect to the `OpenSearchMCPServer` (an `MCPServer`) it
+returns; through the Starlette app `streaming_server.serve` runs (`http_app`); or as the
+real entry point `main()` in a subprocess over stdio (`stdio_launcher`). The exception is
 `test_gaps_serve.py`: it reads the running uvicorn server through the SIGTERM handler's
 `__self__` and sse-starlette's shutdown state, so a migration must keep `serve()` running a
 `uvicorn.Server` that installs that handler.
@@ -36,6 +36,12 @@ If a golden comparison fails, the code changed observable behaviour. Either fix 
 or, when the change is intended, delete the golden file in the same commit (so the diff
 shows the old behaviour going away) and recreate it as below. The harness never overwrites
 an existing golden, not even with `CHAR_GOLDEN_WRITE=1`.
+
+An intended change is recorded in the same change in
+[`docs/mcpserver-migration-behaviour-changes.md`](../../docs/mcpserver-migration-behaviour-changes.md),
+naming every golden it changed, and in `CHANGELOG.md` under `[Unreleased]`;
+`uv run --offline python scripts/check_behaviour_ledger.py` checks it. A change that only
+adds goldens is new characterization, not a behaviour change.
 
 ## Create a new golden
 

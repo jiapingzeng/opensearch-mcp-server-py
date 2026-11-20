@@ -24,8 +24,9 @@ only the `--rev` ones (it needs at least one), `--rounds N` (30 by default; fewe
 with an `--out` other than `tools_call.json`), `--transport memory|http`, `--warmup N`
 (untimed calls per session, default 2), `--batches N` (timed batches per session, default
 1), `--candidate REV` and `--reference REV` (the trees the verdict compares, default
-`18b7002` and `c71570c`; both must be in the run), `--out PATH`. Standard library only, no
-new dependency.
+`18b7002` and `c71570c`; one given explicitly must be in the run, while with `--only-revs`
+and a default tree left out of the run the script prints "no verdict"), `--out PATH`.
+Standard library only, no new dependency.
 
 The step 18 transport check (`tools_call_http_457a4bc.json`, 10 rounds) ran:
 

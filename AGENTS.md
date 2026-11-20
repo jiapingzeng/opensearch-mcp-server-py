@@ -10,6 +10,8 @@ When adding or modifying tools, read the existing code first. The patterns are c
 - `src/tools/tool_filter.py` — Category system that controls tool visibility
 - `src/tools/tool_logging.py` — `log_tool_error()` — the **only** way to return errors from tools
 - `src/mcp_server_opensearch/tool_executor.py` — Executes tools, checks `is_error: True` for metrics
+- `src/mcp_server_opensearch/server_factory.py` — The server factory shared by stdio and streaming HTTP: `prepare_enabled_tools()` (generated tools, custom config, tool filter) and `build_server()`
+- `src/mcp_server_opensearch/mcp_server.py` — `OpenSearchMCPServer`, the `MCPServer` subclass that lists and calls the enabled tools; its departures from a plain `MCPServer` are commented there and in the [Developer Guide](DEVELOPER_GUIDE.md#deliberate-departures-from-a-plain-mcpserver)
 
 ## Non-obvious contracts
 

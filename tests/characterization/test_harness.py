@@ -475,6 +475,8 @@ async def test_isolated_state_restores_registry_and_schemas(isolated_state):
         profile='leaky-profile',
         cli_tool_overrides={'tool.ListIndexTool.args.index.description': 'patched'},
     )
+    # Set directly: the server only sets it to an id when a container id is configured,
+    # and this build configures none.
     tool_config._resolved_memory_container_id = 'leaky-container'
 
     assert 'opensearch_url' not in entries['ListIndexTool']['input_schema']['properties']

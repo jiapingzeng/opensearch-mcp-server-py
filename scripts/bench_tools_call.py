@@ -10,13 +10,15 @@ the tree is made read-only. A run is one pytest process in that tree, with the t
 ``src`` first on ``PYTHONPATH``: every server module it imports must come from that tree, or
 the driver fails. Rounds interleave the trees, rotating their order each round.
 
-    uv run --offline python scripts/bench_tools_call.py            # full run, >= 30 rounds
+    uv run --offline python scripts/bench_tools_call.py            # full run, 30 rounds
     uv run --offline python scripts/bench_tools_call.py --quick    # 2 rounds, checks only
     uv run --offline python scripts/bench_tools_call.py --profile memory-concurrent-n50-0ms
     uv run --offline python scripts/bench_tools_call.py --context-cost
 
-The results file is rewritten after every round, so a failure in a late round keeps the
-rounds already finished (``meta.rounds_done``, ``meta.complete``).
+A full run has 30 rounds by default; ``--rounds`` may set fewer only with an ``--out`` other
+than ``benchmarks/results/tools_call.json``. The results file is rewritten after every round,
+so a failure in a late round keeps the rounds already finished (``meta.rounds_done``,
+``meta.complete``).
 
 Standard library only: ``time.perf_counter`` in the case, ``statistics`` and ``math.comb``
 for the summary and the sign test, ``cProfile``/``pstats`` for ``--profile``, ``timeit`` for
@@ -72,8 +74,9 @@ SIGNIFICANCE = 0.05
 RUN_TIMEOUT_BASE_S = 120
 RUN_TIMEOUT_PER_CALL_S = 2
 CONTEXT_COST_REPEATS = 7
-# On the baseline at 50 ms, a transport overlaps calls when the concurrent batch takes less
-# than this share of the sequential one (n calls of 50 ms overlapped: about 1/n).
+# At 50 ms, on 508e806 when it is in the run, else on the first tree, a transport overlaps
+# calls when the concurrent batch takes less than this share of the sequential one (n calls
+# of 50 ms overlapped: about 1/n).
 OVERLAP_SHARE = 0.5
 
 

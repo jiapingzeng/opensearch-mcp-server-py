@@ -5,6 +5,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [Unreleased]
 
 ### Added
+- Add characterization tests that pin the server's observable behaviour as a client sees it (`tests/characterization/`: `tools/list`, `tools/call` results and errors, the requests sent to OpenSearch, `initialize`, the stdio, SSE and streamable HTTP transports, the CLI and config), and the behaviour-change ledger `docs/mcpserver-migration-behaviour-changes.md`, which records every change a golden diff shows
 
 ### Changed
 - Upgrade `mcp[cli]` to `>=2.0.0`. Ports the server to the mcp 2.0 API: replaces removed `@server.list_tools()` / `@server.call_tool()` decorators with constructor-injected `on_list_tools` / `on_call_tool` handlers, replaces removed `request_ctx` contextvar with a local `request_context_var`, and updates renamed fields (`isError` → `is_error`, `inputSchema` → `input_schema`). Integration test client updated for the renamed `streamable_http_client` function and `httpx2`-based header/timeout configuration ([#292](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/292))

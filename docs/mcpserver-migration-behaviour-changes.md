@@ -276,6 +276,10 @@ Each migration step adds one line here.
 | request context and auth headers on MCPServer, verification and cleanup | `19-mcpserver-request-context-auth` | None | 766 passed, 0 skipped, every golden unchanged |
 | Remove the remaining low-level Server path | `20-remove-lowlevel-server-path` | None | 766 passed, 0 skipped, every golden unchanged |
 
+Together the steps made no visible change: from step 15 to step 20 no golden was modified
+or deleted, and the only goldens added are 16b's six, which pin the duplicate-name listing
+as c71570c had it.
+
 ## Performance: tools/call timing after step 16
 
 The host parity run at 18b7002 (2026-11-20) found the single-client concurrency integration
@@ -428,9 +432,10 @@ Each piece of evidence supports a different claim.
   1.23 across both comparisons) a 10 to 20% effect stays unresolved either way. The
   run's noise shows in its control pair: 18b7002 was faster than 508e806 in 9 of 10
   rounds on `http-sequential-n5-0ms` and `http-sequential-n50-0ms` (p 0.021), which the
-  30-round run did not show (p 0.58 for both); with 24 sign tests in the run, a p near
-  0.02 is expected by chance. The closest analogue of the integration test,
-  `http-concurrent-n5-50ms`, is 0.937 by medians and 1.010 paired against 18b7002.
+  30-round run did not show (p 0.58 for both); with 24 sign tests in the run, about 0.5
+  results with a p that low are expected by chance, so two are not surprising. The
+  closest analogue of the integration test, `http-concurrent-n5-50ms`, is 0.937 by
+  medians and 1.010 paired against 18b7002.
 - What "no slowdown" would rest on is the code path, not these timings: step 18 still
   builds one SDK `StreamableHTTPSessionManager` on the same low-level server, now through
   `MCPServer.streamable_http_app` instead of directly, with the same stateless, JSON,
