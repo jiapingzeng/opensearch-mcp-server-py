@@ -20,7 +20,8 @@ async def serve(
     enabled_tools = await prepare_enabled_tools(
         mode, profile, config_file_path, cli_tool_overrides
     )
-    server = build_server(enabled_tools)
+    # temporary: removed by 20-remove-lowlevel-server-path (stdio runs the low-level server)
+    server = build_server(enabled_tools)._lowlevel_server
 
     # Start stdio-based MCP server
     from mcp_server_opensearch.logging_config import start_memory_monitor

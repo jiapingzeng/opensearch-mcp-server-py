@@ -5,10 +5,10 @@ import asyncio
 import contextlib
 import logging
 import uvicorn
-from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp_server_opensearch.client_context import ClientNameMiddleware
+from mcp_server_opensearch.mcp_server import OpenSearchMCPServer
 from mcp_server_opensearch.server_factory import build_server, prepare_enabled_tools
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -26,7 +26,7 @@ async def create_mcp_server(
     profile: str = '',
     config_file_path: str = '',
     cli_tool_overrides: dict | None = None,
-) -> Server:
+) -> OpenSearchMCPServer:
     """Create and configure the MCP server instance."""
     return build_server(
         await prepare_enabled_tools(mode, profile, config_file_path, cli_tool_overrides)
@@ -46,12 +46,15 @@ class _ASGIApp:
 class MCPStarletteApp:
     """Starlette application wrapper for the MCP server."""
 
-    def __init__(self, mcp_server: Server, stateless: bool = True):
+    def __init__(self, mcp_server: OpenSearchMCPServer, stateless: bool = True):
         """Initialize the MCP Starlette application."""
         self.mcp_server = mcp_server
+        # temporary: removed by 20-remove-lowlevel-server-path (the transports run the
+        # low-level server)
+        self.lowlevel_server = mcp_server._lowlevel_server
         self.sse = SseServerTransport('/messages/')
         self.session_manager = StreamableHTTPSessionManager(
-            app=self.mcp_server,
+            app=self.lowlevel_server,  # temporary: removed by 20-remove-lowlevel-server-path
             event_store=None,
             json_response=False,
             stateless=stateless,
@@ -64,10 +67,11 @@ class MCPStarletteApp:
             request.receive,
             request._send,
         ) as (read_stream, write_stream):
-            await self.mcp_server.run(
+            # temporary: removed by 20-remove-lowlevel-server-path
+            await self.lowlevel_server.run(
                 read_stream,
                 write_stream,
-                self.mcp_server.create_initialization_options(),
+                self.lowlevel_server.create_initialization_options(),
             )
 
         # Done to prevent 'NoneType' errors. For more details: https://github.com/modelcontextprotocol/python-sdk/blob/main/src/mcp/server/sse.py#L33-L37

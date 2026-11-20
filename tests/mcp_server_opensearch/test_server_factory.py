@@ -5,8 +5,9 @@ import logging
 import pytest
 from mcp.shared.exceptions import MCPError
 from mcp.types import CallToolRequestParams, PaginatedRequestParams, TextContent
-from mcp_server_opensearch import server_factory
+from mcp_server_opensearch import mcp_server, server_factory
 from mcp_server_opensearch.client_context import request_context_var
+from mcp_server_opensearch.mcp_server import OpenSearchMCPServer
 from tools.tools import TOOL_REGISTRY
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -160,7 +161,7 @@ def _tool(display_name: str | None = None, function: AsyncMock | None = None) ->
 
 
 def _handler(server, method: str):
-    entry = server.get_request_handler(method)
+    entry = server._lowlevel_server.get_request_handler(method)
     assert entry is not None, f'no handler for {method}'
     return entry.handler
 
@@ -171,9 +172,19 @@ async def _call(server, name: str, arguments: dict | None = None, request=None):
     return await _handler(server, 'tools/call')(ctx, params)
 
 
+def test_build_server_returns_opensearch_mcp_server():
+    """build_server returns an OpenSearchMCPServer holding the enabled tools."""
+    enabled = {'Known': _tool()}
+
+    server = server_factory.build_server(enabled)
+
+    assert isinstance(server, OpenSearchMCPServer)
+    assert server.enabled_tools is enabled
+
+
 def test_build_server_name_and_instructions(monkeypatch):
     """The server is named opensearch-mcp-server and carries get_server_instructions()."""
-    monkeypatch.setattr(server_factory, 'get_server_instructions', lambda: 'the instructions')
+    monkeypatch.setattr(mcp_server, 'get_server_instructions', lambda: 'the instructions')
 
     server = server_factory.build_server({})
 
