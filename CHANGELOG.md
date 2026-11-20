@@ -10,7 +10,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Changed
 - Upgrade `mcp[cli]` to `>=2.0.0`. Ports the server to the mcp 2.0 API: replaces removed `@server.list_tools()` / `@server.call_tool()` decorators with constructor-injected `on_list_tools` / `on_call_tool` handlers, replaces removed `request_ctx` contextvar with a local `request_context_var`, and updates renamed fields (`isError` → `is_error`, `inputSchema` → `input_schema`). Integration test client updated for the renamed `streamable_http_client` function and `httpx2`-based header/timeout configuration ([#292](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/292))
 - Mark skills category tools as read operation([#302](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/302))
-- Run the server on the MCP SDK's `MCPServer` (`OpenSearchMCPServer`, what issue #34 calls FastMCP) instead of the low-level `Server`; tools, schemas, results, error shapes, capabilities, transports, CLI flags, config keys and environment variables are unchanged, pinned by the characterization tests (issue #34)
+- Run the server on the MCP SDK's `MCPServer` (`OpenSearchMCPServer`, what issue #34 calls FastMCP) instead of the low-level `Server`, replacing the constructor-injected `on_list_tools` / `on_call_tool` handlers of #292 with `OpenSearchMCPServer`'s `list_tools()` / `call_tool()` overrides; tools, schemas, results, error shapes, capabilities, transports, CLI flags, config keys and environment variables are unchanged, pinned by the characterization tests (issue #34)
 
 ### Fixed
 - Bind per-call connection credentials to the caller that supplied the URL ([#287](https://github.com/opensearch-project/opensearch-mcp-server-py/pull/287))

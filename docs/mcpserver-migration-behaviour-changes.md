@@ -257,8 +257,8 @@ the configured id, to the fake and returns the memory instead of the missing-fie
 - `call_tool_memory_skills/GetAgenticMemoryTool/container_id_from_config_file.json`
 
 The comment above `test_agentic_memory_container_id_default_from_config_file` in
-`tests/characterization/test_call_tool_memory_skills.py` still describes the failure; it
-is left as it is for a follow-up.
+`tests/characterization/test_call_tool_memory_skills.py`, which described the failure, was
+corrected in the docs step (21).
 
 **Upstream**: Not opened yet: the user decides.
 
@@ -443,6 +443,10 @@ Each piece of evidence supports a different claim.
   DNS-rebinding protection off as before (it was `None`, which the SDK treats as off), so
   its per-request check still returns at once. The per-call path is the same class with
   equivalent arguments; this is read from the code, not measured.
+
+### Final live-cluster check (374eb43)
+
+Concurrent tools/call latency is within 5% of the pre-migration server (about +3–4% in the live-cluster A/B: concurrent multi-client 0.590 → 0.610 s, single-client 0.578 → 0.602 s, means of 6 alternating pairs at load 16–23; sequential 0.602 → 0.593 s; overlapping ranges).
 
 ## Known, unchanged
 
