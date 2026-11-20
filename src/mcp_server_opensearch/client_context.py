@@ -26,7 +26,9 @@ client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar(
 )
 
 #: Context variable holding the current Starlette Request for header-auth extraction.
-#: Set from the call_tool handler when the transport provides a request object.
+#: Set by ``OpenSearchMCPServer.call_tool`` for each call, and reset after it: the
+#: transport's request (``POST /mcp`` on streamable HTTP, ``POST /messages/`` on SSE),
+#: ``None`` on stdio and in memory.
 request_context_var: contextvars.ContextVar[Optional[Request]] = contextvars.ContextVar(
     'mcp_request_context', default=None
 )
