@@ -54,8 +54,8 @@ class OpenSearchMCPServer(MCPServer):
     async def run_streams(self, read_stream: Any, write_stream: Any) -> None:
         """Serve one connection over the given streams (stdio) until the read side closes."""
         # Permanent, on purpose: the one low-level run call, kept for exact stdio parity. The
-        # public run_stdio_async() runs the low-level server without raise_exceptions=True, so
-        # a non-MCP exception inside an SDK handler would become a JSON-RPC error instead of
+        # public run_stdio_async() drops raise_exceptions (it runs without raising), so a
+        # non-MCP exception inside an SDK handler would become a JSON-RPC error instead of
         # ending the process as it does today. Replacing this call is a separate, visible
         # behaviour change.
         await self._lowlevel_server.run(
