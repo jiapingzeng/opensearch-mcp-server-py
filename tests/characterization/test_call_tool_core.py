@@ -1140,9 +1140,11 @@ GENERATED_CASES = [
         is_error=True,
     ),
     # ClusterHealthTool: endpoint selection without and with the {index} path param.
-    # The generated tools' `timeout` argument goes to OpenSearch as a query parameter, and
-    # the client request timeout stays the configured one. The `with_timeout` case pins it:
-    # its recorded `/_cluster/health` request has `timeout=5s` in its query parameters.
+    # The generated tools' `timeout` argument goes to OpenSearch as a query parameter. The
+    # `with_timeout` case pins only that query parameter: its recorded `/_cluster/health`
+    # request has `timeout=5s` in its query parameters. `src/tools/tool_generator.py` also
+    # keeps the client request timeout the configured one; no golden shows that, since the
+    # fake OpenSearch drops transport options.
     Case(
         'generated/ClusterHealthTool/without_index',
         'ClusterHealthTool',

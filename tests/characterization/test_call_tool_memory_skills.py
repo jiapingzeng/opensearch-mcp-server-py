@@ -963,7 +963,7 @@ async def test_agentic_memory_container_id_default_from_config_file(
             'tool_filters': {'enabled_categories': ['agentic_memory']},
         },
     )
-    # Would answer the call if the default reached the tool; the golden shows no request.
+    # Answers the call made with the configured container id, the config file's default.
     install(
         fake_opensearch,
         (Route('GET', f'{CONTAINERS}/working/XyEuiJkBeh2gPPwzjYWM', {'payload_type': 'data'}),),

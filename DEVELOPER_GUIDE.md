@@ -10,6 +10,7 @@
 - [Foolproof Build Testing Workflow](#foolproof-build-testing-workflow)
 - [Development Configuration](#development-configuration)
 - [Managing Dependencies](#managing-dependencies)
+- [Server Architecture](#server-architecture)
 - [Adding Custom Tools](#adding-custom-tools)
 - [Testing](#testing)
 
@@ -246,9 +247,122 @@ uv lock --upgrade
 uv sync
 ```
 
+## Server Architecture
+
+The server runs on the MCP Python SDK's `MCPServer` (`mcp.server.mcpserver`, what issue #34
+calls FastMCP), through one subclass, `OpenSearchMCPServer` in
+`src/mcp_server_opensearch/mcp_server.py`. Its tools come from `TOOL_REGISTRY`, not from SDK
+decorators.
+
+### Startup and the server factory
+
+`main()` (`src/mcp_server_opensearch/__init__.py`) parses the CLI, configures logging and
+starts one transport: `stdio_server.serve()` (`--transport stdio`, the default) or
+`streaming_server.serve()` (`--transport stream`). Both build the server with the server
+factory, `src/mcp_server_opensearch/server_factory.py`:
+
+1. `prepare_enabled_tools(mode, profile, config_file_path, cli_tool_overrides)`:
+   - sets the global mode, AWS profile and config file path (`global_state.py`), and in
+     multi mode loads the clusters from the config file;
+   - `generate_tools_from_openapi()` (`src/tools/tool_generator.py`) fetches the OpenSearch
+     API specification and adds the generated tools (`MsearchTool`, `ExplainTool`,
+     `CountTool`, `ClusterHealthTool`) to `TOOL_REGISTRY`; if the fetch fails it logs the
+     error and the server starts with the static tools;
+   - `apply_custom_tool_config()` (`src/tools/config.py`) returns a copy of the registry
+     with the custom names, descriptions and argument descriptions from the config file and
+     the `--tool.*` CLI overrides, and the agentic memory container id as the default;
+   - `get_tools()` (`src/tools/tool_filter.py`) returns the enabled tools and adapts their
+     schemas to the mode: in single mode the category and tool filters, write protection
+     and the OpenSearch version range (the server asks the cluster for its version); in
+     multi mode every tool except the memory tools.
+2. `build_server(enabled_tools)` returns `OpenSearchMCPServer(enabled_tools)`.
+
+The static tools (`TOOL_REGISTRY` in `src/tools/tools.py`, which also merges the skills,
+agentic memory and memory tool registries) and the generated tools take the same path:
+nothing registers a tool with the SDK.
+
+### Requests
+
+- `initialize`: the server advertises the `tools` capability and no `prompts` or
+  `resources` capability. Its instructions come from `server_instructions.py` (the per-call
+  connection parameters in single mode when dynamic connections are on, the skills tools
+  when they are enabled), else there are none.
+- `tools/list`: `OpenSearchMCPServer.list_tools()` returns one `mcp.types.Tool` per enabled
+  tool, in order. The name is the `display_name`, else the registry key; the
+  `description` and `input_schema` are the entry's own, with no `outputSchema`.
+- `tools/call`: `OpenSearchMCPServer.call_tool()` sets `request_context_var`
+  (`client_context.py`) to the transport's HTTP request (`None` over stdio), which header
+  auth in `src/opensearch/client.py` reads, and calls `tool_executor.execute_tool()`. That
+  resolves the first enabled tool with the name, validates the arguments with the tool's
+  `args_model`, runs the tool function and logs a `tool_execution` event. A result whose
+  first item has `is_error: True` (from `log_tool_error()`) is returned as a
+  `CallToolResult` with `is_error` set; any other exception (an unknown tool, invalid
+  arguments, an exception the tool raised) becomes an `is_error` result holding its text;
+  an `MCPError` is answered as a JSON-RPC error.
+
+### Transports
+
+- **stdio** (`stdio_server.py`): `serve()` opens the SDK's `stdio_server()` streams and calls
+  `server.run_streams(reader, writer)`, which serves the one connection until stdin closes.
+- **SSE and streamable HTTP** (`streaming_server.py`): `MCPStarletteApp` builds one Starlette
+  app, served by uvicorn on `--host` and `--port` (default `127.0.0.1:9900`):
+  - `/mcp` (bare, as a `Route`, so it is not redirected to `/mcp/`) and the paths under it:
+    stateless streamable HTTP, through the session manager `MCPServer.streamable_http_app()`
+    creates;
+  - `GET /sse` and `POST /messages/`: SSE, the two routes taken from `MCPServer.sse_app()`;
+  - `GET /health`: answers `OK`.
+
+  `ClientNameMiddleware` (`client_context.py`) reads the optional `X-MCP-Client-Name` header
+  into `client_name_var`, which the `tool_execution` log events carry.
+
+Both transports start the memory monitor (`logging_config.py`) for the life of the server.
+
+### Deliberate departures from a plain `MCPServer`
+
+Each of these keeps a behaviour the server had on the low-level `Server`, and each is pinned
+by the characterization tests and commented in the code. Changing one is a behaviour change
+(see [Characterization tests](#characterization-tests)).
+
+- **No `RequestStateBoundary`.** `MCPServer` adds a `RequestStateBoundary` middleware, which
+  answers a `tools/call` carrying any `requestState` with -32602 "Invalid or expired
+  requestState", where the low-level `Server` ran the tool. This server never returns
+  `input_required`, so there is no state to seal: `OpenSearchMCPServer.__init__` drops it.
+- **Tools are not registered with the SDK, and nothing is validated at startup.** No tool
+  goes into `MCPServer`'s `ToolManager` (no `@mcp.tool()`, no `add_tool()`):
+  `list_tools()` and `call_tool()` are overridden and read the enabled tools. The schemas
+  are the registry's as they are, not derived from a function signature; the arguments are
+  validated by the tool's `args_model` in `execute_tool()`. `list_tools()` builds each
+  `Tool` when `tools/list` is answered, so a field of the wrong type, such as a description
+  the CLI parsed as a number (`--tool.X.description=123`), still starts the server, and
+  `tools/list` then fails with -32602.
+- **`tools/list` shows one entry per enabled tool, even when names repeat.** The SDK's
+  `ToolManager` keys tools by name: of two enabled tools with the same listed name (a
+  display name equal to another tool's key, or two empty display names) it would keep one
+  and log "Tool already exists". This server lists both, in the enabled-tools order, as the
+  low-level `Server` did; `tools/call` runs the first (`test_gaps_duplicate_names.py`).
+- **The one low-level run call, for stdio parity.** `run_streams()` calls the low-level
+  server's `run(..., raise_exceptions=True)` instead of the public `run_stdio_async()`,
+  which runs without `raise_exceptions`. A non-MCP exception inside an SDK handler then ends
+  the process, as before, instead of becoming a JSON-RPC error.
+- **Unserved methods are taken out.** `MCPServer.__init__` registers prompt, resource and
+  subscription handlers, which would add the `prompts` and `resources` capabilities. The
+  SDK has no public way to unregister a handler, so `__init__` removes `prompts/*`,
+  `resources/*` and `subscriptions/listen` from the low-level server's handler table; they
+  answer -32601 "Method not found", as before.
+- **The HTTP app is built from `MCPServer`'s parts.** `MCPServer`'s own Starlette apps are
+  not mounted (they would answer `/mcp/` with a 307 redirect and have no `/health`); only
+  their session manager and SSE routes go into `MCPStarletteApp.create_app()`.
+  DNS-rebinding protection stays off on both transports, as before: it is turned off
+  explicitly, since `MCPServer`'s apps turn it on by themselves for host `127.0.0.1`.
+
+`mcp_server.py` is the only module that reaches `MCPServer`'s low-level server, for the run
+call and the handler table above.
+
 ## Adding Custom Tools
 
 Every tool has 4 pieces. Follow the existing patterns exactly — read the referenced files to see how current tools are structured.
+
+A new tool needs no server change: `OpenSearchMCPServer` lists and calls the tools `prepare_enabled_tools()` returns (see [Server Architecture](#server-architecture)), so a `TOOL_REGISTRY` entry in an enabled category is all it takes. Do not register tools with `@mcp.tool()` or `MCPServer.add_tool()`: such a tool bypasses the tool filter and `tool_executor`, and `tools/list` does not show it.
 
 ### 1. Pydantic params — `src/tools/tool_params.py`
 
@@ -334,6 +448,8 @@ In multi-cluster mode, all tools are returned without category filtering.
 
 Add unit tests in `tests/tools/` following existing test patterns.
 
+A new tool shows in `tools/list`, so it changes the `list_tools` characterization goldens that list it (multi mode lists every tool except the memory tools). That is a behaviour change: recreate those goldens and record it as described in [Characterization tests](#characterization-tests).
+
 ### Reference
 
 The Search Relevance Workbench added 18 tools with zero infrastructure changes — all params in `tool_params.py`, helpers in `helper.py`, tool functions in `tools.py`, entries in `TOOL_REGISTRY`, and an opt-in `search_relevance` category in `tool_filter.py`. Use it as a blueprint for adding tool groups.
@@ -362,6 +478,41 @@ uv run pytest tests/test_tools.py
 # Run tests with verbose output
 uv run pytest -v
 ```
+
+### Characterization tests
+
+The characterization (golden) tests in `tests/characterization/` pin what the server does today, as a client sees it. They build the server with `create_mcp_server()` and drive it over the MCP protocol: in process with the SDK's `Client`, through the Starlette app `streaming_server.serve()` runs, or as `main()` in a subprocess over stdio. OpenSearch is faked, the OpenAPI specification comes from `tests/characterization/fixtures/`, and nothing touches the network. They pin:
+
+- `tools/list` for every mode, configuration and filter (names, descriptions, input schemas, order);
+- `tools/call` results and error shapes, and the requests each call sends to OpenSearch, for the core, generated, generic API, memory, agentic memory, skills and Search Relevance Workbench tools;
+- `initialize`: capabilities, instructions and protocol version negotiation;
+- the stdio, SSE and streamable HTTP transports, `/health`, header auth and `X-MCP-Client-Name`;
+- the CLI flags, config files and environment variables, and the known gaps (`test_gaps_*.py`).
+
+They run with the unit tests, or alone:
+
+```bash
+uv run --offline python -m pytest tests/characterization -q
+```
+
+To add a golden:
+
+1. Write the test with `golden('<area>/<case>', normalize(data))`.
+2. Run it once with `CHAR_GOLDEN_WRITE=1` to create `tests/characterization/golden/<area>/<case>.json`:
+   ```bash
+   CHAR_GOLDEN_WRITE=1 uv run --offline python -m pytest tests/characterization -q -k <test>
+   ```
+3. Read the new file: it is the behaviour you are pinning. Run the test again without the variable, then commit the test and the golden together.
+
+The harness never overwrites an existing golden, not even with `CHAR_GOLDEN_WRITE=1`.
+
+**A golden diff is a behaviour change.** Never edit a golden to make a change pass. When a golden comparison fails, either fix the code or, if the change is intended, delete the golden in the same commit and recreate it as above, then record the change in `docs/mcpserver-migration-behaviour-changes.md` (naming every golden it changed) and in `CHANGELOG.md` under `[Unreleased]`. This command checks it:
+
+```bash
+uv run --offline python scripts/check_behaviour_ledger.py
+```
+
+A change that only adds goldens is new characterization, not a behaviour change. The fixtures, the normalizer and the harness are described in [`tests/characterization/README.md`](tests/characterization/README.md).
 
 ### Running Integration Tests Locally
 
