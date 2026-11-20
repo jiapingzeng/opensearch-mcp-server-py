@@ -16,10 +16,10 @@ OpenSearch, and only then is the memory indexed.
   ``opensearchserverless`` ``CreateIndex``, where a conflict or an "already exists" error
   counts as success.
 - On a managed domain (``AWS_OPENSEARCH_DOMAIN_NAME``) the tool calls ``opensearch``
-  ``CreateIndex`` with camelCase parameter names the API does not have, so botocore's
-  parameter validation rejects the call before it is signed or sent, whatever the service
-  would answer: the success log and both "already exists" branches after it are unreachable
-  today (``test_managed_domain_create_index_is_rejected_before_it_is_sent``).
+  ``CreateIndex`` with ``DomainName``, ``IndexName`` and ``IndexSchema``, which botocore
+  validates, signs and sends; a success, a ``ResourceAlreadyExistsException`` or an error
+  whose text says "already exists" lets the memory be indexed
+  (``test_managed_domain_create_index``, one golden per reply).
 
 Each case launches the server with ``memory_enabled_session`` (``MEMORY_TOOLS_ENABLED=true``),
 ``OPENSEARCH_NO_AUTH`` so the memory documents reach the fake OpenSearch, and the fake
@@ -388,7 +388,7 @@ SERVERLESS_CASES = (
 )
 SERVERLESS_IDS = [case.name for case in SERVERLESS_CASES]
 
-# What the stub would answer the managed domain's create_index with, were it sent.
+# What the stub answers the managed domain's create_index with.
 DOMAIN_REPLIES = (
     pytest.param(Ok('opensearch', 'CreateIndex', {'Status': 'CREATED'}), id='created'),
     pytest.param(

@@ -185,7 +185,7 @@ the cluster with the wait timeout they asked for. No config or client action is 
 
 **Upstream**: Not opened yet: the user decides.
 
-### Memory tools: the memory index is created on a managed domain
+### Fix 28: the memory index is created on a managed domain
 
 **What changed**: Before, on an Amazon OpenSearch Service managed domain, the memory tools'
 auto-create of the memory index (`_ensure_memory_index`, on a `SaveMemoryTool` call while
