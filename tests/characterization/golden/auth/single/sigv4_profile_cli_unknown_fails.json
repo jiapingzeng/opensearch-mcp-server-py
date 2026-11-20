@@ -1,0 +1,39 @@
+{
+  "aws_api_calls": [],
+  "call": {
+    "arguments": {
+      "include_detail": false
+    },
+    "name": "ListIndexTool"
+  },
+  "client_warnings": [
+    "Failed to create boto3 session with profile 'no-such-profile': The config profile (no-such-profile) could not be found",
+    "Failed to create boto3 session with profile 'no-such-profile': The config profile (no-such-profile) could not be found",
+    "Failed to create boto3 session with profile 'no-such-profile': The config profile (no-such-profile) could not be found"
+  ],
+  "events": [],
+  "requests": [],
+  "result": {
+    "content": [
+      {
+        "text": "Error listing indices: Failed to initialize single mode client: The config profile (no-such-profile) could not be found",
+        "type": "text"
+      }
+    ],
+    "isError": true,
+    "resultType": "complete"
+  },
+  "setup": {
+    "clusters": null,
+    "env": {
+      "AWS_ACCESS_KEY_ID": "AKIACHARENV000000001",
+      "AWS_CONFIG_FILE": "<TMP>/aws_config",
+      "AWS_REGION": "us-west-2",
+      "AWS_SECRET_ACCESS_KEY": "char-env-secret"
+    },
+    "headers": null,
+    "mode": "single",
+    "profile": "no-such-profile",
+    "transport": "in-memory"
+  }
+}

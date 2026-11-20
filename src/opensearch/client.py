@@ -845,14 +845,15 @@ def _create_opensearch_client(
     try:
         session = boto3.Session(profile_name=profile) if profile else boto3.Session()
     except Exception as e:
-        # Falling back to a bare session here would swap the caller's chosen
-        # profile for the server's own credentials, so fail instead.
+        # Falling back to a bare session here would swap the chosen profile for
+        # other credentials (the default chain), so fail instead.
         if require_named_profile:
             raise AuthenticationError(
                 f"Failed to create boto3 session with the requested profile '{profile}': {e}"
             )
         logger.warning(f"Failed to create boto3 session with profile '{profile}': {e}")
-        session = boto3.Session()
+        # The caller wraps this as a ConfigurationError; boto3's text names the profile.
+        raise
 
     # Authentication logic with proper error handling
     try:

@@ -412,32 +412,32 @@ MULTI_CASES = [
     ),
     # client.py 1136-1137: the cluster's profile does not exist; boto3 raises
     # ProfileNotFound, logged as a warning, and the single-mode lookup gives the [default]
-    # region.
-    # characterization: current behaviour. The client setup also only warns about the
-    # missing profile and falls back to the default session, so the request is signed
-    # with the [default] credentials instead of failing.
+    # region. The client setup then fails the call with the profile named (its warning is
+    # still logged): nothing is sent, the [default] credentials are not used (13g, fixed).
     Case(
-        'multi/cluster_profile_missing_default_identity',
+        'multi/cluster_profile_missing_default_profile',
         clusters=CLUSTERS,
         env=AWS_DEFAULT_REGION_PROFILE,
         arguments=on('missing-profile-cluster'),
+        is_error=True,
     ),
-    # characterization: current behaviour. 1136-1137 with AWS_PROFILE set: the region and,
-    # after the client setup's fallback to the default session, the credentials come from
-    # AWS_PROFILE (char-west), not from the cluster's own (missing) profile.
+    # 1136-1137 with AWS_PROFILE set: the region comes from AWS_PROFILE (char-west), but its
+    # credentials are not used for the cluster's own (missing) profile: the call fails.
     Case(
         'multi/cluster_profile_missing_aws_profile_env',
         clusters=CLUSTERS,
         env={**AWS, 'AWS_PROFILE': 'char-west'},
         arguments=on('missing-profile-cluster'),
+        is_error=True,
     ),
-    # 1136-1137 with AWS_REGION and AWS keys in the environment: signed with the
-    # environment's keys in AWS_REGION.
+    # 1136-1137 with AWS_REGION and AWS keys in the environment: the environment's keys are
+    # not used for the cluster's own (missing) profile: the call fails.
     Case(
         'multi/cluster_profile_missing_env_keys',
         clusters=CLUSTERS,
         env={**AWS, **AWS_ENV_KEYS, 'AWS_REGION': 'us-east-2'},
         arguments=on('missing-profile-cluster'),
+        is_error=True,
     ),
 ]
 

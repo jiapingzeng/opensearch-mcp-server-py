@@ -1,9 +1,9 @@
-# Behaviour changes: the MCPServer migration and the fixes before it
+# Behaviour changes: the MCPServer migration and the fixes around it
 
 This file records every behaviour change made by the work on upstream issue #34, "Switch
 from low-level MCP SDK to FastMCP" (implemented in this repository on the SDK's
-`MCPServer`), and by the bug fixes made before it, so that each can become an upstream pull
-request or issue later.
+`MCPServer`), and by the bug fixes made before and after it, so that each can become an
+upstream pull request or issue later.
 
 The characterization goldens under `tests/characterization/golden/` pin today's behaviour
 as a client sees it, so a golden diff is a behaviour change. The rule: a change that
@@ -280,6 +280,62 @@ Together the steps made no visible change: from step 15 to step 20 no golden was
 or deleted, and the only goldens added are 16b's six, which pin the duplicate-name listing
 as c71570c had it.
 
+## Fixed after the migration
+
+### A missing AWS profile fails the call instead of signing with other credentials
+
+**What changed**: Before, when the boto3 session for a named AWS profile could not be
+created (boto3's `ProfileNotFound`), the client setup logged `Failed to create boto3
+session with profile '<name>': ...` as a warning and went on with a bare session, so the
+request was signed with whatever the default credential chain found (`[default]`,
+`AWS_PROFILE` or the env keys) instead of the profile that was asked for. Now it logs the
+same warning and fails: the tool call returns `is_error` with `Failed to initialize single
+mode client: The config profile (<name>) could not be found` (in multi mode `Failed to
+initialize multi mode client for cluster "<url>": ...`), and no client is built, so
+nothing is sent. This covers an unknown `--profile`, a cluster `profile` in the cluster
+config that does not exist, and a per-call `aws_profile` with no per-call URL. A per-call
+`aws_profile` with a per-call URL already failed this way (`requested profile`) and is
+unchanged, and so is a missing `AWS_PROFILE` alone, which already failed with the same
+text. With no profile asked for, the default credential chain is used as before.
+
+**Why**: Security fix, fail closed: a request is never signed with credentials other than
+the configured ones, which may be broader than the profile chosen. Found by the auth
+characterization (11), finding 6 (unknown `--profile`), and the AWS region gaps (13g, a
+cluster whose profile does not exist); kept through the migration by the user's choice
+(2026-11-19) and fixed right after it.
+
+**Who is affected**: Deployments that name a profile which does not exist (a typo in
+`--profile`, a cluster's `profile`, or a per-call `aws_profile`) and relied, knowingly or
+not, on the default credentials signing instead; their calls now fail until the profile
+name is fixed or removed. The session is created before the auth method is chosen, so
+this holds even when the call would authenticate another way (basic auth, no auth, header
+credentials). No action is needed where every named profile exists.
+
+**Tests and goldens**: Unit tests in `tests/opensearch/test_client.py`
+(`TestMissingProfileFailsClosed`: both cases fail with the profile named and no client
+built, and a valid profile and the no-profile default are unchanged). Goldens changed (the
+call now fails and sends nothing, where it was signed by `profile:char-west` and by `env`):
+- `gaps_aws_region/multi/cluster_profile_missing_aws_profile_env.json`
+- `gaps_aws_region/multi/cluster_profile_missing_env_keys.json`
+
+Goldens deleted (their names said the request fell back, signed by `env` and by
+`profile:default`):
+- `auth/single/sigv4_profile_cli_unknown_falls_back.json`
+- `gaps_aws_region/multi/cluster_profile_missing_default_identity.json`
+
+Goldens added (the same cases, now failing with nothing sent; the warnings are unchanged):
+- `auth/single/sigv4_profile_cli_unknown_fails.json`
+- `gaps_aws_region/multi/cluster_profile_missing_default_profile.json`
+
+The comment above the `single/default_session_fails_missing_aws_profile` case in
+`tests/characterization/test_gaps_aws_region.py` still says the client setup falls back to
+a bare session (it now re-raises the profile's own error, with the same text, so its
+golden is unchanged); it is left as it is for a follow-up. The memory tools' own session
+helper (`_get_boto3_session` in `src/tools/memory_tools.py`) still falls back to a bare
+session for a missing profile; it is outside this fix.
+
+**Upstream**: Not opened yet: the user decides.
+
 ## Performance: tools/call timing after step 16
 
 The host parity run at 18b7002 (2026-11-20) found the single-client concurrency integration
@@ -455,11 +511,6 @@ migration by the user's choice (2026-11-19). Each is a candidate for an upstream
 
 ### Security-relevant
 
-- **Fix right after the migration.** A missing AWS profile signs with other credentials:
-  in multi-cluster mode, a cluster whose `aws_profile` does not exist only warns and is
-  signed with other credentials (`[default]`, `AWS_PROFILE` or env keys) (13g); an unknown
-  `--profile` likewise only logs a warning and falls back to the default credential chain
-  (11, finding 6).
 - **Fix right after the migration.** With header auth, an `Authorization` header that
   cannot be used (an empty Bearer token, an unknown scheme, Basic without `:`, or a failed
   base64 decode) is dropped without a log record and the server falls back to its own
