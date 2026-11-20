@@ -229,6 +229,39 @@ are left as they are for a follow-up.
 
 **Upstream**: Not opened yet: the user decides.
 
+### Agentic memory tools: a call uses the configured container id
+
+**What changed**: Before, a `memory_container_id` set in the config file's `agentic_memory`
+section showed in `tools/list` as the schema default of the agentic memory tools (and the
+field was no longer required), but a call that left the field out, relying on that default,
+failed with `Missing required field: 'memory_container_id'` without reaching OpenSearch:
+at call time the args model read only `OPENSEARCH_MEMORY_CONTAINER_ID`. Now the call uses
+the id the server resolved at start-up and advertised (config file, then
+`OPENSEARCH_MEMORY_CONTAINER_ID`) and reaches OpenSearch with it; with both set, such a
+call now uses the config file's id, the one `tools/list` shows, where it used the env
+variable's before. An explicit `memory_container_id` from the caller still wins, the env
+variable alone still works, with neither the error is unchanged, and `tools/list` is
+unchanged.
+
+**Why**: Bug fix: the advertised default did not work. Found by the memory and skills
+characterization (08), finding (14).
+
+**Who is affected**: Users who set `agentic_memory.memory_container_id` in the config file
+and call the agentic memory tools without `memory_container_id`; those calls now succeed
+(or, with a different `OPENSEARCH_MEMORY_CONTAINER_ID` also set, use the config file's id).
+No config or client action is needed.
+
+**Tests and goldens**: Unit tests in `tests/tools/test_config.py`. Golden changed (the call
+now sends `GET /` and the `GET` of the working memory in container `HudqiJkB1SltqOcZusVU`,
+the configured id, to the fake and returns the memory instead of the missing-field error):
+- `call_tool_memory_skills/GetAgenticMemoryTool/container_id_from_config_file.json`
+
+The comment above `test_agentic_memory_container_id_default_from_config_file` in
+`tests/characterization/test_call_tool_memory_skills.py` still describes the failure; it
+is left as it is for a follow-up.
+
+**Upstream**: Not opened yet: the user decides.
+
 ## Migration steps (issue #34)
 
 Each migration step adds one line here.

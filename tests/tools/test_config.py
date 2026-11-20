@@ -3,7 +3,10 @@
 
 import copy
 import os
+import pytest
 import yaml
+from mcp_server_opensearch import global_state
+from tools import config as tool_config
 from tools.config import apply_custom_tool_config
 
 
@@ -663,3 +666,90 @@ def test_yaml_args_description_must_be_string():
         assert 'must be a string' in str(e)
 
     os.remove(config_path)
+
+
+# The memory container id that apply_custom_tool_config resolves (config file, then env) and
+# advertises as the schema default is the one an agentic memory call uses when it leaves
+# memory_container_id out.
+
+
+@pytest.fixture
+def no_recorded_container_id(monkeypatch):
+    """Single mode, no container id recorded by an earlier apply_custom_tool_config, no env."""
+    monkeypatch.setattr(global_state, '_current_mode', 'single')
+    monkeypatch.setattr(tool_config, '_resolved_memory_container_id', None)
+    monkeypatch.delenv('OPENSEARCH_MEMORY_CONTAINER_ID', raising=False)
+
+
+def _write_container_config(tmp_path, container_id):
+    config_path = tmp_path / 'config.yml'
+    config_path.write_text(
+        yaml.dump({'agentic_memory': {'memory_container_id': container_id}}), encoding='utf-8'
+    )
+    return str(config_path)
+
+
+def _get_memory_args(**extra):
+    from tools.agentic_memory.params import GetAgenticMemoryArgs
+    from tools.tool_params import validate_args_for_mode
+
+    return validate_args_for_mode(
+        {'type': 'working', 'id': 'mem-1', **extra}, GetAgenticMemoryArgs
+    )
+
+
+def test_memory_container_id_from_config_file_used_at_call_time(
+    tmp_path, no_recorded_container_id
+):
+    """Reproduction: the config file's container id is used when the call leaves it out."""
+    config_path = _write_container_config(tmp_path, 'file-container')
+    apply_custom_tool_config(copy.deepcopy(MOCK_TOOL_REGISTRY), config_path, {})
+
+    assert _get_memory_args().memory_container_id == 'file-container'
+
+
+def test_memory_container_id_config_file_wins_over_env_at_call_time(
+    tmp_path, monkeypatch, no_recorded_container_id
+):
+    """Priority stays config file, then env, as for the advertised default."""
+    config_path = _write_container_config(tmp_path, 'file-container')
+    monkeypatch.setenv('OPENSEARCH_MEMORY_CONTAINER_ID', 'env-container')
+    apply_custom_tool_config(copy.deepcopy(MOCK_TOOL_REGISTRY), config_path, {})
+
+    assert _get_memory_args().memory_container_id == 'file-container'
+
+
+def test_memory_container_id_from_env_alone_still_used(monkeypatch, no_recorded_container_id):
+    """The env variable alone still sets the id, with or without apply_custom_tool_config."""
+    monkeypatch.setenv('OPENSEARCH_MEMORY_CONTAINER_ID', 'env-container')
+    assert _get_memory_args().memory_container_id == 'env-container'
+
+    apply_custom_tool_config(copy.deepcopy(MOCK_TOOL_REGISTRY), '', {})
+    assert _get_memory_args().memory_container_id == 'env-container'
+
+
+def test_explicit_memory_container_id_wins_over_config_and_env(
+    tmp_path, monkeypatch, no_recorded_container_id
+):
+    """A memory_container_id the caller passes wins over both the config file and the env."""
+    config_path = _write_container_config(tmp_path, 'file-container')
+    monkeypatch.setenv('OPENSEARCH_MEMORY_CONTAINER_ID', 'env-container')
+    apply_custom_tool_config(copy.deepcopy(MOCK_TOOL_REGISTRY), config_path, {})
+
+    args = _get_memory_args(memory_container_id='caller-container')
+    assert args.memory_container_id == 'caller-container'
+
+
+def test_missing_memory_container_id_error_unchanged(tmp_path, no_recorded_container_id):
+    """With neither a config file id nor the env variable, the error text is unchanged."""
+    with pytest.raises(ValueError) as before_config:
+        _get_memory_args()
+
+    config_path = _write_container_config(tmp_path, '')
+    apply_custom_tool_config(copy.deepcopy(MOCK_TOOL_REGISTRY), config_path, {})
+    with pytest.raises(ValueError) as after_config:
+        _get_memory_args()
+
+    expected = "Missing required field: 'memory_container_id'\n\nProvided: "
+    assert str(before_config.value).startswith(expected)
+    assert str(after_config.value) == str(before_config.value)

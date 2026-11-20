@@ -70,9 +70,9 @@ class BaseAgenticMemoryContainerArgs(baseToolArgs):
     def inject_memory_container_id(cls, data):
         """Inject memory_container_id from config/env when not provided by the MCP client."""
         if isinstance(data, dict) and not data.get('memory_container_id'):
-            from tools.config import get_memory_container_id_from_config
+            from tools.config import get_resolved_memory_container_id
 
-            container_id = get_memory_container_id_from_config()
+            container_id = get_resolved_memory_container_id()
             if container_id:
                 data['memory_container_id'] = container_id
         return data
