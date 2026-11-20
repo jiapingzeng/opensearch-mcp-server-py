@@ -608,8 +608,13 @@ async def test_run_streams_runs_the_lowlevel_server_with_raise_exceptions(monkey
     run.assert_awaited_once_with(read_stream, write_stream, options, raise_exceptions=True)
 
 
-async def _initialize_then(server, method: str, answers: list) -> BaseException | None:
-    """Run ``server.run_streams`` on memory streams: initialize, then ``method``; its error."""
+async def _initialize_then(server, method: str) -> tuple[BaseException | None, list]:
+    """Run ``server.run_streams`` on memory streams: initialize, then ``method``.
+
+    Returns the run's error (None if it ended cleanly) and the answers the client read.
+    """
+    answers: list = []
+    error: BaseException | None = None
     async with create_client_server_memory_streams() as (client_streams, server_streams):
         client_read, client_write = client_streams
         server_read, server_write = server_streams
@@ -643,17 +648,16 @@ async def _initialize_then(server, method: str, answers: list) -> BaseException 
                 async with anyio.create_task_group() as tg:
                     tg.start_soon(drive)
                     await server.run_streams(server_read, server_write)
-        except BaseException as error:  # what the run raised is what the tests check
-            return error
-    return None
+        except BaseException as raised:  # what the run raised is what the tests check
+            error = raised
+    return error, answers
 
 
 async def test_run_streams_serves_until_the_read_side_closes():
     """run_streams: initialize and tools/list are answered; EOF ends the run without error."""
     server = OpenSearchMCPServer({'Known': _tool()})
-    answers = []
 
-    error = await _initialize_then(server, 'tools/list', answers)
+    error, answers = await _initialize_then(server, 'tools/list')
 
     assert error is None
     assert answers[0].result['serverInfo'] == {'name': 'opensearch-mcp-server', 'version': ''}
@@ -666,9 +670,8 @@ async def test_run_streams_ends_on_a_non_mcp_exception_in_an_sdk_handler(monkeyp
     monkeypatch.setattr(
         server, 'list_tools', AsyncMock(side_effect=RuntimeError('handler failed'))
     )
-    answers = []
 
-    error = await _initialize_then(server, 'tools/list', answers)
+    error, _ = await _initialize_then(server, 'tools/list')
 
     # raise_exceptions=True: the exception leaves run_streams, so serve() and the process end.
     assert error is not None

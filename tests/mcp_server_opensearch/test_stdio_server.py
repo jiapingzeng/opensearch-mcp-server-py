@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from mcp.server.lowlevel.server import Server
 from mcp.types import TextContent
 from mcp_server_opensearch.mcp_server import OpenSearchMCPServer
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import ANY, AsyncMock, Mock, patch
 
 
 # Set environment variables
@@ -76,6 +76,17 @@ def lowlevel_run(events):
         events.append('run')
 
     with patch.object(Server, 'run', autospec=True, side_effect=run) as mock:
+        yield mock
+
+
+@pytest.fixture
+def initialization_options():
+    """Stub the low-level Server's create_initialization_options: one object, recorded per call."""
+    options = object()
+    with patch.object(
+        Server, 'create_initialization_options', autospec=True, return_value=options
+    ) as mock:
+        mock.options = options
         yield mock
 
 
@@ -160,7 +171,14 @@ async def _serve() -> None:
 
 @pytest.mark.asyncio
 async def test_serve_initialization(
-    served, lowlevel_run, monitor, events, mock_stdio, mock_tool_registry, mock_generate_tools
+    served,
+    lowlevel_run,
+    initialization_options,
+    monitor,
+    events,
+    mock_stdio,
+    mock_tool_registry,
+    mock_generate_tools,
 ):
     """Test server initialization: from the enabled tools, monitored, raise_exceptions=True."""
     reader, writer = mock_stdio
@@ -171,15 +189,14 @@ async def test_serve_initialization(
     server = _served_server(served)
     assert server.enabled_tools is MOCK_TOOL_REGISTRY
     served.assert_awaited_once_with(server, reader, writer)
-    # run_streams runs the server's low-level server with raise_exceptions=True
+    # run_streams runs the server's low-level server, with that server's own initialization
+    # options (the very object it returned) and raise_exceptions=True
     lowlevel = server._lowlevel_server
-    lowlevel_run.assert_awaited_once_with(
-        lowlevel,
-        reader,
-        writer,
-        lowlevel.create_initialization_options(),
-        raise_exceptions=True,
-    )
+    initialization_options.assert_called_once_with(lowlevel)
+    lowlevel_run.assert_awaited_once()
+    assert lowlevel_run.call_args.args == (lowlevel, reader, writer, ANY)
+    assert lowlevel_run.call_args.args[3] is initialization_options.options
+    assert lowlevel_run.call_args.kwargs == {'raise_exceptions': True}
     # The memory monitor starts inside the stdio context and is cancelled after the run
     assert len(monitor) == 1
     assert monitor[0].cancelled()

@@ -177,14 +177,46 @@ class TestMCPStarletteApp:
         assert session_manager.json_response is False
         assert session_manager.security_settings.enable_dns_rebinding_protection is False
 
-    @pytest.mark.asyncio
-    async def test_stateless_false_reaches_the_session_manager(self):
+    def test_stateless_false_reaches_the_session_manager(self):
         """MCPStarletteApp(stateless=False) builds a stateful session manager."""
         from mcp_server_opensearch.mcp_server import OpenSearchMCPServer
         from mcp_server_opensearch.streaming_server import MCPStarletteApp
 
         app_handler = MCPStarletteApp(OpenSearchMCPServer({}), stateless=False)
         assert app_handler.session_manager.stateless is False
+
+    def test_sse_routes_are_picked_by_path(self):
+        """The '/sse' Route and '/messages/' Mount are picked by path, whatever else sse_app has."""
+        from mcp_server_opensearch.mcp_server import OpenSearchMCPServer
+        from mcp_server_opensearch.streaming_server import MCPStarletteApp
+        from starlette.applications import Starlette
+        from starlette.routing import Mount, Route
+
+        server = OpenSearchMCPServer({})
+        real_sse_app = server.sse_app
+
+        def sse_app_with_more_routes(**kwargs):
+            routes = real_sse_app(**kwargs).routes
+            extra_before = Route('/extra', endpoint=lambda request: Response())
+            extra_after = Mount('/other', app=Starlette())
+            return Starlette(routes=[extra_before, *reversed(routes), extra_after])
+
+        server.sse_app = sse_app_with_more_routes
+        app_handler = MCPStarletteApp(server)
+
+        assert isinstance(app_handler.sse_route, Route)
+        assert app_handler.sse_route.path == '/sse'
+        assert isinstance(app_handler.messages_mount, Mount)
+        assert app_handler.messages_mount.path == '/messages'
+        # The app's route table and order are as before: the extra routes are not in it.
+        paths = [(type(r).__name__, r.path) for r in app_handler.create_app().routes]
+        assert paths == [
+            ('Route', '/sse'),
+            ('Route', '/health'),
+            ('Mount', '/messages'),
+            ('Route', '/mcp'),
+            ('Mount', '/mcp'),
+        ]
 
     def test_create_app(self, app_handler):
         """Test Starlette application creation and configuration."""
