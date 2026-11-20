@@ -1,9 +1,14 @@
 # Copyright OpenSearch Contributors
 # SPDX-License-Identifier: Apache-2.0
 
+import anyio
+import contextlib
+import httpx
+import json
 import pytest
 import pytest_asyncio
 from mcp.types import TextContent
+from starlette.responses import Response
 from unittest.mock import ANY, AsyncMock, Mock, patch
 
 
@@ -163,11 +168,23 @@ class TestMCPStarletteApp:
             server = await create_mcp_server()
             return MCPStarletteApp(server)
 
-    def test_transports_run_the_lowlevel_server(self, app_handler):
-        """Until 20-remove-lowlevel-server-path, SSE and streamable HTTP run the low-level server."""
-        assert app_handler.lowlevel_server is app_handler.mcp_server._lowlevel_server
-        assert app_handler.session_manager.app is app_handler.lowlevel_server
-        assert app_handler.session_manager.stateless is True
+    def test_transports_use_the_mcp_servers_session_manager(self, app_handler):
+        """Streamable HTTP runs on OpenSearchMCPServer's own session manager, stateless, SSE replies."""
+        session_manager = app_handler.session_manager
+        assert session_manager is app_handler.mcp_server.session_manager
+        assert session_manager.app is app_handler.mcp_server._lowlevel_server
+        assert session_manager.stateless is True
+        assert session_manager.json_response is False
+        assert session_manager.security_settings.enable_dns_rebinding_protection is False
+
+    @pytest.mark.asyncio
+    async def test_stateless_false_reaches_the_session_manager(self):
+        """MCPStarletteApp(stateless=False) builds a stateful session manager."""
+        from mcp_server_opensearch.mcp_server import OpenSearchMCPServer
+        from mcp_server_opensearch.streaming_server import MCPStarletteApp
+
+        app_handler = MCPStarletteApp(OpenSearchMCPServer({}), stateless=False)
+        assert app_handler.session_manager.stateless is False
 
     def test_create_app(self, app_handler):
         """Test Starlette application creation and configuration."""
@@ -176,13 +193,18 @@ class TestMCPStarletteApp:
         app = app_handler.create_app()
         assert len(app.routes) == 5
 
-        # Check routes
-        assert app.routes[0].path == '/sse'
-        assert app.routes[1].path == '/health'
-        assert app.routes[2].path == '/messages'
+        # Check routes, in order: '/sse', '/health', '/messages/', then '/mcp' twice.
+        assert app.routes[0].path == '/sse' and isinstance(app.routes[0], Route)
+        assert app.routes[0].methods == {'GET', 'HEAD'}
+        assert app.routes[0] is app_handler.sse_route
+        assert app.routes[1].path == '/health' and isinstance(app.routes[1], Route)
+        assert app.routes[1].methods == {'GET', 'HEAD'}
+        assert app.routes[2].path == '/messages' and isinstance(app.routes[2], Mount)
+        assert app.routes[2] is app_handler.messages_mount
         # Bare '/mcp' is a Route (served directly, no 307); sub-paths go through the Mount.
         assert app.routes[3].path == '/mcp' and isinstance(app.routes[3], Route)
         assert app.routes[4].path == '/mcp' and isinstance(app.routes[4], Mount)
+        assert [m.cls.__name__ for m in app.user_middleware] == ['ClientNameMiddleware']
 
     @pytest.mark.asyncio
     async def test_mcp_endpoint_no_redirect(self, app_handler):
@@ -204,8 +226,11 @@ class TestMCPStarletteApp:
             assert response.headers.get('location') is None
 
     @pytest.mark.asyncio
-    async def test_handle_sse(self, app_handler):
-        """Test SSE connection handling."""
+    async def test_handle_sse(self):
+        """Test SSE connection handling: GET '/sse' runs the server over the SSE streams."""
+        from mcp_server_opensearch.mcp_server import OpenSearchMCPServer
+        from mcp_server_opensearch.streaming_server import MCPStarletteApp
+
         mock_request = Mock()
 
         # Mock SSE connection context
@@ -217,20 +242,32 @@ class TestMCPStarletteApp:
         mock_context.__aenter__.return_value = (mock_read_stream, mock_write_stream)
         mock_context.__aexit__.return_value = None
 
-        # Set up the connect_sse mock to return our context manager
-        app_handler.sse.connect_sse = Mock(return_value=mock_context)
+        # The SSE transport MCPServer.sse_app builds, with connect_sse returning our context
+        mock_sse = Mock()
+        mock_sse.connect_sse = Mock(return_value=mock_context)
+
+        server = OpenSearchMCPServer({})
+        with patch(
+            'mcp.server.mcpserver.server.SseServerTransport', return_value=mock_sse
+        ) as mock_sse_class:
+            app_handler = MCPStarletteApp(server)
+
+        # Messages are posted to '/messages/', with no DNS-rebinding protection
+        mock_sse_class.assert_called_once()
+        assert mock_sse_class.call_args.args == ('/messages/',)
+        security_settings = mock_sse_class.call_args.kwargs['security_settings']
+        assert security_settings.enable_dns_rebinding_protection is False
+        assert app_handler.messages_mount.app is mock_sse.handle_post_message
 
         # Mock the low-level server run method to return immediately
-        app_handler.lowlevel_server.run = AsyncMock()
-        app_handler.lowlevel_server.create_initialization_options = Mock(return_value={})
+        lowlevel_server = server._lowlevel_server
+        lowlevel_server.run = AsyncMock(return_value=None)
+        lowlevel_server.create_initialization_options = Mock(return_value={})
 
-        # Add a side effect to make run return immediately
-        app_handler.lowlevel_server.run.return_value = None
-
-        await app_handler.handle_sse(mock_request)
+        response = await app_handler.sse_route.endpoint(mock_request)
 
         # Verify SSE connection was established
-        app_handler.sse.connect_sse.assert_called_once_with(
+        mock_sse.connect_sse.assert_called_once_with(
             mock_request.scope, mock_request.receive, mock_request._send
         )
 
@@ -239,9 +276,79 @@ class TestMCPStarletteApp:
         mock_context.__aexit__.assert_called_once()
 
         # Verify server.run was called with correct arguments
-        app_handler.lowlevel_server.run.assert_called_once_with(
-            mock_read_stream, mock_write_stream, {}
-        )
+        lowlevel_server.run.assert_called_once_with(mock_read_stream, mock_write_stream, {})
+
+        # An empty response, so Starlette has one to send after the stream ends
+        assert isinstance(response, Response)
+
+    @pytest.mark.asyncio
+    async def test_health(self, app_handler):
+        """GET '/health' answers 200 'OK'."""
+        async with _http_client(app_handler.create_app()) as client:
+            response = await client.get('/health')
+
+        assert response.status_code == 200
+        assert response.text == 'OK'
+
+    @pytest.mark.parametrize('path', ['/mcp', '/mcp/'])
+    @pytest.mark.asyncio
+    async def test_mcp_and_mcp_slash_answer_an_event_stream_without_session(
+        self, app_handler, path
+    ):
+        """'/mcp' and '/mcp/' both answer an initialize with 200 text/event-stream, stateless."""
+        async with _http_client(app_handler.create_app()) as client:
+            response = await client.post(
+                path, headers=MCP_POST_HEADERS, content=json.dumps(INITIALIZE)
+            )
+
+        assert response.status_code == 200
+        assert response.headers['content-type'].startswith('text/event-stream')
+        assert 'mcp-session-id' not in response.headers
+        assert '"serverInfo"' in response.text
+
+    @pytest.mark.asyncio
+    async def test_foreign_host_is_not_refused(self, app_handler):
+        """A 'Host: example.com' request is served: no DNS-rebinding protection (no 421)."""
+        headers = {**MCP_POST_HEADERS, 'host': 'example.com', 'origin': 'http://evil.example'}
+        async with _http_client(app_handler.create_app()) as client:
+            mcp_response = await client.post(
+                '/mcp', headers=headers, content=json.dumps(INITIALIZE)
+            )
+            # Past the host check, the SSE message endpoint asks for its session_id.
+            messages_response = await client.post('/messages/', headers=headers, content=b'{}')
+
+        assert mcp_response.status_code == 200
+        assert mcp_response.headers['content-type'].startswith('text/event-stream')
+        assert messages_response.status_code == 400
+        assert messages_response.text == 'session_id is required'
+
+
+MCP_POST_HEADERS = {
+    'accept': 'application/json, text/event-stream',
+    'content-type': 'application/json',
+}
+INITIALIZE = {
+    'jsonrpc': '2.0',
+    'id': 1,
+    'method': 'initialize',
+    'params': {
+        'protocolVersion': '2025-11-25',
+        'capabilities': {},
+        'clientInfo': {'name': 'unit-test', 'version': '0.0.0'},
+    },
+}
+
+
+@contextlib.asynccontextmanager
+async def _http_client(app):
+    """An httpx client on the app, in-process, with the app's lifespan running."""
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url='http://127.0.0.1:9900'
+        ) as client:
+            with anyio.fail_after(10):
+                yield client
 
 
 @pytest.mark.asyncio

@@ -272,6 +272,7 @@ Each migration step adds one line here.
 | OpenSearchMCPServer on MCPServer (tools, call_tool, capabilities, request context) | `16-mcpserver-tool-registration` | None | 760 passed, 0 skipped, every golden unchanged |
 | tools/list keeps duplicate listed names (fix to step 16) | `16b-mcpserver-duplicate-tool-names` | None (restores the c71570c listing) | 766 passed, 0 skipped, every existing golden unchanged |
 | stdio transport on MCPServer | `17-mcpserver-stdio-transport` | None | 766 passed, 0 skipped, every golden unchanged |
+| SSE and streamable HTTP on MCPServer | `18-mcpserver-streaming-transports` | None | 766 passed, 0 skipped, every golden unchanged |
 
 ## Known, unchanged
 
