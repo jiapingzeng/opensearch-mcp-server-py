@@ -12,7 +12,7 @@ from mcp_server_opensearch.server_factory import build_server, prepare_enabled_t
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import Response
-from starlette.routing import Mount, Route
+from starlette.routing import BaseRoute, Mount, Route
 from starlette.types import Receive, Scope, Send
 
 # Not used here: the characterization harness checks this module is bound to the registry.
@@ -47,7 +47,7 @@ class _ASGIApp:
 _NO_DNS_REBINDING_PROTECTION = TransportSecuritySettings(enable_dns_rebinding_protection=False)
 
 
-def _route_at(routes: list, kind: type, path: str):
+def _route_at(routes: list[BaseRoute], kind: type, path: str) -> Route | Mount:
     """The one route of type ``kind`` at ``path`` in ``routes``."""
     matches = [r for r in routes if isinstance(r, kind) and r.path == path]
     if len(matches) != 1:
