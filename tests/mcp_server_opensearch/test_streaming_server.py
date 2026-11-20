@@ -218,6 +218,55 @@ class TestMCPStarletteApp:
             ('Mount', '/mcp'),
         ]
 
+    def test_route_at_one_match_returns_that_route(self):
+        """_route_at: one route of the kind at the path is the one returned."""
+        from mcp_server_opensearch.streaming_server import _route_at
+        from starlette.routing import Route
+
+        sse = Route('/sse', endpoint=lambda request: Response())
+        other = Route('/other', endpoint=lambda request: Response())
+
+        assert _route_at([other, sse], Route, '/sse') is sse
+
+    def test_route_at_no_match_raises(self):
+        """_route_at: no route at the path raises RuntimeError with 'found 0'."""
+        from mcp_server_opensearch.streaming_server import _route_at
+        from starlette.routing import Route
+
+        other = Route('/other', endpoint=lambda request: Response())
+
+        with pytest.raises(RuntimeError) as excinfo:
+            _route_at([other], Route, '/sse')
+        assert str(excinfo.value) == "expected one Route at '/sse', found 0"
+
+    def test_route_at_two_matches_raise(self):
+        """_route_at: two routes of the kind at the path raise RuntimeError with 'found 2'."""
+        from mcp_server_opensearch.streaming_server import _route_at
+        from starlette.routing import Route
+
+        first = Route('/sse', endpoint=lambda request: Response())
+        second = Route('/sse', endpoint=lambda request: Response())
+
+        with pytest.raises(RuntimeError) as excinfo:
+            _route_at([first, second], Route, '/sse')
+        assert str(excinfo.value) == "expected one Route at '/sse', found 2"
+
+    def test_route_at_wrong_type_at_the_path_is_not_counted(self):
+        """_route_at: a route of another type at the same path is not counted."""
+        from mcp_server_opensearch.streaming_server import _route_at
+        from starlette.applications import Starlette
+        from starlette.routing import Mount, Route
+
+        sse = Route('/sse', endpoint=lambda request: Response())
+        sse_mount = Mount('/sse', app=Starlette())
+
+        # The Mount is skipped when looking for a Route, so the one Route is returned.
+        assert _route_at([sse_mount, sse], Route, '/sse') is sse
+        # With only the Mount there, no Route is found.
+        with pytest.raises(RuntimeError) as excinfo:
+            _route_at([sse_mount], Route, '/sse')
+        assert str(excinfo.value) == "expected one Route at '/sse', found 0"
+
     def test_create_app(self, app_handler):
         """Test Starlette application creation and configuration."""
         from starlette.routing import Mount, Route
