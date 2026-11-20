@@ -273,6 +273,7 @@ Each migration step adds one line here.
 | tools/list keeps duplicate listed names (fix to step 16) | `16b-mcpserver-duplicate-tool-names` | None (restores the c71570c listing) | 766 passed, 0 skipped, every existing golden unchanged |
 | stdio transport on MCPServer | `17-mcpserver-stdio-transport` | None | 766 passed, 0 skipped, every golden unchanged |
 | SSE and streamable HTTP on MCPServer | `18-mcpserver-streaming-transports` | None | 766 passed, 0 skipped, every golden unchanged |
+| request context and auth headers on MCPServer, verification and cleanup | `19-mcpserver-request-context-auth` | None | 766 passed, 0 skipped, every golden unchanged |
 
 ## Performance: tools/call timing after step 16
 
