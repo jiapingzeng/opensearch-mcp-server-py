@@ -444,6 +444,10 @@ Each piece of evidence supports a different claim.
   its per-request check still returns at once. The per-call path is the same class with
   equivalent arguments; this is read from the code, not measured.
 
+### Final live-cluster check (374eb43)
+
+Concurrent tools/call latency is within 5% of the pre-migration server (about +3–4% in the live-cluster A/B: concurrent multi-client 0.590 → 0.610 s, single-client 0.578 → 0.602 s, means of 6 alternating pairs at load 16–23; sequential 0.602 → 0.593 s; overlapping ranges).
+
 ## Known, unchanged
 
 These quirks are pinned by the characterization tests and kept as they are through the
