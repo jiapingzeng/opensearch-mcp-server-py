@@ -32,7 +32,7 @@ The step 18 transport check (`tools_call_http_457a4bc.json`, 10 rounds) ran:
 ```sh
 uv run --offline python scripts/bench_tools_call.py --only-revs \
   --rev 508e806 --rev 18b7002 --rev 457a4bc --candidate 457a4bc --reference 18b7002 \
-  --transport http --rounds 10 --batches 3 --out benchmarks/results/tools_call_http_457a4bc.json
+  --transport http --rounds 10 --out benchmarks/results/tools_call_http_457a4bc.json
 ```
 
 ### How it runs

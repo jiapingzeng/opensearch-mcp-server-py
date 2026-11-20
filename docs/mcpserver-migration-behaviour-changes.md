@@ -346,22 +346,27 @@ Each piece of evidence supports a different claim.
 - The director's later A/B at c6360aa, at a lower host load, found +3%, within noise.
 
 **What step 16 adds per call** (measured, too small to see above). A cProfile of
-`memory-sequential-n50-0ms` on c71570c and 18b7002 (`--profile`, 100 calls each) differs
-in one place. On 18b7002 the SDK's `MCPServer._handle_call_tool`
-(`mcp/server/mcpserver/server.py`, the `MCPServer` handler layer) wraps
-`OpenSearchMCPServer.call_tool` and builds one `mcp.server.mcpserver.Context` per call (a
-pydantic `BaseModel.__init__` with private attributes). That costs 41 µs per call under
-the profiler and 7.5 µs unprofiled (timed directly), against 22 to 40 ms per call: under
-0.05%. Everything else is the same code on both trees. The low-level `Server`'s runner,
-its OpenTelemetry middleware, the params validation and the result serialization all run
-unchanged. `RequestStateBoundary` is removed, and nothing locks or serializes concurrent
-calls in a session. Per-call time on every tree is dominated by the server building an
-OpenSearch client in `asyncio.to_thread` for each request (the version check and the
-call), not by the SDK.
+`memory-sequential-n50-0ms` on c71570c and 18b7002 differs in one place. It ran
+`--only-revs --rev c71570c --rev 18b7002 --profile memory-sequential-n50-0ms --batches 2`:
+2 timed batches of 50 calls after the warm-up, so 100 profiled calls per tree. On 18b7002
+the SDK's `MCPServer._handle_call_tool` (`mcp/server/mcpserver/server.py`, the `MCPServer`
+handler layer) wraps `OpenSearchMCPServer.call_tool` and builds one
+`mcp.server.mcpserver.Context` per call (a pydantic `BaseModel.__init__` with private
+attributes). Under the profiler that `__init__` (`mcp/server/mcpserver/context.py:71`)
+took 41 µs per call cumulative in the step 16c run and 47 µs in a rerun of that command
+(2026-11-20). Unprofiled, `--context-cost` (it times building that `Context` the way
+`_handle_call_tool` does, 7 repeats of 50,000) gives 7.8 µs minimum and 9.4 µs median on
+mcp 2.0.0 at load 25, against 22 to 40 ms per call: under 0.05%. Everything else is the
+same code on both trees. The low-level `Server`'s runner, its OpenTelemetry middleware,
+the params validation and the result serialization all run unchanged.
+`RequestStateBoundary` is removed, and nothing locks or serializes concurrent calls in a
+session. Per-call time on every tree is dominated by the server building an OpenSearch
+client in `asyncio.to_thread` for each request (the version check and the call), not by
+the SDK.
 
 The integration test's 19% (about 150 ms on a 1 s concurrent batch) cannot come from
-10 µs per call. Its run talks to a remote cluster over the network on a shared host, so
-the difference is most likely cluster and network variance across the 8 pairs.
+about 10 µs per call. Its run talks to a remote cluster over the network on a shared
+host, so the difference is most likely cluster and network variance across the 8 pairs.
 
 **Options.**
 
@@ -373,6 +378,64 @@ the difference is most likely cluster and network variance across the 8 pairs.
   overrides a private SDK method that would have to follow every SDK release, to save
   about 10 µs per call. If the integration test's gap persists, the next step is to rerun
   it with more alternating pairs against the same cluster, not to change the server.
+
+### Streamable HTTP after step 18 (457a4bc)
+
+Step 18 (457a4bc) moved SSE and streamable HTTP onto `OpenSearchMCPServer`'s own session
+manager. At the director's request (2026-11-20), the `http` workloads were run on 457a4bc,
+interleaved with 508e806 and 18b7002, with the fixed driver (10 rounds, the default 1
+batch per session, 2026-11-20 05:26 to 05:37 UTC):
+
+```sh
+uv run --offline python scripts/bench_tools_call.py --only-revs \
+  --rev 508e806 --rev 18b7002 --rev 457a4bc --candidate 457a4bc --reference 18b7002 \
+  --transport http --rounds 10 --out benchmarks/results/tools_call_http_457a4bc.json
+```
+
+**Host.** 32 CPUs, Python 3.10.20, mcp 2.0.0; load average 33.1 at the start and 59.6 at
+the end (per-round 1-minute load 30 to 107). On 508e806 at 50 ms the transport overlaps
+concurrent calls (concurrent / sequential time 0.50 and 0.28 for N = 5 and 50; the N = 5
+share is just under the 0.5 bar, so that row supports concurrency conclusions only
+weakly). The results are in `benchmarks/results/tools_call_http_457a4bc.json`.
+
+Per-call time in ms, median [p10–p90] over 10 rounds; "paired" is the median of the
+per-round ratios; "slower" is the number of rounds 457a4bc was slower.
+
+| Workload | 508e806 | 18b7002 | 457a4bc | 457a4bc/18b7002 (medians) | paired | slower | p | 457a4bc/508e806 (medians) | paired | slower | p |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `http-sequential-n5-0ms` | 26.4 [21.6–33.4] | 25.3 [20.9–30.3] | 28.2 [21.5–51.2] | 1.112 | 1.087 | 7/10 | 0.34 | 1.068 | 0.996 | 4/10 | 0.75 |
+| `http-concurrent-n5-0ms` | 32.2 [23.3–35.8] | 26.3 [22.6–32.2] | 28.7 [23.2–53.0] | 1.090 | 1.144 | 6/10 | 0.75 | 0.892 | 0.981 | 4/10 | 0.75 |
+| `http-sequential-n50-0ms` | 33.0 [28.2–41.1] | 29.1 [26.5–35.8] | 32.7 [25.7–55.1] | 1.123 | 1.108 | 5/10 | 1 | 0.990 | 0.950 | 4/10 | 0.75 |
+| `http-concurrent-n50-0ms` | 48.2 [33.7–62.7] | 37.3 [33.7–46.7] | 40.4 [32.3–60.7] | 1.084 | 0.973 | 4/10 | 0.75 | 0.838 | 0.935 | 3/10 | 0.34 |
+| `http-sequential-n5-50ms` | 153.6 [125.9–195.2] | 130.7 [126.6–155.1] | 134.3 [125.7–170.1] | 1.027 | 1.005 | 5/10 | 1 | 0.874 | 0.966 | 4/10 | 0.75 |
+| `http-concurrent-n5-50ms` | 76.5 [40.4–217.1] | 46.4 [40.3–75.7] | 43.4 [40.5–65.7] | 0.937 | 1.010 | 5/10 | 1 | 0.568 | 0.772 | 3/10 | 0.34 |
+| `http-sequential-n50-50ms` | 145.3 [130.9–159.8] | 137.4 [131.9–149.3] | 141.0 [135.1–170.0] | 1.027 | 1.070 | 7/10 | 0.34 | 0.971 | 1.036 | 6/10 | 0.75 |
+| `http-concurrent-n50-50ms` | 41.4 [34.0–55.2] | 41.8 [31.0–65.4] | 50.9 [37.3–58.7] | 1.217 | 1.155 | 7/10 | 0.34 | 1.230 | 1.108 | 8/10 | 0.11 |
+
+**Verdict: no detectable slowdown in the timings; they cannot rule out one of 10 to 20%.**
+Each piece of evidence supports a different claim.
+
+- The timings found no detectable slowdown. No workload has 457a4bc more than 5% slower
+  than 18b7002 with p < 0.05 and more rounds slower than faster (`slower_than_reference`
+  is empty), so no profile was run. Against 18b7002, 457a4bc was slower in 4 to 7 of 10
+  rounds (p 0.34 to 1); against 508e806, in 3 to 8 of 10 (p 0.11 to 0.75).
+- They are too coarse to show "no slowdown". Five of the eight ratios of medians against
+  18b7002 are above 1.05 (1.084 to 1.217, the highest `http-concurrent-n50-50ms`: 1.155
+  paired, 7/10 slower), inside wide bands. With 10 rounds the sign test reaches p < 0.05
+  only when one tree wins at least 9 of the 10, so at this load (ratios of medians 0.57 to
+  1.23 across both comparisons) a 10 to 20% effect stays unresolved either way. The
+  run's noise shows in its control pair: 18b7002 was faster than 508e806 in 9 of 10
+  rounds on `http-sequential-n5-0ms` and `http-sequential-n50-0ms` (p 0.021), which the
+  30-round run did not show (p 0.58 for both); with 24 sign tests in the run, a p near
+  0.02 is expected by chance. The closest analogue of the integration test,
+  `http-concurrent-n5-50ms`, is 0.937 by medians and 1.010 paired against 18b7002.
+- What "no slowdown" would rest on is the code path, not these timings: step 18 still
+  builds one SDK `StreamableHTTPSessionManager` on the same low-level server, now through
+  `MCPServer.streamable_http_app` instead of directly, with the same stateless, JSON,
+  event-store and body-size settings. Its security settings are now explicit, with
+  DNS-rebinding protection off as before (it was `None`, which the SDK treats as off), so
+  its per-request check still returns at once. The per-call path is the same class with
+  equivalent arguments; this is read from the code, not measured.
 
 ## Known, unchanged
 
