@@ -319,14 +319,21 @@ Both transports start the memory monitor (`logging_config.py`) for the life of t
 
 ### Deliberate departures from a plain `MCPServer`
 
-Each of these keeps a behaviour the server had on the low-level `Server`, and each is pinned
-by the characterization tests and commented in the code. Changing one is a behaviour change
-(see [Characterization tests](#characterization-tests)).
+Each of these keeps a behaviour the server had on the low-level `Server` and is commented in
+the code. Each item names the tests that pin it: the characterization tests, or the unit
+tests in `tests/mcp_server_opensearch/test_mcp_server.py` where no golden covers it.
+Changing one is a behaviour change. For one pinned by a golden, the golden diff makes
+`check_behaviour_ledger.py` ask for the entry (see
+[Characterization tests](#characterization-tests)). For one pinned only by a unit test no
+golden changes and the check asks for nothing, so add the entry to
+`docs/mcpserver-migration-behaviour-changes.md` and `CHANGELOG.md` yourself.
 
 - **No `RequestStateBoundary`.** `MCPServer` adds a `RequestStateBoundary` middleware, which
   answers a `tools/call` carrying any `requestState` with -32602 "Invalid or expired
   requestState", where the low-level `Server` ran the tool. This server never returns
   `input_required`, so there is no state to seal: `OpenSearchMCPServer.__init__` drops it.
+  Pinned only by the unit test `test_call_tool_with_request_state_still_runs_the_tool`; no
+  golden covers it.
 - **Tools are not registered with the SDK, and nothing is validated at startup.** No tool
   goes into `MCPServer`'s `ToolManager` (no `@mcp.tool()`, no `add_tool()`):
   `list_tools()` and `call_tool()` are overridden and read the enabled tools. The schemas
@@ -334,26 +341,34 @@ by the characterization tests and commented in the code. Changing one is a behav
   validated by the tool's `args_model` in `execute_tool()`. `list_tools()` builds each
   `Tool` when `tools/list` is answered, so a field of the wrong type, such as a description
   the CLI parsed as a number (`--tool.X.description=123`), still starts the server, and
-  `tools/list` then fails with -32602.
+  `tools/list` then fails with -32602. Pinned by the characterization tests
+  (`test_list_tools.py`, case `custom_tools/cli_numeric_description`).
 - **`tools/list` shows one entry per enabled tool, even when names repeat.** The SDK's
   `ToolManager` keys tools by name: of two enabled tools with the same listed name (a
   display name equal to another tool's key, or two empty display names) it would keep one
   and log "Tool already exists". This server lists both, in the enabled-tools order, as the
-  low-level `Server` did; `tools/call` runs the first (`test_gaps_duplicate_names.py`).
+  low-level `Server` did; `tools/call` runs the first. Pinned by the characterization tests
+  (`test_gaps_duplicate_names.py`).
 - **The one low-level run call, for stdio parity.** `run_streams()` calls the low-level
   server's `run(..., raise_exceptions=True)` instead of the public `run_stdio_async()`,
   which runs without `raise_exceptions`. A non-MCP exception inside an SDK handler then ends
-  the process, as before, instead of becoming a JSON-RPC error.
+  the process, as before, instead of becoming a JSON-RPC error. Pinned only by the unit
+  tests `test_run_streams_runs_the_lowlevel_server_with_raise_exceptions` and
+  `test_run_streams_ends_on_a_non_mcp_exception_in_an_sdk_handler`; no golden covers it.
 - **Unserved methods are taken out.** `MCPServer.__init__` registers prompt, resource and
   subscription handlers, which would add the `prompts` and `resources` capabilities. The
   SDK has no public way to unregister a handler, so `__init__` removes `prompts/*`,
   `resources/*` and `subscriptions/listen` from the low-level server's handler table; they
-  answer -32601 "Method not found", as before.
+  answer -32601 "Method not found", as before. Pinned by the characterization tests
+  (`test_initialize.py`: the capabilities, and `prompts/list`, `resources/list` and
+  `resources/templates/list` answering -32601) and, for every method removed, by the unit
+  test `test_unserved_methods_answer_method_not_found`.
 - **The HTTP app is built from `MCPServer`'s parts.** `MCPServer`'s own Starlette apps are
   not mounted (they would answer `/mcp/` with a 307 redirect and have no `/health`); only
   their session manager and SSE routes go into `MCPStarletteApp.create_app()`.
   DNS-rebinding protection stays off on both transports, as before: it is turned off
   explicitly, since `MCPServer`'s apps turn it on by themselves for host `127.0.0.1`.
+  Pinned by the characterization tests (`test_transports.py`).
 
 `mcp_server.py` is the only module that reaches `MCPServer`'s low-level server, for the run
 call and the handler table above.
