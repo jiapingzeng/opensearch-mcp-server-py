@@ -23,6 +23,7 @@ from mcp_server_opensearch.client_context import client_name_var, request_contex
 from mcp_server_opensearch.clusters_information import ClusterInfo, add_cluster
 from mcp_server_opensearch.logging_config import configure_logging
 from pathlib import Path
+from tools import config as tool_config
 from tools import tool_filter
 from tools.tool_params import ListIndicesArgs
 from tools.tools import TOOL_REGISTRY
@@ -474,6 +475,7 @@ async def test_isolated_state_restores_registry_and_schemas(isolated_state):
         profile='leaky-profile',
         cli_tool_overrides={'tool.ListIndexTool.args.index.description': 'patched'},
     )
+    tool_config._resolved_memory_container_id = 'leaky-container'
 
     assert 'opensearch_url' not in entries['ListIndexTool']['input_schema']['properties']
     assert TOOL_REGISTRY['ListIndexTool'] is not entries['ListIndexTool']
@@ -492,6 +494,7 @@ async def test_isolated_state_restores_registry_and_schemas(isolated_state):
     assert global_state._current_mode is None
     assert global_state._current_profile is None
     assert tool_filter._resolved_allow_write_setting is None
+    assert tool_config._resolved_memory_container_id is None
     assert clusters_information.cluster_registry == {}
 
 
@@ -508,6 +511,7 @@ def test_isolated_state_resets_before_and_restores_after(isolated_state, fake_op
         outer.setenv('OPENSEARCH_URL', 'http://leaked.invalid:9200')
         outer.setenv('MEMORY_TOOLS_ENABLED', 'true')
         outer.setenv('AWS_REGION', 'leaked-region-1')
+        outer.setattr(tool_config, '_resolved_memory_container_id', 'leaked-container')
         global_state.set_mode('multi')
         add_cluster('leaked', ClusterInfo(opensearch_url='http://leaked.invalid:9200'))
         leaked_token = client_name_var.set('leaked-client')
@@ -523,6 +527,7 @@ def test_isolated_state_resets_before_and_restores_after(isolated_state, fake_op
             ):
                 # Before the test body: import-time state and a clean environment.
                 assert global_state._current_mode is None
+                assert tool_config._resolved_memory_container_id is None
                 assert clusters_information.cluster_registry == {}
                 assert client_name_var.get() == 'unknown'
                 assert os.environ['OPENSEARCH_URL'] == fake_opensearch.url
@@ -536,6 +541,7 @@ def test_isolated_state_resets_before_and_restores_after(isolated_state, fake_op
                 global_state.set_mode('single')
                 global_state.set_profile('inner-profile')
                 tool_filter.set_allow_write_setting(False)
+                tool_config._resolved_memory_container_id = 'inner-container'
                 add_cluster('inner', ClusterInfo(opensearch_url='http://inner.invalid:9200'))
                 TOOL_REGISTRY['InnerTool'] = {'display_name': 'InnerTool'}
                 TOOL_REGISTRY['ListIndexTool']['input_schema']['properties'].pop('index')
@@ -549,6 +555,7 @@ def test_isolated_state_resets_before_and_restores_after(isolated_state, fake_op
             assert global_state._current_mode == 'multi'
             assert global_state._current_profile is None
             assert tool_filter._resolved_allow_write_setting is None
+            assert tool_config._resolved_memory_container_id == 'leaked-container'
             assert list(clusters_information.cluster_registry) == ['leaked']
             assert client_name_var.get() == 'leaked-client'
             assert _own_handlers(root) == handlers
